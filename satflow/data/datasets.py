@@ -20,9 +20,19 @@ So have two possible targets, just cloud mask at time T in the future, and entir
 
 """
 
+
 class SatFlowDataset(thd.IterableDataset):
 
     def __init__(self, config):
+        self.config = config
+        self.datasets = config["datasets"]
+        self.num_timesteps = config["num_timesteps"]
+        # Should set the data types here
 
     def __iter__(self) -> Iterator[T_co]:
-        pass
+        sample = {}
+        # Need to make sure same time step for all of them. As its all from rapid scan, should be fairly easy. Main missing one is the regional and rapid weather ones, which are every 15 minutes, but could be interpolated between the previous step and next one by weighting by time difference
+        # Topographic is same of course, just need to resize to 1km x 1km? grid by taking the mean value of the interior ones
+
+        for d in self.datasets:
+            yield NotImplementedError
