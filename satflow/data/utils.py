@@ -48,10 +48,12 @@ def map_satellite_to_mercator(native_satellite, grib_files=None, bufr_files=None
     :return:
     """
     areas = load_area("/home/bieker/Development/satflow/satflow/examples/areas.yaml")
-    scene = Scene(
-        filenames={"seviri_l1b_native": [native_satellite],
-                   "seviri_l2_grib": [grib_files],})
-                   #"seviri_l2_bufr": [bufr_files]})
+    filenames = {"seviri_l1b_native": [native_satellite]}
+    if grib_files is not None:
+        filenames["seviri_l2_grib"] = [grib_files]
+    if bufr_files is not None:
+        filenames["seviri_l2_bufr"] = [bufr_files]
+    scene = Scene(filenames=filenames)
     scene.load(bands)
     # By default resamples to 3km, as thats the native resolution of all bands other than HRV
     scene = scene.resample(areas[0])
