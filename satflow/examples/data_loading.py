@@ -33,16 +33,17 @@ import satpy
 from pyresample import load_area
 
 scene = Scene(
-    filenames=["/run/media/jacob/Round1/EUMETSAT/2021/06/01/12/29/MSG3-SEVI-MSG15-0100-NA-20210601122916.506000000Z-NA.nat"],
-    reader='seviri_l1b_native')
+    filenames={"seviri_l1b_native": ["/run/media/jacob/Round1/EUMETSAT/2021/06/01/12/29/MSG3-SEVI-MSG15-0100-NA-20210601122916.506000000Z-NA.nat"],
+               "seviri_l2_grib": ["/run/media/jacob/Round1/EUMETSAT/2021/06/01/12/29/MSG3-SEVI-MSGCLMK-0100-0100-20210601123000.000000000Z-NA.grb"]},)
 
-scene.load(['HRV', 'IR_016', 'IR_039', 'IR_087', 'IR_097', 'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073'], upper_right_corner='NE')
+print(scene.available_dataset_names())
+scene.load(['HRV', 'IR_016', 'IR_039', 'IR_087', 'IR_097', 'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073', 'cloud_mask'], upper_right_corner='NE')
 tmerc_areas = load_area("areas.yaml")
 print(tmerc_areas)
 new_scene = scene.resample(tmerc_areas[0])
-new_scene.show('IR_016')
+new_scene.show('cloud_mask')
 exit()
-new_scene.save_datasets(compute=True)
+new_scene.save_datasets(compute=True, writer="png")
 exit()
 
 def decompress(full_bzip_filename: str) -> str:
@@ -57,39 +58,4 @@ def decompress(full_bzip_filename: str) -> str:
             stdout=nat_file_handler)
     process.check_returncode()
     return full_nat_filename
-
-
-
-#topo_loc = "/home/jacob/Datasets/UK_DEM_GeoTIFF/SRTM 1 Arc-Second Global/"
-
-#fp = "/home/jacob/Datasets/UK_DEM_GeoTIFF/SRTM 1 Arc-Second Global/n51_w001_1arc_v3.tif"
-#img = rasterio.open(fp)
-#show(img)
-
-import satpy
-# Now go and open GRIB one
-from satpy import Scene
-#from satpy import available_readers
-#print(available_readers())
-#scn = Scene(filenames=["/run/media/jacob/Round1/EUMETSAT/2021/01/01/08/04/MSG3-SEVI-MSGCLMK-0100-0100-20210101080500.000000000Z-NA.grb"])
-#import cfgrib
-import xarray as xr
-import cfgrib
-grib_data = cfgrib.open_datasets('/run/media/jacob/Round1/EUMETSAT/2021/01/01/08/04/MSG3-SEVI-MSGCLMK-0100-0100-20210101080500.000000000Z-NA.grb')
-print(grib_data)
-time, lat, lon = grib_data[0].indexes.values()
-print(lat)
-print(len(grib_data))
-for i in range(len(grib_data)):
-    for var_name, values in grib_data[i].items():
-        print(var_name)
-#ds = xr.open_dataset('/run/media/jacob/Round1/EUMETSAT/2021/01/01/08/04/MSG3-SEVI-MSGCLMK-0100-0100-20210101080500.000000000Z-NA.grb', engine='cfgrib')
-
-#print(ds)
-#print(ds)
-
-#grbs = cfgrib.open_dataset("/run/media/jacob/Round1/EUMETSAT/2021/01/01/08/04/MSG3-SEVI-MSGCLMK-0100-0100-20210101080500.000000000Z-NA.grb")
-
-
-#scn.available_dataset_ids()
 
