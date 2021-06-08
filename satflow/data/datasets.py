@@ -4,6 +4,8 @@ import torch
 import torch.utils.data as thd
 from torch.utils.data.dataset import T_co
 
+import cfgrib
+
 """
 
 Need the data to be aligned by the same time and place, so need to project things to the globe and use that. 
@@ -19,7 +21,23 @@ Want the targets to be the new cloud mask? Or actually, just the new image, more
 So have two possible targets, just cloud mask at time T in the future, and entire image at time T in future
 
 """
-        
+
+
+def load_topo(lat, lon, size):
+    """Load topographic elevation map"""
+    return NotImplementedError
+
+
+def load_sat(lat, lon, size, datetime, bands=None):
+    """Load satellite image, and map to projection with 1kmx1km pixels"""
+    return NotImplementedError
+
+
+def load_cloud_mask(lat, lon, size, datetime):
+    """Load Cloud Mask over a given time and location"""
+    return NotImplementedError
+
+
 
 class SatFlowDataset(thd.IterableDataset):
 

@@ -1,0 +1,28 @@
+europe_tmerc:
+  description: Euro 3.0km area - Europe
+  projection:
+    proj: tmerc
+    ellps: WGS84
+    lat_0: 90.0
+    lon_0: 0.0
+    lat_ts: 60.0
+  shape:
+    height: 2048
+    width: 2560
+  area_extent:
+    lower_left_xy: [-3780000.0, -7644000.0]
+    upper_right_xy: [3900000.0, -1500000.0]
+europe_tmerc1:
+  description: Euro 1.0km area - Europe
+  projection:
+    proj: tmerc
+    ellps: WGS84
+    lat_0: 90.0
+    lon_0: 0.0
+    lat_ts: 60.0
+  shape:
+    height: 8000
+    width: 10000
+  area_extent:
+    lower_left_xy: [-3780000.0, -7644000.0]
+    upper_right_xy: [3900000.0, -1500000.0]

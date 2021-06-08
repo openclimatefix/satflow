@@ -2,7 +2,7 @@ import affine
 import numpy as np
 import re
 import datetime
-
+from satpy import Scene
 
 def eumetsat_filename_to_datetime(inner_tar_name):
     """Takes a file from the EUMETSAT API and returns
@@ -33,3 +33,10 @@ def retrieve_pixel_value(geo_coord, data_source):
     data_array = np.array(data_source.GetRasterBand(1).ReadAsArray())
     return data_array[pixel_coord[0]][pixel_coord[1]]
 
+
+def map_satellite_to_mercator(native_satellite):
+    scene = Scene(
+        filenames=["/run/media/jacob/Round1/EUMETSAT/2021/01/01/08/04/MSG3-SEVI-MSG15-0100-NA-20210101080415.623000000Z-NA.nat"],
+        reader='seviri_l1b_native')
+
+    scene.load(['HRV', 'IR_016', 'IR_039', 'IR_087', 'IR_097', 'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073'])
