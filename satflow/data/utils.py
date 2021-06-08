@@ -36,19 +36,28 @@ def retrieve_pixel_value(geo_coord, data_source):
     return data_array[pixel_coord[0]][pixel_coord[1]]
 
 
-
-def map_satellite_to_mercator(native_satellite, grib_files=None, bufr_files=None, bands=('HRV', 'IR_016', 'IR_039', 'IR_087', 'IR_097', 'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073'), save_scene="geotiff"):
+def map_satellite_to_mercator(native_satellite, grib_files=None, bufr_files=None, bands=('HRV', 'IR_016', 'IR_039', 'IR_087', 'IR_097', 'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073'), save_scene="geotiff", save_loc=None):
+    """
+    Opens, transforms to Transverse Mercator over Europe, and optionally saves it to files on disk.
+    :param native_satellite:
+    :param grib_files:
+    :param bufr_files:
+    :param bands:
+    :param save_scene:
+    :param save_loc: Save location
+    :return:
+    """
     areas = load_area("/home/bieker/Development/satflow/satflow/examples/areas.yaml")
     scene = Scene(
         filenames={"seviri_l1b_native": [native_satellite],
-                   "seviri_l2_grib": [grib_files],
-                   "seviri_l2_bufr": [bufr_files]})
+                   "seviri_l2_grib": [grib_files],})
+                   #"seviri_l2_bufr": [bufr_files]})
     scene.load(bands)
     # By default resamples to 3km, as thats the native resolution of all bands other than HRV
     scene = scene.resample(areas[0])
-
-    # Now the relvant data is all together, just need to save it somehow, or return it to the calling process
-    scene.save_datasets(writer=save_scene)
+    if save_loc is not None:
+        # Now the relvant data is all together, just need to save it somehow, or return it to the calling process
+        scene.save_datasets(writer=save_scene, base_dir=save_loc)
     return scene
 
 
