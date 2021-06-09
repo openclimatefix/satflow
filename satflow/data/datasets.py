@@ -37,6 +37,16 @@ def load_cloud_mask(lat, lon, size, datetime):
     """Load Cloud Mask over a given time and location"""
     return NotImplementedError
 
+def create_aux_layer(gtiff, size):
+    """Creates the lat, long array as 3 layers of x,y,z values"""
+    return NotImplementedError
+
+def create_time_layer(shape, index):
+    """Create tiem prediction layer, e.g. 256x256x240 where one hot encoding of the time period to predict"""
+    return NotImplementedError
+
+
+
 
 
 class SatFlowDataset(thd.IterableDataset):
