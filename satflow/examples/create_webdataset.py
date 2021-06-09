@@ -29,20 +29,23 @@ for root, dirs, files in os.walk(eumetsat_dir):
             shard_num += 1
         sample = {"__key__": datetime_object.strftime("%Y/%m/%d/%H/%M"),
                   }
-        for f in files:
-            if ".tif" in f:
-                # Only need geotiff ones
-                src = rasterio.open(os.path.join(root, f))
-                data = src.read(1)
-                cropped_data = data[515:-641,603:]
-                channel = f.split("_")
-                if channel[0] in ["IR", "WV", "cloud"]:
-                    channel = channel[0] + channel[1] # These are split across multiple
-                else:
-                    channel = channel[0]
-                sample[channel + ".npy"] = cropped_data
-        # Now all channels added to thing, write to shard
-        sink.write(sample)
+        try:
+            for f in files:
+                if ".tif" in f:
+                    # Only need geotiff ones
+                    src = rasterio.open(os.path.join(root, f))
+                    data = src.read(1)
+                    cropped_data = data[515:-641,603:] # Done by handish to exclude all NODATA and invalid masks for clouds and images (clouds have a smaller extant)
+                    channel = f.split("_")
+                    if channel[0] in ["IR", "WV", "cloud"]:
+                        channel = channel[0] + channel[1] # These are split across multiple
+                    else:
+                        channel = channel[0]
+                    sample[channel + ".npy"] = cropped_data
+            # Now all channels added to thing, write to shard
+            sink.write(sample)
+        except Exception as e:
+            print(e)
 
 
 
