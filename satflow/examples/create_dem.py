@@ -4,13 +4,13 @@ from rasterio.merge import merge
 from rasterio.plot import show
 import glob
 import os
+from satpy import Scene
+from pyresample import create_area_def
+from pyresample import load_area
+
 
 dem_path = "/run/media/bieker/T7/SRTM 1 Arc-Second Global/*.tif"
-
-#src = rasterio.open("/run/media/bieker/Round1/EUMETSAT/europe_dem.tif")
-#show(src, cmap='terrain')
-#exit()
-
+dem_path = "/run/media/bieker/T7/ResampledElevation/*.tif"
 dem_files = glob.glob(dem_path)
 import numpy as np
 src_files_to_mosaic = []
@@ -18,6 +18,41 @@ for fp in dem_files:
     src = rasterio.open(fp)
     #src.astype(np.int8)
     src_files_to_mosaic.append(src)
+mosaic, out_trans = merge(src_files_to_mosaic)
+print(mosaic.shape)
+show(mosaic[0], cmap='terrain')
+mosaic, out_trans = merge(src_files_to_mosaic, nodata=0, method='max')
+print(mosaic.shape)
+show(mosaic[0], cmap='terrain')
+show(mosaic[0][515:-641,603:], cmap='terrain')
+
+# Save the numpy array, we don't care about other geotspatial transforms here
+np.save("cutdown_europe_dem.npy", mosaic[0][515:-641,603:])
+np.save("europe_dem.npy", mosaic[0])
+exit()
+dem_data = np.zeros((892,1957))
+for f in src_files_to_mosaic:
+    cur_data = f.read(1)
+    cur_data_mask = cur_data < 0
+    cur_data[cur_data_mask] = 0
+    dem_data += cur_data
+
+import matplotlib.pyplot as plt
+plt.imshow(dem_data)
+plt.show()
+
+dem_data = dem_data[515:-641,603:]
+plt.imshow(dem_data)
+plt.show()
+
+areas = load_area("/home/bieker/Development/satflow/satflow/examples/areas.yaml")
+for f in dem_files:
+    scene = Scene(filenames={"generic_image": [f]})
+    scene.load(['image'])
+    scene = scene.resample(areas[1])
+    fname = f.split("/")[-1]
+    scene.save_datasets(writer='geotiff', base_dir="/run/media/bieker/T7/ResampledElevation1km/", filename=fname, enhance=False)
+exit()
 
 from tempfile import mkdtemp
 import rasterio
@@ -33,6 +68,11 @@ INPUT_FILES = dem_files
 sources = [rasterio.open(raster) for raster in INPUT_FILES]
 print(sources[0].res)
 
+left, bottom, right, top = (-3780000.0, -7644000.0, 3900000.0, -1500000.0)
+METER_PER_PIXEL = 3000
+
+
+# (left, bottom, right, top)
 mosaic, out_trans = merge(src_files_to_mosaic, nodata=0, res=(0.03, 0.03))
 print(mosaic.shape)
 show(mosaic, cmap='terrain')
@@ -43,7 +83,10 @@ out_meta.update({"driver": "GTiff",
                  "width": mosaic.shape[2],
                  "transform": out_trans,
                  "crs":  "+proj=utm +zone=35 +ellps=GRS80 +units=m +no_defs "})
-out_fp = "/run/media/bieker/data/EUMETSAT/europe_all_dem_300m_nearest.tif"
+out_fp = "europe_all_dem_3km_cropbounds.tif"
 with rasterio.open(out_fp, "w", **out_meta) as dest:
     dest.write(mosaic)
 
+out = rasterio.open(out_fp)
+show(out, cmap='terrain')
+print(out.transform * (0,0))

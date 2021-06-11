@@ -22,10 +22,11 @@ for root, dirs, files in os.walk(eumetsat_dir):
     #For each of these, load cloud mask, etc. and save to GeoTIFF
     sat_file = ""
     cloud_mask = ""
-    print(files)
     for f in files:
         if ".bz2" in f:
             sat_file = decompress(os.path.join(root, f))
+        elif ".nat" in f:
+            sat_file = os.path.join(root, f)
         if ".grb" in f:
             cloud_mask = os.path.join(root, f)
         if ".tif" in f: # Already processed

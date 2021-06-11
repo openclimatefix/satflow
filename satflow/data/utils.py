@@ -59,7 +59,7 @@ def map_satellite_to_mercator(native_satellite, grib_files=None, bufr_files=None
     scene = scene.resample(areas[0])
     if save_loc is not None:
         # Now the relvant data is all together, just need to save it somehow, or return it to the calling process
-        scene.save_datasets(writer=save_scene, base_dir=save_loc)
+        scene.save_datasets(writer=save_scene, base_dir=save_loc, enhance=False)
     return scene
 
 
