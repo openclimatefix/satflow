@@ -4,9 +4,10 @@ setup(
     name="satflow",
     version="0.0.1",
     packages=["satflow", "satflow.data", "satflow.models"],
-    url="",
+    url="https://github.com/openclimatefix/satflow",
     license="MIT License",
-    author="Open Climate Fix Ltd",
+    company="Open Climate Fix Ltd",
+    author="Jacob Bieker",
     author_email="jacob@openclimatefix.org",
-    description="",
+    description="Satellite Optical Flow",
 )
