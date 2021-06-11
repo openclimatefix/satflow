@@ -6,6 +6,11 @@ future satellite images from current and past ones, focused primarily on EUMETSA
 
 ## Installation
 
-Clone the repository, then run ```conda env create -f environment.yml
+Clone the repository, then run 
+```shell
+conda env create -f environment.yml
 conda activate satflow
-pip install -e .```
+pip install -e .
+````
+
+Alternatively, you can also install it through ```pip install satflow```
