@@ -1,8 +1,8 @@
-#import os
-#os.environ["PYTROLL_CHUNK_SIZE"] = "512"
-#import dask
-#from multiprocessing.pool import ThreadPool
-#dask.config.set(pool=ThreadPool(1))
+# import os
+# os.environ["PYTROLL_CHUNK_SIZE"] = "512"
+# import dask
+# from multiprocessing.pool import ThreadPool
+# dask.config.set(pool=ThreadPool(1))
 
 import rasterio
 import rasterio
@@ -33,18 +33,43 @@ import satpy
 from pyresample import load_area
 
 scene = Scene(
-    filenames={"seviri_l1b_native": ["/run/media/jacob/Round1/EUMETSAT/2021/06/01/12/29/MSG3-SEVI-MSG15-0100-NA-20210601122916.506000000Z-NA.nat"],
-               "seviri_l2_grib": ["/run/media/jacob/Round1/EUMETSAT/2021/06/01/12/29/MSG3-SEVI-MSGCLMK-0100-0100-20210601123000.000000000Z-NA.grb"]},)
+    filenames={
+        "seviri_l1b_native": [
+            "/run/media/jacob/Round1/EUMETSAT/2021/06/01/12/29/MSG3-SEVI-MSG15-0100-NA-20210601122916.506000000Z-NA.nat"
+        ],
+        "seviri_l2_grib": [
+            "/run/media/jacob/Round1/EUMETSAT/2021/06/01/12/29/MSG3-SEVI-MSGCLMK-0100-0100-20210601123000.000000000Z-NA.grb"
+        ],
+    },
+)
 
 print(scene.available_dataset_names())
-scene.load(['HRV', 'IR_016', 'IR_039', 'IR_087', 'IR_097', 'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073', 'cloud_mask'], upper_right_corner='NE')
+scene.load(
+    [
+        "HRV",
+        "IR_016",
+        "IR_039",
+        "IR_087",
+        "IR_097",
+        "IR_108",
+        "IR_120",
+        "IR_134",
+        "VIS006",
+        "VIS008",
+        "WV_062",
+        "WV_073",
+        "cloud_mask",
+    ],
+    upper_right_corner="NE",
+)
 tmerc_areas = load_area("areas.yaml")
 print(tmerc_areas)
 new_scene = scene.resample(tmerc_areas[0])
-new_scene.show('cloud_mask')
+new_scene.show("cloud_mask")
 exit()
 new_scene.save_datasets(compute=True, writer="png")
 exit()
+
 
 def decompress(full_bzip_filename: str) -> str:
     base_bzip_filename = os.path.basename(full_bzip_filename)
@@ -52,10 +77,10 @@ def decompress(full_bzip_filename: str) -> str:
     full_nat_filename = os.path.join("./", base_nat_filename)
     if os.path.exists(full_nat_filename):
         os.remove(full_nat_filename)
-    with open(full_nat_filename, 'wb') as nat_file_handler:
+    with open(full_nat_filename, "wb") as nat_file_handler:
         process = subprocess.run(
-            ['pbzip2', '--decompress', '--keep', '--stdout', full_bzip_filename],
-            stdout=nat_file_handler)
+            ["pbzip2", "--decompress", "--keep", "--stdout", full_bzip_filename],
+            stdout=nat_file_handler,
+        )
     process.check_returncode()
     return full_nat_filename
-
