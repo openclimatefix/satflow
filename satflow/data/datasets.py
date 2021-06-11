@@ -139,7 +139,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         return time_cube
 
     def get_timestep(self, sample, idx):
-        # TODO Scale the input bands together here
         image = np.stack([sample[f"{b}.{idx:03d}.npy"] for b in self.bands], axis=-1)
         # Regularize here
         image = (image - MSG_MIN) / (MSG_MAX - MSG_MIN)
