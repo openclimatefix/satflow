@@ -71,7 +71,7 @@ for root, dirs, files in os.walk(eumetsat_dir):
             interday_frame = 0
             # Initialize new flow sample
             flow_sample["__key__"] = datetime_object.strftime("%Y/%m/%d")
-            flow_sample["time.pkl"] = [datetime_object]
+            flow_sample["time.pyd"] = [datetime_object]
             flow_sample["topo.npy"] = topo_data
             flow_sample["location.npy"] = location_array
             logger.debug(f"On shard: {shard_num} Date: {datetime_object.strftime('%Y/%m/%d/%H/%M')}")
@@ -96,7 +96,7 @@ for root, dirs, files in os.walk(eumetsat_dir):
                     flow_sample[channel + f".{interday_frame:03d}.npy"] = cropped_data
             # Now all channels added to thing, write to shard
 
-            flow_sample["time.pkl"].append(datetime_object)
+            flow_sample["time.pyd"].append(datetime_object)
             sink.write(sample)
         except Exception as e:
             print(e)
