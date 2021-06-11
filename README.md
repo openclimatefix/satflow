@@ -3,3 +3,9 @@
 
 The goal of this repo is to improve upon optical flow models for predicting 
 future satellite images from current and past ones, focused primarily on EUMETSAT data.
+
+## Installation
+
+Clone the repository, then run ```conda env create -f environment.yml
+conda activate satflow
+pip install -e .```
