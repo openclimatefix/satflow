@@ -9,6 +9,10 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 from satpy import Scene
 from pyresample import load_area
 from rasterio.plot import show
+import logging
+
+logger = logging.getLogger("satflow")
+logger.setLevel(logging.DEBUG)
 
 areas = load_area("/home/bieker/Development/satflow/satflow/examples/areas.yaml")
 filenames = {"seviri_l1b_native": ["/run/media/bieker/Round1/EUMETSAT/2021/03/14/10/19/MSG3-SEVI-MSG15-0100-NA-20210314101915.098000000Z-NA.nat"]}
@@ -24,6 +28,12 @@ loc_y = np.cos(hrv_lat) * np.sin(hrv_long)
 loc_z = np.sin(hrv_lat)
 
 location_array = np.stack([loc_x, loc_y, loc_z], axis=-1)
+print(location_array.dtype)
+print(len(np.unique(location_array)))
+print(len(np.unique(location_array.astype(np.float32))))
+np.save("location_array.npy", location_array)
+topo_data = np.load("/home/bieker/Development/satflow/satflow/examples/cutdown_europe_dem.npy")
+print(topo_data.dtype)
 
 # Create WebDataset with each shard being a single day and all the images for that day
 eumetsat_dir = "/run/media/bieker/Round1/EUMETSAT/"
@@ -31,7 +41,6 @@ eumetsat_dir = "/run/media/bieker/Round1/EUMETSAT/"
 shard_num = 0
 prev_datetime = datetime.now()
 sink = wds.TarWriter(f"satflow-first.tar", compress=True)
-topo_data = np.load("/home/bieker/Development/satflow/satflow/examples/cutdown_europe_dem.npy")
 for root, dirs, files in os.walk(eumetsat_dir):
     # As its stored in year, month, day, hour, minute, format, once we are at the day level, create a new shard
     # Also cut down everything to only the square of all value data
@@ -47,11 +56,10 @@ for root, dirs, files in os.walk(eumetsat_dir):
             # New shard
             sink.close()
             sink = wds.TarWriter(f"/run/media/bieker/data/EUMETSAT/satflow-{shard_num:05d}.tar", compress=True)
+            logger.debug(f"On shard: {shard_num} Date: {datetime_object.strftime('%Y/%m/%d/%H/%M')}")
             shard_num += 1
             prev_datetime = datetime_object
         sample = {"__key__": datetime_object.strftime("%Y/%m/%d/%H/%M"),
-                  "topo.npy": topo_data,
-                  "location.npy": location_array,
                   }
         try:
             for f in files:
