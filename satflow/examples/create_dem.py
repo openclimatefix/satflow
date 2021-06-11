@@ -52,7 +52,7 @@ with rasterio.open(out_fp, "w", **out_meta) as dest:
 out = rasterio.open(out_fp)
 show(out, cmap='terrain')
 # Save the numpy array, we don't care about other geotspatial transforms here
-np.save("cutdown_europe_dem.npy", mosaic[0][515:-641,603:])
+np.save("../resources/cutdown_europe_dem.npy", mosaic[0][515:-641, 603:])
 np.save("europe_dem.npy", mosaic[0])
 exit()
 

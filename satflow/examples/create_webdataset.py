@@ -31,8 +31,9 @@ location_array = np.stack([loc_x, loc_y, loc_z], axis=-1)
 print(location_array.dtype)
 print(len(np.unique(location_array)))
 print(len(np.unique(location_array.astype(np.float32))))
-np.save("location_array.npy", location_array)
-topo_data = np.load("/home/bieker/Development/satflow/satflow/examples/cutdown_europe_dem.npy")
+print(len(np.unique(location_array.astype(np.float16))))
+np.save("../resources/location_array.npy", location_array)
+topo_data = np.load("../resources/cutdown_europe_dem.npy")
 print(topo_data.dtype)
 
 # Create WebDataset with each shard being a single day and all the images for that day
@@ -41,6 +42,9 @@ eumetsat_dir = "/run/media/bieker/Round1/EUMETSAT/"
 shard_num = 0
 prev_datetime = datetime.now()
 sink = wds.TarWriter(f"satflow-first.tar", compress=True)
+sink_flow = wds.TarWriter(f"satflow-flow-first.tar", compress=True)
+flow_sample = {"__key__": "0"}
+interday_frame = 0
 for root, dirs, files in os.walk(eumetsat_dir):
     # As its stored in year, month, day, hour, minute, format, once we are at the day level, create a new shard
     # Also cut down everything to only the square of all value data
@@ -54,14 +58,28 @@ for root, dirs, files in os.walk(eumetsat_dir):
         datetime_object = datetime.strptime(date_str, "%Y/%m/%d/%H/%M")
         if prev_datetime.date() != datetime_object.date():
             # New shard
+            # Write flow dataset sample now, so one sample per tar file
+            sink_flow.write(flow_sample)
+            # Close old shard
             sink.close()
+            sink_flow.close()
             sink = wds.TarWriter(f"/run/media/bieker/data/EUMETSAT/satflow-{shard_num:05d}.tar", compress=True)
+            sink_flow = wds.TarWriter(f"/run/media/bieker/data/EUMETSAT/satflow-flow-{shard_num:05d}.tar", compress=True)
+            # reset optical flow samples
+            flow_sample = {}
+            interday_frame = 0
+            # Initialize new flow sample
+            flow_sample["__key__"] = datetime_object.strftime("%Y/%m/%d")
+            flow_sample["time.pkl"] = [datetime_object]
+            flow_sample["topo.npy"] = topo_data
+            flow_sample["location.npy"] = location_array
             logger.debug(f"On shard: {shard_num} Date: {datetime_object.strftime('%Y/%m/%d/%H/%M')}")
             shard_num += 1
             prev_datetime = datetime_object
-        sample = {"__key__": datetime_object.strftime("%Y/%m/%d/%H/%M"),
-                  }
+        sample = {"__key__": datetime_object.strftime("%Y/%m/%d/%H/%M")}
         try:
+            # Want this at the top, as if this extraction fails, we still then know if there is a missing frame
+            interday_frame += 1
             for f in files:
                 if ".tif" in f:
                     # Only need geotiff ones
@@ -74,7 +92,10 @@ for root, dirs, files in os.walk(eumetsat_dir):
                     else:
                         channel = channel[0]
                     sample[channel + ".npy"] = cropped_data
+                    flow_sample[channel + f".{interday_frame:03d}.npy"] = cropped_data
             # Now all channels added to thing, write to shard
+
+            flow_sample["time.pkl"].append(datetime_object)
             sink.write(sample)
         except Exception as e:
             print(e)
