@@ -84,8 +84,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         # TODO Scale the input bands together here
         image = np.stack([sample[f'{b}.{idx:03d}.npy'] for b in self.bands], axis=-1)
         if self.use_topo:
-            # TODO Add regularization of the elevation? Scale it here
-            image = np.concatenate([image, np.expand_dims(sample['topo.npy'], axis=-1)], axis=-1)
+            topo = sample['topo.npy']
+            topo = (topo - np.min(topo) / (np.max(topo) - np.min(topo)))
+            image = np.concatenate([image, np.expand_dims(topo, axis=-1)], axis=-1)
         if self.use_latlon:
             image = np.concatenate([image, np.expand_dims(sample['location.npy'], axis=-1)], axis=-1)
         if self.use_time:
