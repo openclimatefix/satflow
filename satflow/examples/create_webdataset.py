@@ -46,6 +46,7 @@ sink_flow = wds.TarWriter(f"satflow-flow-first.tar", compress=True)
 flow_sample = {"__key__": "0"}
 interday_frame = 0
 for root, dirs, files in os.walk(eumetsat_dir):
+    dirs.sort(key=int) # Ensure this is done in sorted order, so its always from earliest to latest
     # As its stored in year, month, day, hour, minute, format, once we are at the day level, create a new shard
     # Also cut down everything to only the square of all value data
     if files:
