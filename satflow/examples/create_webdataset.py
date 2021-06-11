@@ -10,6 +10,21 @@ from satpy import Scene
 from pyresample import load_area
 from rasterio.plot import show
 
+areas = load_area("/home/bieker/Development/satflow/satflow/examples/areas.yaml")
+filenames = {"seviri_l1b_native": ["/run/media/bieker/Round1/EUMETSAT/2021/03/14/10/19/MSG3-SEVI-MSG15-0100-NA-20210314101915.098000000Z-NA.nat"]}
+scene = Scene(filenames=filenames)
+scene.load(('HRV',))
+# By default resamples to 3km, as thats the native resolution of all bands other than HRV
+scene = scene.resample(areas[0])
+hrv_long, hrv_lat = scene['HRV'].attrs['area'].get_lonlats()
+hrv_long = hrv_long[515:-641,603:]
+hrv_lat = hrv_lat[515:-641,603:]
+loc_x = np.cos(hrv_lat) * np.cos(hrv_long)
+loc_y = np.cos(hrv_lat) * np.sin(hrv_long)
+loc_z = np.sin(hrv_lat)
+
+location_array = np.stack([loc_x, loc_y, loc_z], axis=-1)
+
 # Create WebDataset with each shard being a single day and all the images for that day
 eumetsat_dir = "/run/media/bieker/Round1/EUMETSAT/"
 
@@ -35,7 +50,8 @@ for root, dirs, files in os.walk(eumetsat_dir):
             shard_num += 1
             prev_datetime = datetime_object
         sample = {"__key__": datetime_object.strftime("%Y/%m/%d/%H/%M"),
-                  "topo.npy": topo_data
+                  "topo.npy": topo_data,
+                  "location.npy": location_array,
                   }
         try:
             for f in files:

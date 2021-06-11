@@ -23,30 +23,14 @@ So have two possible targets, just cloud mask at time T in the future, and entir
 """
 
 
-def load_topo(lat, lon, size):
-    """Load topographic elevation map"""
-    return NotImplementedError
-
-
-def load_sat(lat, lon, size, datetime, bands=None):
-    """Load satellite image, and map to projection with 1kmx1km pixels"""
-    return NotImplementedError
-
-
-def load_cloud_mask(lat, lon, size, datetime):
-    """Load Cloud Mask over a given time and location"""
-    return NotImplementedError
-
 def create_aux_layer(gtiff, size):
     """Creates the lat, long array as 3 layers of x,y,z values"""
     return NotImplementedError
 
+
 def create_time_layer(shape, index):
     """Create tiem prediction layer, e.g. 256x256x240 where one hot encoding of the time period to predict"""
     return NotImplementedError
-
-
-
 
 
 class SatFlowDataset(thd.IterableDataset):

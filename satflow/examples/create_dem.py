@@ -9,7 +9,7 @@ from pyresample import create_area_def
 from pyresample import load_area
 
 
-dem_path = "/run/media/bieker/T7/SRTM 1 Arc-Second Global/*.tif"
+dem_path = "/home/bieker/bda/Bulk Order 20210611_041625/SRTM 1 Arc-Second Global/*.tif"
 dem_files = glob.glob(dem_path)
 import numpy as np
 src_files_to_mosaic = []
