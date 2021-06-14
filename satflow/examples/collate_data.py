@@ -25,34 +25,35 @@ for root, dirs, files in os.walk(eumetsat_dir):
     # For each of these, load cloud mask, etc. and save to GeoTIFF
     sat_file = ""
     cloud_mask = ""
-    for f in files:
-        if ".bz2" in f:
-            sat_file = decompress(os.path.join(root, f))
-        elif ".nat" in f:
-            sat_file = os.path.join(root, f)
-        if ".grb" in f:
-            cloud_mask = os.path.join(root, f)
-        if ".tif" in f:  # Already processed
-            break
-        if sat_file and cloud_mask:
-            map_satellite_to_mercator(
-                sat_file,
-                cloud_mask,
-                save_loc=root,
-                bands=(
-                    "HRV",
-                    "IR_016",
-                    "IR_039",
-                    "IR_087",
-                    "IR_097",
-                    "IR_108",
-                    "IR_120",
-                    "IR_134",
-                    "VIS006",
-                    "VIS008",
-                    "WV_062",
-                    "WV_073",
-                    "cloud_mask",
-                ),
-            )
-            os.remove(sat_file)
+    try:
+        for f in files:
+            if ".bz2" in f:
+                sat_file = decompress(os.path.join(root, f))
+            elif ".nat" in f:
+                sat_file = os.path.join(root, f)
+            if ".grb" in f:
+                cloud_mask = os.path.join(root, f)
+            if sat_file and cloud_mask:
+                map_satellite_to_mercator(
+                    sat_file,
+                    cloud_mask,
+                    save_loc=root,
+                    bands=(
+                        "HRV",
+                        "IR_016",
+                        "IR_039",
+                        "IR_087",
+                        "IR_097",
+                        "IR_108",
+                        "IR_120",
+                        "IR_134",
+                        "VIS006",
+                        "VIS008",
+                        "WV_062",
+                        "WV_073",
+                        "cloud_mask",
+                    ),
+                )
+                os.remove(sat_file)
+    except:
+        continue

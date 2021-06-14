@@ -47,7 +47,7 @@ def binarize_mask(mask):
     mask[mask > 0] = 1
     return mask
 
-
+# Taken from OCF Zarr file min and max for all the channels
 MSG_MIN = np.array(
     [
         -1.2278595,
