@@ -9,18 +9,10 @@ Taken from https://github.com/vagr8/R_Unet
 """
 
 class ConvLSTMCell(nn.Module):
-    def __init__(self, input_channels, hidden_channels, kernel_size, gpu_num):
+    def __init__(self, input_channels, hidden_channels, kernel_size):
         super(ConvLSTMCell, self).__init__()
 
         assert hidden_channels % 2 == 0
-        use_cuda = torch.cuda.is_available()
-
-        #gpu_num = 1
-
-        torch.cuda.set_device(gpu_num)
-        os.environ["CUDA_VISIBLE_DEVICE"] = str(gpu_num)
-        self.device = torch.device('cuda:'+str(gpu_num) if use_cuda else 'cpu')
-        #self.device = torch.device("cuda" if use_cuda else "cpu")
 
         self.input_channels = input_channels
         self.hidden_channels = hidden_channels
@@ -66,7 +58,7 @@ class ConvLSTMCell(nn.Module):
 class ConvLSTM(nn.Module):
     # input_channels corresponds to the first input feature map
     # hidden state is a list of succeeding lstm layers.
-    def __init__(self, input_channels, hidden_channels, kernel_size, step = 1, effective_step=[1], gpu_num=0):
+    def __init__(self, input_channels, hidden_channels, kernel_size, step = 1, effective_step=[1]):
         super(ConvLSTM, self).__init__()
         self.input_channels = [input_channels] + hidden_channels
         self.hidden_channels = hidden_channels
@@ -76,17 +68,9 @@ class ConvLSTM(nn.Module):
         self.effective_step = effective_step
         self._all_layers = []
 
-        #self.internal_state = []
-
-        #gpu_num = 1
-        torch.cuda.set_device(gpu_num)
-        os.environ["CUDA_VISIBLE_DEVICE"] = str(gpu_num)
-        self.device = torch.device('cuda:'+str(gpu_num) if True else 'cpu')
-
-
         for i in range(self.num_layers):
             name = 'cell{}'.format(i)
-            cell = ConvLSTMCell(self.input_channels[i], self.hidden_channels[i], self.kernel_size, gpu_num).to(self.device)
+            cell = ConvLSTMCell(self.input_channels[i], self.hidden_channels[i], self.kernel_size).to(self.device)
             setattr(self, name, cell)
             self._all_layers.append(cell)
 
