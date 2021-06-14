@@ -35,8 +35,8 @@ for root, dirs, files in os.walk(eumetsat_dir):
                 cloud_mask = os.path.join(root, f)
             if sat_file and cloud_mask:
                 map_satellite_to_mercator(
-                    sat_file,
-                    cloud_mask,
+                    native_satellite=sat_file,
+                    grib_files=cloud_mask,
                     save_loc=root,
                     bands=(
                         "HRV",

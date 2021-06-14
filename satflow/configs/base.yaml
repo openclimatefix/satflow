@@ -7,7 +7,16 @@ training:
   lr: 0.001
   early_stopping: 15
   lr_plateau: 10
-  optimizer: adam
+  optimizer: "adam"
+  num_timesteps: 12
+  forecaset_times: 12
+  output_shape: 128
+  target_type: "cloudmask"
+  num_crops: 5
+  use_topo: True
+  use_latlon: True
+  use_time: True
+  use_mask: True
   transforms:
     ExtractTopographicMap: {}
     SelectSatChannels: [1,2,3,7,8,11,12]

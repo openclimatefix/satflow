@@ -72,6 +72,7 @@ def map_satellite_to_mercator(
         filenames["seviri_l2_grib"] = [grib_files]
     if bufr_files is not None:
         filenames["seviri_l2_bufr"] = [bufr_files]
+    print(filenames)
     scene = Scene(filenames=filenames)
     scene.load(bands)
     # By default resamples to 3km, as thats the native resolution of all bands other than HRV
