@@ -7,11 +7,12 @@ from torch.utils.data import DataLoader
 config = load_config("/home/bieker/Development/satflow/satflow/configs/base.yaml")
 print(config)
 
-dset = wds.WebDataset("/run/media/bieker/data/EUMETSAT/satflow-flow-{00000..00067}.tar")
-dataset = SatFlowDataset(dset, config=config['training'])
+dset = wds.WebDataset("/run/media/bieker/data/EUMETSAT/satflow-flow-{00000..0060}.tar")
+dataset = SatFlowDataset([dset], config=config['training'])
 
-dataloader = DataLoader(dataset, num_workers=1, batch_size=1)
+dataloader = DataLoader(dataset, num_workers=4, batch_size=16)
 
 for data in dataloader:
-    print(data)
+    image, target_image, target_mask = data
+    print(f"Shapes Image: {image.shape}, T Image: {target_image.shape} T Mask: {target_mask.shape}")
     exit()

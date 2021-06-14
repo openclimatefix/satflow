@@ -1,7 +1,3 @@
-datasets:
-  - topo
-  - sat
-  - cloud_mask
 training:
   num_iterations: 200000
   lr: 0.001

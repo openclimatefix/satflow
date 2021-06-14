@@ -9,6 +9,9 @@ import numpy as np
 import webdataset as wds
 
 import albumentations as A
+import pickle
+import numpy.lib.format
+import io
 
 """
 
@@ -82,6 +85,10 @@ MSG_MAX = np.array(
 )
 
 
+def load_np(data):
+    return numpy.lib.format.read_array(io.BytesIO(data))
+
+
 class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
     def __init__(self, datasets, config, train=True):
         super().__init__()
@@ -138,26 +145,45 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         time_cube[:, :, target_timestep] = 1
         return time_cube
 
-    def get_timestep(self, sample, idx):
-        image = np.stack([sample[f"{b}.{idx:03d}.npy"] for b in self.bands], axis=-1)
+    def get_timestep(self, sample, idx, return_target=False):
+        """
+        Gets the image stack of the given timestep, if return_target is true, only returns teh mask and satellite channels
+        as the model does not need to predict the time, topogrpahic data, etc.
+        :param sample:
+        :param idx:
+        :param return_target:
+        :return:
+        """
+        image = np.stack([load_np(sample[f"{b.lower()}.{idx:03d}.npy"]) for b in self.bands], axis=-1)
         # Regularize here
         image = (image - MSG_MIN) / (MSG_MAX - MSG_MIN)
+
+        target = load_np(sample[f"{self.target_type}.{idx:03d}.npy"])
+        if "mask" in self.target_type:
+            target = binarize_mask(
+                target
+            )  # Not actual target, but for now, should be good
+
+        if return_target:
+            return image, target
+
         if self.use_topo:
-            topo = sample["topo.npy"]
+            topo = load_np(sample["topo.npy"])
             topo = topo - np.min(topo) / (np.max(topo) - np.min(topo))
             image = np.concatenate([image, np.expand_dims(topo, axis=-1)], axis=-1)
         if self.use_latlon:
             image = np.concatenate(
-                [image, np.expand_dims(sample["location.npy"], axis=-1)], axis=-1
+                [image, load_np(sample["location.npy"])], axis=-1
             )
         if self.use_time:
+            t = create_time_layer(
+                pickle.loads(sample["time.pyd"])[idx],
+                shape=(image.shape[0], image.shape[1]),
+            )
             image = np.concatenate(
                 [
                     image,
-                    create_time_layer(
-                        sample["time.pyd"][idx],
-                        shape=(self.output_shape, self.output_shape),
-                    ),
+                    t,
                 ],
                 axis=-1,
             )
@@ -166,16 +192,12 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 [
                     image,
                     np.expand_dims(
-                        binarize_mask(sample[f"cloudmask.{idx:03d}.npy"]), axis=-1
+                        binarize_mask(load_np(sample[f"cloudmask.{idx:03d}.npy"])), axis=-1
                     ),
                 ],
                 axis=-1,
             )
-        target = sample[f"{self.target_type}.{idx:03d}.npy"]
-        if "mask" in self.target_type:
-            target = binarize_mask(
-                target
-            )  # Not actual target, but for now, should be good
+
         return image, target
 
     def __iter__(self) -> Iterator[T_co]:
@@ -189,8 +211,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         while True:
             for source in sources:
                 sample = next(source)
+                timesteps = pickle.loads(sample["time.pyd"])
                 available_steps = len(
-                    sample["time.pyd"]
+                    timesteps
                 )  # number of available timesteps
                 # Times that have enough previous timesteps and post timesteps for training
                 # pick one at random
@@ -201,8 +224,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 )
                 for idx in idxs:
                     target_timesteps = np.random.randint(
-                        idx + 1, idx + 1 + self.forecast_times, size=5
-                    )
+                        idx + 1, idx + self.forecast_times, size=5
+                    ) - idx
                     for target_timestep in target_timesteps:
                         time_cube = self.create_target_time_layer(target_timestep)
                         for _ in range(
@@ -212,11 +235,13 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 sample, idx - self.num_timesteps
                             )  # First timestep considered
                             data = self.aug(image=image)
+                            replay = data['replay']
                             image = data["image"]
+                            image = np.concatenate([image, time_cube], axis=-1)
                             image = np.expand_dims(image, axis=0)
                             for i in range(idx - self.num_timesteps + 1, idx + 1):
                                 t_image, _ = self.get_timestep(sample, i)
-                                t_image = self.aug(data["replay"], image=t_image)[
+                                t_image = self.aug.replay(replay, image=t_image)[
                                     "image"
                                 ]
                                 t_image = np.concatenate([t_image, time_cube], axis=-1)
@@ -225,17 +250,18 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 )
                             # Now in a Time x W x H x Channel order
                             target_image, target_mask = self.get_timestep(
-                                sample, target_timestep
+                                sample, target_timestep, return_target=True
                             )
-                            target_image = self.aug(data["replay"], image=target_image)[
+                            target_image = self.aug.replay(replay, image=target_image)[
                                 "image"
                             ]
-                            target_mask = self.aug(data["replay"], image=target_mask)[
+                            target_mask = self.aug.replay(replay, image=target_mask)[
                                 "image"
                             ]
                             # Convert to Channel x Time x W x H
-                            # image = np.moveaxis(image, [0,1,2,3], [3,0,1,2])
-                            # target_image = np.moveaxis(target_image, [0,1,2], [2,0,1])
+                            image = np.moveaxis(image, [3], [1])
+                            target_image = np.moveaxis(target_image, [2], [0])
+                            target_mask = np.expand_dims(target_mask, axis=0)
 
                             # return as a PyTorch thing
                             yield image, target_image, target_mask
