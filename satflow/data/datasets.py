@@ -104,6 +104,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.datasets = datasets
         self.train = train
         self.num_timesteps = config["num_timesteps"]
+        self.skip_timesteps = config.get("skip_timesteps", 1) # Every nth historical timestep to take
         self.forecast_times = config.get(
             "forecast_times", 48
         )  # Max timesteps to predict ahead (minutes / 5) default 4 hours
@@ -148,13 +149,27 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         transforms.append(A.RandomCrop(self.output_shape, self.output_shape))
         self.aug = A.ReplayCompose(transforms,)
 
-    def create_target_time_layer(self, target_timestep):
+    def create_target_time_cube(self, target_timestep):
         """Create target time layer"""
         time_cube = np.zeros(
             (self.output_shape, self.output_shape, self.forecast_times), dtype=np.int8
         )
         time_cube[:, :, target_timestep] = 1
         return time_cube
+
+    def create_target_time_layer(self, target_timestep):
+        """
+        Creates a one-hot encoded layer, a lot more space efficient than timecube, but needs to be an aux layer
+        Args:
+            target_timestep: The target timestep for predicting
+
+        Returns:
+            1-D numpy array where there is a 1 for the target timestep
+        """
+
+        time_layer = np.zeros((self.output_shape, self.forecast_times), dtype=np.int8)
+        time_layer[target_timestep] = 1
+        return time_layer
 
     def get_timestep(self, sample, idx, return_target=False):
         """
@@ -230,10 +245,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     continue  # Skip this sample as it is missing timesteps
                 # Times that have enough previous timesteps and post timesteps for training
                 # pick one at random
-                # To reduce having to load as much data again and again, take 10% of available timesteps to train on with different future time periods
 
                 idxs = np.random.randint(
-                    self.num_timesteps,
+                    self.num_timesteps * self.skip_timesteps,
                     available_steps - self.forecast_times,
                     size=self.num_crops,
                 )
@@ -251,7 +265,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                         - idx
                     )
                     for target_timestep in target_timesteps:
-                        time_cube = self.create_target_time_layer(target_timestep)
+                        time_cube = self.create_target_time_cube(target_timestep)
                         for _ in range(
                             self.num_crops
                         ):  # Do 5 random crops as well for training
@@ -263,7 +277,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             image = data["image"]
                             image = np.concatenate([image, time_cube], axis=-1)
                             image = np.expand_dims(image, axis=0)
-                            for i in range(idx - self.num_timesteps + 1, idx + 1):
+                            for i in range(idx - (self.num_timesteps * self.skip_timesteps) + 1, idx + 1, self.skip_timesteps):
                                 t_image, _ = self.get_timestep(sample, i)
                                 t_image = self.aug.replay(replay, image=t_image)[
                                     "image"

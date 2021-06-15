@@ -7,7 +7,8 @@ training:
   dataset:
     name: "SatFlowDataset"
     batch_size: 8
-    num_timesteps: 12
+    num_timesteps: 6
+    skip_timesteps: 2
     forecaset_times: 12
     output_shape: 128
     target_type: "cloudmask"
