@@ -4,20 +4,36 @@ training:
   early_stopping: 15
   lr_plateau: 10
   optimizer: "adam"
-  num_timesteps: 12
-  forecaset_times: 12
-  output_shape: 128
-  target_type: "cloudmask"
-  num_crops: 10
-  use_topo: True
-  use_latlon: True
-  use_time: True
-  use_mask: True
-  transforms:
-    ExtractTopographicMap: {}
-    SelectSatChannels: [1,2,3,7,8,11,12]
-    CombineDataSources: ["topo", "sat"]
+  dataset:
+    name: "SatFlowDataset"
+    batch_size: 8
+    num_timesteps: 12
+    forecaset_times: 12
+    output_shape: 128
+    target_type: "cloudmask"
+    num_crops: 10
+    use_topo: True
+    use_latlon: True
+    use_time: True
+    use_mask: True
+    bands: ["HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073",]
+    transforms: {}
+test:
+  dataset:
+    name: "SatFlowDataset"
+    batch_size: 8
+    num_timesteps: 12
+    forecaset_times: 12
+    output_shape: 128
+    target_type: "cloudmask"
+    num_crops: 10
+    use_topo: True
+    use_latlon: True
+    use_time: True
+    use_mask: True
+    bands: [ "HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073", ]
+    transforms: { }
 model:
-  name: "ResNet"
+  name: "Unet"
   inputs: [topo, sat]
   outputs: [3,]

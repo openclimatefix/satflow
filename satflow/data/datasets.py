@@ -225,10 +225,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 sample_keys = [key for key in sample.keys() if self.bands[0].lower() in key]
                 key_checker = [f"{self.bands[0].lower()}.{idx:03d}.npy" for idx in range(1, available_steps)]
                 if not all(e in sample_keys for e in key_checker):
-                    print("Failed check")
-                    print(sample_keys)
-                    print(key_checker)
-                    print(np.setdiff1d(key_checker, sample_keys))
                     continue  # Skip this sample as it is missing timesteps
                 # Times that have enough previous timesteps and post timesteps for training
                 # pick one at random

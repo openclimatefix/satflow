@@ -3,7 +3,9 @@ import webdataset as wds
 import satflow.data.datasets
 from satflow.data.datasets import get_dataset
 from torch.utils.data import DataLoader
-
+from satflow.core.utils import load_config
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 def get_loaders(config):
     """
@@ -28,3 +30,17 @@ def get_loaders(config):
         "test": test_dataloader
     }
 
+
+def setup_experiment(args):
+    """
+    Sets up the basic logging, etc. common things for running experiments
+
+    Args:
+        args: Commandline arguments
+
+    Returns:
+
+    """
+
+    config = load_config(args.config)
+    return config
