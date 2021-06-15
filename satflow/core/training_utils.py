@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader
 from satflow.core.utils import load_config
 import hydra
 from omegaconf import DictConfig, OmegaConf
+import argparse
+import deepspeed
 
 def get_loaders(config):
     """
@@ -44,3 +46,32 @@ def setup_experiment(args):
 
     config = load_config(args.config)
     return config
+
+
+def get_args():
+
+    parser = argparse.ArgumentParser(description='SatFlow')
+
+    # cuda
+    parser.add_argument('--with_cpu',
+                        default=False,
+                        action='store_true',
+                        help='use CPU in case there\'s no GPU support')
+
+    # train
+    parser.add_argument('-c',
+                        '--config',
+                        default="./config",
+                        type=str,
+                        help='Path to Config File')
+    parser.add_argument('--local_rank',
+                        type=int,
+                        default=-1,
+                        help='local rank passed from distributed launcher')
+
+    # Include DeepSpeed configuration arguments
+    parser = deepspeed.add_config_arguments(parser)
+
+    args = parser.parse_args()
+
+    return args
