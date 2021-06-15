@@ -18,6 +18,7 @@ training:
     use_topo: True
     use_latlon: True
     use_time: True
+    time_aux: False
     use_mask: True
     bands: ["HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073",]
     transforms: {}
@@ -33,6 +34,7 @@ test:
     use_topo: True
     use_latlon: True
     use_time: True
+    time_aux: False
     use_mask: True
     bands: [ "HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073", ]
     transforms: { }

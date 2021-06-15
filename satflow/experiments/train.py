@@ -71,7 +71,6 @@ def run_experiment(args):
                     break
             test_loss /= (test_iteration * inputs.shape[0])
             logger.info(f"Avg. Test Loss: {test_loss} Iteration: {global_iteration}")
-            test_loss = 0
 
 
 if __name__ == "__main__":

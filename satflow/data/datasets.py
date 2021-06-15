@@ -133,6 +133,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.use_topo = config.get("use_topo", False)
         self.use_latlon = config.get("use_latlon", False)
         self.use_time = config.get("use_time", True)
+        self.time_aux = config.get("time_aux", False) # Time as an auxiliary input as 1D array
         self.use_mask = config.get("use_mask", True)
 
         self.topo = None
@@ -200,7 +201,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             image = np.concatenate([image, self.topo], axis=-1)
         if self.use_latlon:
             image = np.concatenate([image, self.location], axis=-1)
-        if self.use_time:
+        if self.use_time and not self.time_aux:
             t = create_time_layer(
                 pickle.loads(sample["time.pyd"])[idx],
                 shape=(image.shape[0], image.shape[1]),
@@ -275,14 +276,16 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             data = self.aug(image=image)
                             replay = data["replay"]
                             image = data["image"]
-                            image = np.concatenate([image, time_cube], axis=-1)
+                            if self.use_time and not self.time_aux:
+                                image = np.concatenate([image, time_cube], axis=-1)
                             image = np.expand_dims(image, axis=0)
                             for i in range(idx - (self.num_timesteps * self.skip_timesteps) + 1, idx + 1, self.skip_timesteps):
                                 t_image, _ = self.get_timestep(sample, i)
                                 t_image = self.aug.replay(replay, image=t_image)[
                                     "image"
                                 ]
-                                t_image = np.concatenate([t_image, time_cube], axis=-1)
+                                if self.use_time and not self.time_aux:
+                                    t_image = np.concatenate([t_image, time_cube], axis=-1)
                                 image = np.concatenate(
                                     [image, np.expand_dims(t_image, axis=0)]
                                 )
@@ -301,5 +304,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             target_image = np.moveaxis(target_image, [2], [0])
                             target_mask = np.expand_dims(target_mask, axis=0)
 
-                            # return as a PyTorch thing
+                            if self.use_time and self.time_aux:
+                                time_layer = create_time_layer(target_timestep, self.output_shape)
+                                yield image, time_layer, target_image, target_mask
                             yield image, target_image, target_mask

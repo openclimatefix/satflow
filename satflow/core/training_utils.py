@@ -70,7 +70,7 @@ def get_args():
 
     # train
     parser.add_argument(
-        "-c", "--config", default="./config", type=str, help="Path to Config File"
+        "-c", "--config", default="./config.yaml", type=str, help="Path to Config File"
     )
     parser.add_argument(
         "--local_rank",
