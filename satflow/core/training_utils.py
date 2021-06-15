@@ -9,6 +9,7 @@ from omegaconf import DictConfig, OmegaConf
 import argparse
 import deepspeed
 
+
 def get_loaders(config):
     """
     Get Dataloaders for train/test
@@ -19,18 +20,25 @@ def get_loaders(config):
         Dict[Dataloader] containing the train and test dataloaders
     """
 
-    train_dset = wds.WebDataset(config['train_pattern'])
+    train_dset = wds.WebDataset(config["train_pattern"])
     test_dset = wds.WebDataset(config["test_pattern"])
-    train_dataset = get_dataset(config['name'])([train_dset], config=config['training'], train=True)
-    test_dataset = get_dataset(config['name'])([test_dset], config=config['test'], train=False)
+    train_dataset = get_dataset(config["name"])(
+        [train_dset], config=config["training"], train=True
+    )
+    test_dataset = get_dataset(config["name"])(
+        [test_dset], config=config["test"], train=False
+    )
 
-    train_dataloader = DataLoader(train_dataset, num_workers=config['num_workers'], batch_size=config['batch_size'])
-    test_dataloader = DataLoader(test_dataset, num_workers=config['num_workers'], batch_size=config['batch_size'])
+    train_dataloader = DataLoader(
+        train_dataset,
+        num_workers=config["num_workers"],
+        batch_size=config["batch_size"],
+    )
+    test_dataloader = DataLoader(
+        test_dataset, num_workers=config["num_workers"], batch_size=config["batch_size"]
+    )
 
-    return {
-        "train": train_dataloader,
-        "test": test_dataloader
-    }
+    return {"train": train_dataloader, "test": test_dataloader}
 
 
 def setup_experiment(args):
@@ -50,24 +58,26 @@ def setup_experiment(args):
 
 def get_args():
 
-    parser = argparse.ArgumentParser(description='SatFlow')
+    parser = argparse.ArgumentParser(description="SatFlow")
 
     # cuda
-    parser.add_argument('--with_cpu',
-                        default=False,
-                        action='store_true',
-                        help='use CPU in case there\'s no GPU support')
+    parser.add_argument(
+        "--with_cpu",
+        default=False,
+        action="store_true",
+        help="use CPU in case there's no GPU support",
+    )
 
     # train
-    parser.add_argument('-c',
-                        '--config',
-                        default="./config",
-                        type=str,
-                        help='Path to Config File')
-    parser.add_argument('--local_rank',
-                        type=int,
-                        default=-1,
-                        help='local rank passed from distributed launcher')
+    parser.add_argument(
+        "-c", "--config", default="./config", type=str, help="Path to Config File"
+    )
+    parser.add_argument(
+        "--local_rank",
+        type=int,
+        default=-1,
+        help="local rank passed from distributed launcher",
+    )
 
     # Include DeepSpeed configuration arguments
     parser = deepspeed.add_config_arguments(parser)

@@ -2,6 +2,7 @@ import torch
 from satflow.models.base import register_model, Model
 from typing import Dict
 
+
 @register_model
 class MetNet(Model):
     def __init__(self, config):
