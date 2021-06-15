@@ -170,8 +170,14 @@ class Up_Layer0(nn.Sequential):
 
 
 class unet(nn.Module):
-    def __init__(self, step_=6, predict_=3, channels=12):
+    def __init__(self, step_=6, predict_=3, channels=12, input_size=256):
         super(unet, self).__init__()
+
+        if input_size != 256:
+            self.resize_fraction = window_size = 256/input_size
+        else:
+            self.resize_fraction = 1
+
         self.latent_feature = 0
         self.lstm_buf = []
         self.step = step_
@@ -285,9 +291,9 @@ class unet(nn.Module):
 
 @register_model
 class Unet(Model):
-    def __init__(self, step_=6, predict_=3, channels=12):
+    def __init__(self, step_=6, predict_=3, channels=12, input_size=256):
         super().__init__()
-        self.module = unet(step_=step_, predict_=predict_, channels=channels)
+        self.module = unet(step_=step_, predict_=predict_, channels=channels, input_size=input_size)
 
     def forward(self, x, init_token):
         self.module.forward(x, init_token)
@@ -298,4 +304,5 @@ class Unet(Model):
             step_=config.get("step", 6),
             predict_=config.get("predict"),
             channels=config.get("channels", 12),
+            input_size=config.get("input_size", 256)
         )

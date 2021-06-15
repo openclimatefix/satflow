@@ -1,6 +1,6 @@
 import torch
 from satflow.data.datasets import SatFlowDataset
-from satflow.core.utils import load_config
+from satflow.core.utils import load_config, make_logger
 import webdataset as wds
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -12,6 +12,7 @@ from satflow.models import get_model
 from satflow.core.training_utils import get_loaders, get_args
 import deepspeed
 
+logger = make_logger("satflow.train")
 
 def run_experiment(args):
     config = load_config(args.config)
@@ -23,9 +24,8 @@ def run_experiment(args):
     model = (
         get_model(config["model"]["name"])
         .from_config(config["model"])
-        .to(config["device"])
     )
-    criterion = F.nll_loss
+    criterion = F.mse_loss
     # Load Datasets
     loaders = get_loaders(config["dataset"])
     parameters = filter(lambda p: p.requires_grad, model.parameters())
@@ -54,6 +54,24 @@ def run_experiment(args):
         global_iteration += 1
         if global_iteration > config["iterations"]:
             break
+        if global_iteration % config['eval_steps'] == 0:
+            # Run testing
+            test_loss = 0.0
+            test_iteration = 0
+            for j, test_data in enumerate(loaders["test"]):
+                inputs, labels = (
+                    test_data[0].to(model_engine.local_rank),
+                    test_data[2].to(model_engine.local_rank),
+                )
+
+                outputs = model(inputs)
+                test_loss += criterion(outputs, labels).item()
+                test_iteration += 1
+                if (test_iteration * inputs.shape[0]) % config['eval_examples'] == 0:
+                    break
+            test_loss /= (test_iteration * inputs.shape[0])
+            logger.info(f"Avg. Test Loss: {test_loss} Iteration: {global_iteration}")
+            test_loss = 0
 
 
 if __name__ == "__main__":

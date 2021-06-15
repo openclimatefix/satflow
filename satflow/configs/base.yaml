@@ -1,5 +1,7 @@
 training:
   iterations: 200000
+  eval_steps: 500
+  eval_examples: 1000
   lr: 0.001
   early_stopping: 15
   lr_plateau: 10
