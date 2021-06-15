@@ -13,21 +13,23 @@ import pickle
 import numpy.lib.format
 import io
 
-"""
+from typing import Dict, Any, Type, List, Sequence
 
-Need the data to be aligned by the same time and place, so need to project things to the globe and use that. 
+REGISTERED_DATASET_CLASSES = {}
 
-Datasets to include: 
-Topographic maps (elevation), 
-Satellite Imagery (all channels or subset),
-Rapid Scan products (atmopsheric variation, winds, although maybe not as good),
-Radar if we can get it,
-Cloud Masks
 
-Want the targets to be the new cloud mask? Or actually, just the new image, more just needs to predict the cloud mask though
-So have two possible targets, just cloud mask at time T in the future, and entire image at time T in future
+def register_dataset(cls: Type[thd.IterableDataset]):
+    global REGISTERED_DATASET_CLASSES
+    name = cls.__name__
+    assert name not in REGISTERED_DATASET_CLASSES, f"exists class: {REGISTERED_DATASET_CLASSES}"
+    REGISTERED_DATASET_CLASSES[name] = cls
+    return cls
 
-"""
+
+def get_dataset(name: str) -> Type[thd.IterableDataset]:
+    global REGISTERED_DATASET_CLASSES
+    assert name in REGISTERED_DATASET_CLASSES, f"available class: {REGISTERED_DATASET_CLASSES}"
+    return REGISTERED_DATASET_CLASSES[name]
 
 
 def create_time_layer(dt: datetime.datetime, shape):
@@ -45,10 +47,11 @@ def binarize_mask(mask):
     """Binarize mask, taking max value as the data, and setting everything else to 0"""
     mask[
         mask == 255
-    ] = 0  # hardcoded incase missing any of the cloud mask background problem
+        ] = 0  # hardcoded incase missing any of the cloud mask background problem
     mask[mask < np.max(mask)] = 0
     mask[mask > 0] = 1
     return mask
+
 
 # Taken from OCF Zarr file min and max for all the channels
 MSG_MIN = np.array(
@@ -89,6 +92,7 @@ def load_np(data):
     return numpy.lib.format.read_array(io.BytesIO(data))
 
 
+@register_dataset
 class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
     def __init__(self, datasets, config, train=True):
         super().__init__()
@@ -138,7 +142,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 A.VerticalFlip(p=0.5),
             ]
         transforms.append(A.RandomCrop(self.output_shape, self.output_shape))
-        self.aug = A.ReplayCompose(transforms,)
+        self.aug = A.ReplayCompose(transforms, )
 
     def create_target_time_layer(self, target_timestep):
         """Create target time layer"""
@@ -224,8 +228,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     print("Failed check")
                     print(sample_keys)
                     print(key_checker)
-                    print(np.setdiff1d( key_checker, sample_keys))
-                    continue # Skip this sample as it is missing timesteps
+                    print(np.setdiff1d(key_checker, sample_keys))
+                    continue  # Skip this sample as it is missing timesteps
                 # Times that have enough previous timesteps and post timesteps for training
                 # pick one at random
                 # To reduce having to load as much data again and again, take 10% of available timesteps to train on with different future time periods
@@ -246,7 +250,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     for target_timestep in target_timesteps:
                         time_cube = self.create_target_time_layer(target_timestep)
                         for _ in range(
-                            self.num_crops
+                                self.num_crops
                         ):  # Do 5 random crops as well for training
                             image, _ = self.get_timestep(
                                 sample, idx - self.num_timesteps

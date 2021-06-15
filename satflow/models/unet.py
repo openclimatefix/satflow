@@ -7,6 +7,8 @@ import numpy as np
 import os
 import gc
 from satflow.models.conv_lstm import ConvLSTM
+from satflow.models.base import register_model, Model
+from typing import Dict
 
 
 """
@@ -154,9 +156,9 @@ class Up_Layer0(nn.Sequential):
         return output
 
 
-class Unet(nn.Module):
+class unet(nn.Module):
     def __init__(self, step_ = 6, predict_ = 3, channels=12):
-        super(Unet, self ).__init__()
+        super(unet, self ).__init__()
         self.latent_feature = 0
         self.lstm_buf = []
         self.step = step_
@@ -240,3 +242,19 @@ class Unet(nn.Module):
         x = F.relu(self.up5( x ))
 
         return x
+
+@register_model
+class Unet(Model):
+
+    def __init__(self, step_=6, predict_=3, channels=12):
+        super().__init__()
+        self.module = unet(step_=step_, predict_=predict_, channels=channels)
+
+    def forward(self, x, init_token):
+        self.module.forward(x, init_token)
+
+    @classmethod
+    def from_config(cls, config: Dict[str]):
+        return Unet(step_=config.get("step", 6),
+                    predict_=config.get("predict"),
+                    channels=config.get("channels", 12))
