@@ -9,10 +9,10 @@ from tqdm import tqdm
 config = load_config("/home/bieker/Development/satflow/satflow/configs/base.yaml")
 print(config)
 
-dset = wds.WebDataset("/run/media/bieker/data/EUMETSAT/satflow-flow-{00000..0060}.tar")
+dset = wds.WebDataset("/run/media/bieker/data/EUMETSAT/satflow-flow-{00000..0067}.tar")
 dataset = SatFlowDataset([dset], config=config['training'])
 
-dataloader = DataLoader(dataset, num_workers=4, batch_size=16)
+dataloader = DataLoader(dataset, num_workers=6, batch_size=16)
 
 for data in tqdm(dataloader):
     image, target_image, target_mask = data

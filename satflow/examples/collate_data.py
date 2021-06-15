@@ -55,5 +55,10 @@ for root, dirs, files in os.walk(eumetsat_dir):
                     ),
                 )
                 os.remove(sat_file)
-    except:
+    except Exception as e:
+        print(e)
+        try:
+            os.remove(sat_file)
+        except:
+            continue
         continue
