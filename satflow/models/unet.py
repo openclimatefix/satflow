@@ -6,7 +6,7 @@ from torch.autograd import Variable
 import numpy as np
 import os
 import gc
-from conv_lstm import ConvLSTM
+from satflow.models.conv_lstm import ConvLSTM
 
 
 """

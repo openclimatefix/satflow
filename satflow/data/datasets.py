@@ -126,6 +126,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.use_time = config.get("use_time", True)
         self.use_mask = config.get("use_mask", True)
 
+        self.topo = None
+        self.location = None
+
         self.num_crops = config.get("num_crops", 5)
 
         transforms = []
@@ -155,6 +158,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         :return:
         """
         image = np.stack([load_np(sample[f"{b.lower()}.{idx:03d}.npy"]) for b in self.bands], axis=-1)
+
         # Regularize here
         image = (image - MSG_MIN) / (MSG_MAX - MSG_MIN)
 
@@ -168,12 +172,10 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             return image, target
 
         if self.use_topo:
-            topo = load_np(sample["topo.npy"])
-            topo = topo - np.min(topo) / (np.max(topo) - np.min(topo))
-            image = np.concatenate([image, np.expand_dims(topo, axis=-1)], axis=-1)
+            image = np.concatenate([image, self.topo], axis=-1)
         if self.use_latlon:
             image = np.concatenate(
-                [image, load_np(sample["location.npy"])], axis=-1
+                [image, self.location], axis=-1
             )
         if self.use_time:
             t = create_time_layer(
@@ -215,16 +217,31 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 available_steps = len(
                     timesteps
                 )  # number of available timesteps
+                # Check to make sure all timesteps exist
+                sample_keys = [key for key in sample.keys() if self.bands[0].lower() in key]
+                key_checker = [f"{self.bands[0].lower()}.{idx:03d}.npy" for idx in range(1, available_steps)]
+                if not all(e in sample_keys for e in key_checker):
+                    print("Failed check")
+                    print(sample_keys)
+                    print(key_checker)
+                    print(np.setdiff1d( key_checker, sample_keys))
+                    continue # Skip this sample as it is missing timesteps
                 # Times that have enough previous timesteps and post timesteps for training
                 # pick one at random
                 # To reduce having to load as much data again and again, take 10% of available timesteps to train on with different future time periods
 
                 idxs = np.random.randint(
-                    self.num_timesteps, available_steps - self.forecast_times, size=5
+                    self.num_timesteps, available_steps - self.forecast_times, size=self.num_crops
                 )
+                if self.use_topo:
+                    topo = load_np(sample["topo.npy"])
+                    self.topo = topo - np.min(topo) / (np.max(topo) - np.min(topo))
+                    self.topo = np.expand_dims(self.topo, axis=-1)
+                if self.use_latlon:
+                    self.location = load_np(sample["location.npy"])
                 for idx in idxs:
                     target_timesteps = np.random.randint(
-                        idx + 1, idx + self.forecast_times, size=5
+                        idx + 1, idx + self.forecast_times, size=self.num_crops
                     ) - idx
                     for target_timestep in target_timesteps:
                         time_cube = self.create_target_time_layer(target_timestep)

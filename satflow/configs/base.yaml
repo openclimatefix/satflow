@@ -8,7 +8,7 @@ training:
   forecaset_times: 12
   output_shape: 128
   target_type: "cloudmask"
-  num_crops: 5
+  num_crops: 10
   use_topo: True
   use_latlon: True
   use_time: True

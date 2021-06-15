@@ -3,6 +3,8 @@ from satflow.data.datasets import SatFlowDataset
 from satflow.core.utils import load_config
 import webdataset as wds
 from torch.utils.data import DataLoader
+from satflow.models.unet import Unet
+from tqdm import tqdm
 
 config = load_config("/home/bieker/Development/satflow/satflow/configs/base.yaml")
 print(config)
@@ -12,7 +14,6 @@ dataset = SatFlowDataset([dset], config=config['training'])
 
 dataloader = DataLoader(dataset, num_workers=4, batch_size=16)
 
-for data in dataloader:
+for data in tqdm(dataloader):
     image, target_image, target_mask = data
     print(f"Shapes Image: {image.shape}, T Image: {target_image.shape} T Mask: {target_mask.shape}")
-    exit()
