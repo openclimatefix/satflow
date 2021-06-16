@@ -1,5 +1,7 @@
 __author__ = 'yunbo'
 
+from typing import Dict, Any
+
 """
 
 PredNN v2 adapted from https://github.com/thuml/predrnn-pytorch
@@ -10,6 +12,7 @@ import torch
 import torch.nn as nn
 from satflow.models.layers.SpatioTemporalLSTMCell_memory_decoupling import SpatioTemporalLSTMCell
 import torch.nn.functional as F
+from satflow.models.base import Model, register_model
 
 
 class RNN(nn.Module):
@@ -17,7 +20,6 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
 
         self.configs = configs
-        self.visual_path = self.configs.visual_path
 
         self.frame_channel = configs.patch_size * configs.patch_size * configs.img_channel
         self.num_layers = num_layers
@@ -42,8 +44,7 @@ class RNN(nn.Module):
 
     def forward(self, frames_tensor, mask_true):
         # [batch, length, height, width, channel] -> [batch, length, channel, height, width]
-        frames = frames_tensor.permute(0, 1, 4, 2, 3).contiguous()
-        mask_true = mask_true.permute(0, 1, 4, 2, 3).contiguous()
+        frames = frames_tensor
 
         batch = frames.shape[0]
         height = frames.shape[3]
@@ -54,9 +55,6 @@ class RNN(nn.Module):
         c_t = []
         delta_c_list = []
         delta_m_list = []
-        if self.visual:
-            delta_c_visual = []
-            delta_m_visual = []
 
         decouple_loss = []
 
@@ -106,3 +104,20 @@ class RNN(nn.Module):
         next_frames = torch.stack(next_frames, dim=0).permute(1, 0, 3, 4, 2).contiguous()
         loss = self.MSE_criterion(next_frames, frames_tensor[:, 1:]) + self.configs.decouple_beta * decouple_loss
         return next_frames, loss
+
+
+@register_model
+class PredRNN(Model):
+
+    def __init__(self, num_layers, num_hidden, configs):
+        super().__init__()
+        self.model = RNN(num_layers, num_hidden, configs)
+
+    def forward(self, inputs):
+        self.model.forward(inputs, )
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]):
+        return PredRNN(num_layers=config["num_layers"],
+                       num_hidden=config["num_hidden"],
+                       configs=config)
