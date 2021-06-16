@@ -142,7 +142,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.num_crops = config.get("num_crops", 5)
 
         transforms = []
-        if self.train:
+        if self.train and False:
+            # Pointed out that flips might mess up learning dominant winds, etc. physical phenomena, disable for now
             transforms = [
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
