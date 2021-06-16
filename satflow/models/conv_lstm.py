@@ -143,7 +143,7 @@ class ConvLSTM(nn.Module):
             name = "cell{}".format(i)
             cell = ConvLSTMCell(
                 self.input_channels[i], self.hidden_channels[i], self.kernel_size
-            ).to(self.device)
+            )
             setattr(self, name, cell)
             self._all_layers.append(cell)
 

@@ -9,13 +9,14 @@ from omegaconf import DictConfig, OmegaConf
 import satflow.models
 import torch.nn.functional as F
 from satflow.models import get_model
-from satflow.core.training_utils import get_loaders, get_args
+from satflow.core.training_utils import get_loaders, get_args, setup_experiment
 import deepspeed
 
 logger = make_logger("satflow.train")
 
+
 def run_experiment(args):
-    config = load_config(args.config)
+    config = setup_experiment(args)
     config["device"] = (
         ("cuda" if torch.cuda.is_available() else "cpu") if not args.with_cpu else "cpu"
     )
@@ -75,4 +76,5 @@ def run_experiment(args):
 
 if __name__ == "__main__":
     args = get_args()
+
     run_experiment(args)

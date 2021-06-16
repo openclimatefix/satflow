@@ -19,14 +19,14 @@ def get_loaders(config):
     Returns:
         Dict[Dataloader] containing the train and test dataloaders
     """
-
-    train_dset = wds.WebDataset(config["train_pattern"])
-    test_dset = wds.WebDataset(config["test_pattern"])
+    print(config)
+    train_dset = wds.WebDataset(config["sources"]['train'])
+    test_dset = wds.WebDataset(config["sources"]['test'])
     train_dataset = get_dataset(config["name"])(
-        [train_dset], config=config["training"], train=True
+        [train_dset], config=config, train=True
     )
     test_dataset = get_dataset(config["name"])(
-        [test_dset], config=config["test"], train=False
+        [test_dset], config=config, train=False
     )
 
     train_dataloader = DataLoader(
@@ -53,6 +53,8 @@ def setup_experiment(args):
     """
 
     config = load_config(args.config)
+
+    config["dataset"]['num_workers'] = args.num_workers
     return config
 
 
@@ -77,6 +79,13 @@ def get_args():
         type=int,
         default=-1,
         help="local rank passed from distributed launcher",
+    )
+
+    parser.add_argument(
+        "-nw", "--num_workers",
+        type=int,
+        default=1,
+        help="Number of dataloader workers",
     )
 
     # Include DeepSpeed configuration arguments

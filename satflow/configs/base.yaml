@@ -6,38 +6,26 @@ training:
   early_stopping: 15
   lr_plateau: 10
   optimizer: "adam"
-  dataset:
-    name: "SatFlowDataset"
-    batch_size: 8
-    num_timesteps: 6
-    skip_timesteps: 2
-    forecaset_times: 12
-    output_shape: 128
-    target_type: "cloudmask"
-    num_crops: 10
-    use_topo: True
-    use_latlon: True
-    use_time: True
-    time_aux: False
-    use_mask: True
-    bands: ["HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073",]
-    transforms: {}
-test:
-  dataset:
-    name: "SatFlowDataset"
-    batch_size: 8
-    num_timesteps: 12
-    forecaset_times: 12
-    output_shape: 128
-    target_type: "cloudmask"
-    num_crops: 10
-    use_topo: True
-    use_latlon: True
-    use_time: True
-    time_aux: False
-    use_mask: True
-    bands: [ "HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073", ]
-    transforms: { }
+dataset:
+  name: "SatFlowDataset"
+  batch_size: 8
+  num_timesteps: 6
+  skip_timesteps: 2
+  forecaset_times: 12
+  output_shape: 128
+  target_type: "cloudmask"
+  num_crops: 10
+  use_topo: True
+  use_latlon: True
+  use_time: True
+  time_aux: False
+  use_mask: True
+  sources:
+    train: ""
+    test: ""
+  bands: ["HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073",]
+  transforms: {}
+test: {}
 model:
   name: "Unet"
   inputs: [topo, sat]
