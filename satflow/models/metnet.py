@@ -1,6 +1,6 @@
 import torch
 from satflow.models.base import register_model, Model
-from typing import Dict
+from typing import Dict, Any
 
 
 @register_model
@@ -10,5 +10,5 @@ class MetNet(Model):
         self.config = config
 
     @classmethod
-    def from_config(cls, config: Dict[str]):
+    def from_config(cls, config: Dict[str, Any]):
         return MetNet(config=config)

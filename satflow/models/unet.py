@@ -8,7 +8,7 @@ import os
 import gc
 from satflow.models.conv_lstm import ConvLSTM
 from satflow.models.base import register_model, Model
-from typing import Dict
+from typing import Dict, Any
 
 
 """
@@ -299,7 +299,7 @@ class Unet(Model):
         self.module.forward(x, init_token)
 
     @classmethod
-    def from_config(cls, config: Dict[str]):
+    def from_config(cls, config: Dict[str, Any]):
         return Unet(
             step_=config.get("step", 6),
             predict_=config.get("predict"),

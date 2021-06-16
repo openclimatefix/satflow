@@ -1,5 +1,5 @@
 import torch.nn
-from typing import Type, Dict
+from typing import Type, Dict, Any
 from abc import ABC, abstractmethod
 
 REGISTERED_MODELS = {}
@@ -26,5 +26,5 @@ class Model(torch.nn.Module, ABC):
 
     @classmethod
     @abstractmethod
-    def from_config(cls, config: Dict[str]):
+    def from_config(cls, config: Dict[str, Any]):
         return NotImplementedError
