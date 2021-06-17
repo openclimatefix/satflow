@@ -1,5 +1,4 @@
-from satflow.data.utils import map_satellite_to_mercator
-from glob import glob
+from satflow.data.utils.utils import map_satellite_to_mercator
 import os
 import subprocess
 
