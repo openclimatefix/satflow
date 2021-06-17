@@ -1,5 +1,4 @@
-from satflow.data.utils import map_satellite_to_mercator
-from glob import glob
+from satflow.data.utils.utils import map_satellite_to_mercator
 import os
 import subprocess
 
@@ -35,8 +34,8 @@ for root, dirs, files in os.walk(eumetsat_dir):
                 cloud_mask = os.path.join(root, f)
             if sat_file and cloud_mask:
                 map_satellite_to_mercator(
-                    sat_file,
-                    cloud_mask,
+                    native_satellite=sat_file,
+                    grib_files=cloud_mask,
                     save_loc=root,
                     bands=(
                         "HRV",
@@ -55,5 +54,10 @@ for root, dirs, files in os.walk(eumetsat_dir):
                     ),
                 )
                 os.remove(sat_file)
-    except:
+    except Exception as e:
+        print(e)
+        try:
+            os.remove(sat_file)
+        except:
+            continue
         continue

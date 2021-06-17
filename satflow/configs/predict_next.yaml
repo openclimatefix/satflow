@@ -9,15 +9,15 @@ training:
 dataset:
   name: "SatFlowDataset"
   batch_size: 8
-  num_timesteps: 6
-  skip_timesteps: 2
-  forecaset_times: 12
+  num_timesteps: 1
+  skip_timesteps: 1
+  forecaset_times: 1
   output_shape: 128
   target_type: "cloudmask"
   num_crops: 10
   use_topo: True
   use_latlon: True
-  use_time: True
+  use_time: False
   time_aux: False
   use_mask: True
   sources:
