@@ -1,15 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 from torch.autograd import Variable
-import numpy as np
-import os
-import gc
-from satflow.models.conv_lstm import ConvLSTM
+from satflow.models.layers.conv_lstm import ConvLSTM
 from satflow.models.base import register_model, Model
 from typing import Dict, Any
 from deepspeed.ops.adam import DeepSpeedCPUAdam
+import pytorch_lightning as pl
 
 
 
@@ -309,13 +306,12 @@ class Unet(Model):
             input_size=config.get("input_size", 256)
         )
 
-import pytorch_lightning as pl
 
 
 @register_model
 class LitUnet(pl.LightningModule):
 
-    def __init__(self, step=6, predict=3, channels=12, input_size=256, *args: Any, **kwargs: Any):
+    def __init__(self, step=6, predict=3, in_channels=20, channels=12, input_size=256, pred_image=False, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         if input_size != 256:
             self.resize_fraction = 256/input_size
@@ -370,7 +366,7 @@ class LitUnet(pl.LightningModule):
             effective_step=[2],
         )
 
-        self.down1 = conv_unit(channels, 62)
+        self.down1 = conv_unit(in_channels, 62)
 
         self.down2 = conv_unit(62, 120)
         self.down3 = conv_unit(120, 224)
@@ -382,7 +378,7 @@ class LitUnet(pl.LightningModule):
         self.up3 = Up_Layer(256, 128)
         self.up4 = Up_Layer(128, 64)
 
-        self.up5 = nn.Conv2d(64, channels, kernel_size=1)
+        self.up5 = nn.Conv2d(64, 1 if pred_image is False else channels, kernel_size=1) # Only for mask of clouds?
 
     def forward(self, x, init_token):
         # pop oldest buffer
@@ -432,12 +428,22 @@ class LitUnet(pl.LightningModule):
 
         return x
 
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        parser = parent_parser.add_argument_group("LitUnet")
+        parser.add_argument('--steps', type=int, default=6)
+        parser.add_argument('--predict', type=int, default=3)
+        parser.add_argument('--channels', type=int, default=12)
+        parser.add_argument('--input_size', type=int, default=256)
+        return parent_parser
+
     @classmethod
     def from_config(cls, config: Dict[str, Any]):
         return LitUnet(
             step_=config.get("step", 6),
-            predict_=config.get("predict"),
+            predict_=config.get("predict", 3),
             channels=config.get("channels", 12),
+            in_channels=config.get("in_channels", 20),
             input_size=config.get("input_size", 256)
         )
 

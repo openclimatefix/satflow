@@ -20,6 +20,7 @@ dataset:
   use_time: True
   time_aux: False
   use_mask: True
+  use_image: False
   sources:
     train: ""
     test: ""
@@ -27,6 +28,6 @@ dataset:
   transforms: {}
 test: {}
 model:
-  name: "Unet"
-  inputs: [topo, sat]
-  outputs: [3,]
+  name: "LitUnet"
+  in_channels: 68
+  input_size: 128

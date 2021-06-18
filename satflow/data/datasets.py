@@ -135,6 +135,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.use_time = config.get("use_time", True)
         self.time_aux = config.get("time_aux", False) # Time as an auxiliary input as 1D array
         self.use_mask = config.get("use_mask", True)
+        self.use_image = config.get("use_image", False)
 
         self.topo = None
         self.location = None
@@ -174,7 +175,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         time_layer[target_timestep] = 1
         return time_layer
 
-    def get_timestep(self, sample, idx, return_target=False):
+    def get_timestep(self, sample, idx, return_target=False, return_image=True):
         """
         Gets the image stack of the given timestep, if return_target is true, only returns teh mask and satellite channels
         as the model does not need to predict the time, topogrpahic data, etc.
@@ -183,6 +184,15 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         :param return_target:
         :return:
         """
+        target = load_np(sample[f"{self.target_type}.{idx:03d}.npy"])
+        if "mask" in self.target_type:
+            target = binarize_mask(
+                target
+            )  # Not actual target, but for now, should be good
+
+        if return_target and not return_image:
+            return None, target
+
         image = np.stack(
             [load_np(sample[f"{b.lower()}.{idx:03d}.npy"]) for b in self.bands], axis=-1
         )
@@ -190,13 +200,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         # Regularize here
         image = (image - MSG_MIN) / (MSG_MAX - MSG_MIN)
 
-        target = load_np(sample[f"{self.target_type}.{idx:03d}.npy"])
-        if "mask" in self.target_type:
-            target = binarize_mask(
-                target
-            )  # Not actual target, but for now, should be good
-
-        if return_target:
+        if return_target and return_image:
             return image, target
 
         if self.use_topo:
@@ -297,20 +301,24 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 )
                             # Now in a Time x W x H x Channel order
                             target_image, target_mask = self.get_timestep(
-                                sample, target_timestep, return_target=True
+                                sample, target_timestep, return_target=True, return_image=self.use_image
                             )
-                            target_image = self.aug.replay(replay, image=target_image)[
-                                "image"
-                            ]
+                            if target_image is not None:
+                                target_image = self.aug.replay(replay, image=target_image)[
+                                    "image"
+                                ]
+                                target_image = np.moveaxis(target_image, [2], [0])
                             target_mask = self.aug.replay(replay, image=target_mask)[
                                 "image"
                             ]
                             # Convert to Channel x Time x W x H
                             image = np.moveaxis(image, [3], [1])
-                            target_image = np.moveaxis(target_image, [2], [0])
                             target_mask = np.expand_dims(target_mask, axis=0)
 
                             if self.use_time and self.time_aux:
                                 time_layer = create_time_layer(target_timestep, self.output_shape)
                                 yield image, time_layer, target_image, target_mask
-                            yield image, target_image, target_mask
+                            if not self.use_image:
+                                yield image, target_mask
+                            else:
+                                yield image, target_image, target_mask
