@@ -454,6 +454,9 @@ class LitUnet(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
+
+        # Generally only care about the center x crop, so the model can take into account the clouds in the area without
+        # being penalized for that, but for now, just do general MSE loss
         loss = F.mse_loss(y_hat, y)
         return loss
 

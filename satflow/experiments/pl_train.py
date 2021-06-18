@@ -30,7 +30,6 @@ def run_experiment(args):
         get_model(config["model"]["name"])
             .from_config(config["model"])
     )
-    criterion = F.mse_loss
     # Load Datasets
     loaders = get_loaders(config["dataset"])
 
@@ -48,5 +47,4 @@ def run_experiment(args):
 
 if __name__ == "__main__":
     args = get_args()
-
     run_experiment(args)
