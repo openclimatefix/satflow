@@ -125,6 +125,7 @@ class PredRNN(Model):
                        num_hidden=config["num_hidden"],
                        configs=config)
 
+
 @register_model
 class LitPredRNN(pl.LightningModule):
 

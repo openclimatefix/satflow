@@ -5,7 +5,7 @@ from torch.autograd import Variable
 from satflow.models.layers.conv_lstm import ConvLSTM
 from satflow.models.base import register_model, Model
 from typing import Dict, Any
-from deepspeed.ops.adam import DeepSpeedCPUAdam
+#from deepspeed.ops.adam import DeepSpeedCPUAdam
 import pytorch_lightning as pl
 
 
@@ -307,12 +307,13 @@ class Unet(Model):
         )
 
 
+#from deepspeed.ops.adam import FusedAdam
 
 @register_model
 class LitUnet(pl.LightningModule):
 
     def __init__(self, step=6, predict=3, in_channels=20, channels=12, input_size=256, pred_image=False, *args: Any, **kwargs: Any):
-        super().__init__(*args, **kwargs)
+        super().__init__()
         if input_size != 256:
             self.resize_fraction = 256/input_size
         else:
@@ -449,11 +450,12 @@ class LitUnet(pl.LightningModule):
 
     def configure_optimizers(self):
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
-        return DeepSpeedCPUAdam(self.parameters())
+        #optimizer = torch.optim.adam()
+        return torch.optim.Adam(self.parameters(), lr=0.0001)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x)
+        y_hat = self(x, True)
 
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss
@@ -462,13 +464,13 @@ class LitUnet(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x)
+        y_hat = self(x, True)
         val_loss = F.mse_loss(y_hat, y)
         return val_loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x)
+        y_hat = self(x, True)
         loss = F.mse_loss(y_hat, y)
         return loss
 

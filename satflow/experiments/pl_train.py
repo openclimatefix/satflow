@@ -1,3 +1,4 @@
+import os
 import torch
 from satflow.data.datasets import SatFlowDataset
 from satflow.core.utils import load_config, make_logger
@@ -40,7 +41,7 @@ def run_experiment(args):
     #tuner = Tuner(trainer)
 
     #new_batch_size = tuner.scale_batch_size(model)
-    trainer = Trainer(gpus=1, plugins='deepspeed_stage_2_offload', precision=16)
+    trainer = Trainer(gpus=1, precision=16)
 
     trainer.fit(model, loaders['train'], loaders['test'])
 

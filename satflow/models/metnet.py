@@ -5,7 +5,7 @@ import pytorch_lightning as pl
 
 
 @register_model
-class MetNet(Model, pl.LightningModule):
+class MetNet(pl.LightningModule):
     def __init__(self, config):
         super().__init__()
         self.config = config

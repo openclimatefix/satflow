@@ -248,7 +248,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     f"{self.bands[0].lower()}.{idx:03d}.npy"
                     for idx in range(1, available_steps)
                 ]
-                if not all(e in sample_keys for e in key_checker) or len(sample_keys) == 0:
+                if not all(e in sample_keys for e in key_checker) or len(sample_keys) <= self.num_timesteps * self.skip_timesteps + self.forecast_times:
                     continue  # Skip this sample as it is missing timesteps, or has none
                 # Times that have enough previous timesteps and post timesteps for training
                 # pick one at random
@@ -288,17 +288,23 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             image = data["image"]
                             if self.use_time and not self.time_aux:
                                 image = np.concatenate([image, time_cube], axis=-1)
-                            image = np.expand_dims(image, axis=0)
-                            for i in range(idx - (self.num_timesteps * self.skip_timesteps) + 1, idx + 1, self.skip_timesteps):
-                                t_image, _ = self.get_timestep(sample, i)
-                                t_image = self.aug.replay(replay, image=t_image)[
-                                    "image"
-                                ]
-                                if self.use_time and not self.time_aux:
-                                    t_image = np.concatenate([t_image, time_cube], axis=-1)
-                                image = np.concatenate(
-                                    [image, np.expand_dims(t_image, axis=0)]
-                                )
+                            print(f"Num Timesteps: {self.num_timesteps}")
+                            if self.num_timesteps > 0:
+                                image = np.expand_dims(image, axis=0)
+                                for i in range(idx - (self.num_timesteps * self.skip_timesteps) + 1, idx + 1, self.skip_timesteps):
+                                    t_image, _ = self.get_timestep(sample, i)
+                                    t_image = self.aug.replay(replay, image=t_image)[
+                                        "image"
+                                    ]
+                                    if self.use_time and not self.time_aux:
+                                        t_image = np.concatenate([t_image, time_cube], axis=-1)
+                                    image = np.concatenate(
+                                        [image, np.expand_dims(t_image, axis=0)]
+                                    )
+                                image = np.moveaxis(image, [3], [1])
+                            else:
+                                image = np.moveaxis(image, [2], [0])
+                            print(f"Image Shape: {image.shape}")
                             # Now in a Time x W x H x Channel order
                             target_image, target_mask = self.get_timestep(
                                 sample, target_timestep, return_target=True, return_image=self.use_image
@@ -312,7 +318,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 "image"
                             ]
                             # Convert to Channel x Time x W x H
-                            image = np.moveaxis(image, [3], [1])
                             target_mask = np.expand_dims(target_mask, axis=0)
 
                             if self.use_time and self.time_aux:
