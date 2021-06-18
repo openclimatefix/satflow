@@ -143,6 +143,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
         transforms = []
         if self.train and False:
+            # TODO Change if we want to actually flip things
             # Pointed out that flips might mess up learning dominant winds, etc. physical phenomena, disable for now
             transforms = [
                 A.HorizontalFlip(p=0.5),
@@ -243,8 +244,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     f"{self.bands[0].lower()}.{idx:03d}.npy"
                     for idx in range(1, available_steps)
                 ]
-                if not all(e in sample_keys for e in key_checker):
-                    continue  # Skip this sample as it is missing timesteps
+                if not all(e in sample_keys for e in key_checker) or len(sample_keys) == 0:
+                    continue  # Skip this sample as it is missing timesteps, or has none
                 # Times that have enough previous timesteps and post timesteps for training
                 # pick one at random
 
@@ -260,12 +261,16 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 if self.use_latlon:
                     self.location = load_np(sample["location.npy"])
                 for idx in idxs:
-                    target_timesteps = (
-                        np.random.randint(
-                            idx + 1, idx + self.forecast_times, size=self.num_crops
+                    if self.train:
+                        target_timesteps = (
+                            np.random.randint(
+                                idx + 1, idx + self.forecast_times, size=self.num_crops
+                            )
+                            - idx
                         )
-                        - idx
-                    )
+                    else:
+                        # Testing, so do it for all timesteps
+                        target_timesteps = np.arange(start=idx+1, stop=idx+self.forecast_times) - idx
                     for target_timestep in target_timesteps:
                         time_cube = self.create_target_time_cube(target_timestep)
                         for _ in range(

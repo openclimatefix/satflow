@@ -9,6 +9,8 @@ import gc
 from satflow.models.conv_lstm import ConvLSTM
 from satflow.models.base import register_model, Model
 from typing import Dict, Any
+from deepspeed.ops.adam import DeepSpeedCPUAdam
+
 
 
 """
@@ -306,3 +308,158 @@ class Unet(Model):
             channels=config.get("channels", 12),
             input_size=config.get("input_size", 256)
         )
+
+import pytorch_lightning as pl
+
+
+@register_model
+class LitUnet(pl.LightningModule):
+
+    def __init__(self, step=6, predict=3, channels=12, input_size=256, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        if input_size != 256:
+            self.resize_fraction = 256/input_size
+        else:
+            self.resize_fraction = 1
+
+        self.latent_feature = 0
+        self.lstm_buf = []
+        self.step = step
+        self.pred = predict
+        self.free_mem_counter = 0
+        self.max_pool = nn.MaxPool2d(2)
+        self.upsample = nn.UpsamplingBilinear2d(scale_factor=2)
+
+        self.convlstm1 = ConvLSTM(
+            input_channels=512,
+            hidden_channels=[512, 512, 512],
+            kernel_size=3,
+            step=3,
+            effective_step=[2],
+        )
+
+        self.convlstm2 = ConvLSTM(
+            input_channels=384,
+            hidden_channels=[384, 256, 128],
+            kernel_size=3,
+            step=3,
+            effective_step=[2],
+        )
+
+        self.convlstm3 = ConvLSTM(
+            input_channels=224,
+            hidden_channels=[224, 128, 32],
+            kernel_size=3,
+            step=3,
+            effective_step=[2],
+        )
+
+        self.convlstm4 = ConvLSTM(
+            input_channels=120,
+            hidden_channels=[120, 64, 8],
+            kernel_size=3,
+            step=3,
+            effective_step=[2],
+        )
+
+        self.convlstm5 = ConvLSTM(
+            input_channels=62,
+            hidden_channels=[62, 32, 2],
+            kernel_size=3,
+            step=3,
+            effective_step=[2],
+        )
+
+        self.down1 = conv_unit(channels, 62)
+
+        self.down2 = conv_unit(62, 120)
+        self.down3 = conv_unit(120, 224)
+        self.down4 = conv_unit(224, 384)
+        self.down5 = conv_unit(384, 512)
+
+        self.up1 = Up_Layer0(1024, 512)
+        self.up2 = Up_Layer(512, 256)
+        self.up3 = Up_Layer(256, 128)
+        self.up4 = Up_Layer(128, 64)
+
+        self.up5 = nn.Conv2d(64, channels, kernel_size=1)
+
+    def forward(self, x, init_token):
+        # pop oldest buffer
+        if len(self.lstm_buf) >= self.step:
+            self.lstm_buf = self.lstm_buf[1:]
+
+        # down convolution
+        x1 = self.down1(x)
+        x2 = self.max_pool(x1)
+
+        x2 = self.down2(x2)
+        x3 = self.max_pool(x2)
+
+        x3 = self.down3(x3)
+        x4 = self.max_pool(x3)
+
+        x4 = self.down4(x4)
+        x5 = self.max_pool(x4)
+
+        x5 = self.down5(x5)
+
+        latent_feature1 = x5.view(
+            1, -1, int(16 / self.resize_fraction), int(16 / self.resize_fraction)
+        )
+        lstm_output1 = Variable(self.convlstm1(latent_feature1, init_token)[0])
+
+        lstm_output2 = Variable(self.convlstm2(x4, init_token)[0])
+        lstm_output3 = Variable(self.convlstm3(x3, init_token)[0])
+        lstm_output4 = Variable(self.convlstm4(x2, init_token)[0])
+        lstm_output5 = Variable(self.convlstm5(x1, init_token)[0])
+
+        x5 = torch.cat((x5, lstm_output1), dim=1)
+
+        x4 = torch.cat((x4, lstm_output2), dim=1)
+        x = self.up1(x5, x4)
+
+        x3 = torch.cat((x3, lstm_output3), dim=1)
+        x = self.up2(x, x3)
+
+        x2 = torch.cat((x2, lstm_output4), dim=1)
+        x = self.up3(x, x2)
+
+        x1 = torch.cat((x1, lstm_output5), dim=1)
+        x = self.up4(x, x1)
+
+        x = F.relu(self.up5(x))
+
+        return x
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]):
+        return LitUnet(
+            step_=config.get("step", 6),
+            predict_=config.get("predict"),
+            channels=config.get("channels", 12),
+            input_size=config.get("input_size", 256)
+        )
+
+    def configure_optimizers(self):
+        # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
+        return DeepSpeedCPUAdam(self.parameters())
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = F.mse_loss(y_hat, y)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        val_loss = F.mse_loss(y_hat, y)
+        return val_loss
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = F.mse_loss(y_hat, y)
+        return loss
+
