@@ -9,7 +9,7 @@ def load_config(file_path: str) -> Dict:
     return config
 
 
-def make_logger(name: str, level = logging.DEBUG) -> logging.Logger:
+def make_logger(name: str, level=logging.DEBUG) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(level=level)
     return logger
