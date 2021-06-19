@@ -22,10 +22,7 @@ def run_experiment(args):
     )
 
     # Load Model
-    model = (
-        get_model(config["model"]["name"])
-        .from_config(config["model"])
-    )
+    model = get_model(config["model"]["name"]).from_config(config["model"])
     criterion = F.mse_loss
     # Load Datasets
     loaders = get_loaders(config["dataset"])
@@ -55,7 +52,7 @@ def run_experiment(args):
         global_iteration += 1
         if global_iteration > config["iterations"]:
             break
-        if global_iteration % config['eval_steps'] == 0:
+        if global_iteration % config["eval_steps"] == 0:
             # Run testing
             test_loss = 0.0
             test_iteration = 0
@@ -68,9 +65,9 @@ def run_experiment(args):
                 outputs = model(inputs)
                 test_loss += criterion(outputs, labels).item()
                 test_iteration += 1
-                if (test_iteration * inputs.shape[0]) % config['eval_examples'] == 0:
+                if (test_iteration * inputs.shape[0]) % config["eval_examples"] == 0:
                     break
-            test_loss /= (test_iteration * inputs.shape[0])
+            test_loss /= test_iteration * inputs.shape[0]
             logger.info(f"Avg. Test Loss: {test_loss} Iteration: {global_iteration}")
 
 

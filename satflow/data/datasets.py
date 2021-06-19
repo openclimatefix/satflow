@@ -107,7 +107,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.datasets = datasets
         self.train = train
         self.num_timesteps = config["num_timesteps"]
-        self.skip_timesteps = config.get("skip_timesteps", 1) # Every nth historical timestep to take
+        self.skip_timesteps = config.get(
+            "skip_timesteps", 1
+        )  # Every nth historical timestep to take
         self.forecast_times = config.get(
             "forecast_times", 48
         )  # Max timesteps to predict ahead (minutes / 5) default 4 hours
@@ -136,7 +138,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.use_topo = config.get("use_topo", False)
         self.use_latlon = config.get("use_latlon", False)
         self.use_time = config.get("use_time", True)
-        self.time_aux = config.get("time_aux", False) # Time as an auxiliary input as 1D array
+        self.time_aux = config.get(
+            "time_aux", False
+        )  # Time as an auxiliary input as 1D array
         self.use_mask = config.get("use_mask", True)
 
         self.topo = None
@@ -152,7 +156,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 A.VerticalFlip(p=0.5),
             ]
         transforms.append(A.RandomCrop(self.output_shape, self.output_shape))
-        self.aug = A.ReplayCompose(transforms,)
+        self.aug = A.ReplayCompose(
+            transforms,
+        )
 
     def create_target_time_cube(self, target_timestep):
         """Create target time layer"""
@@ -210,7 +216,13 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 pickle.loads(sample["time.pyd"])[idx],
                 shape=(image.shape[0], image.shape[1]),
             )
-            image = np.concatenate([image, t,], axis=-1,)
+            image = np.concatenate(
+                [
+                    image,
+                    t,
+                ],
+                axis=-1,
+            )
         if self.use_mask:
             image = np.concatenate(
                 [
@@ -283,13 +295,19 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if self.use_time and not self.time_aux:
                                 image = np.concatenate([image, time_cube], axis=-1)
                             image = np.expand_dims(image, axis=0)
-                            for i in range(idx - (self.num_timesteps * self.skip_timesteps) + 1, idx + 1, self.skip_timesteps):
+                            for i in range(
+                                idx - (self.num_timesteps * self.skip_timesteps) + 1,
+                                idx + 1,
+                                self.skip_timesteps,
+                            ):
                                 t_image, _ = self.get_timestep(sample, i)
                                 t_image = self.aug.replay(replay, image=t_image)[
                                     "image"
                                 ]
                                 if self.use_time and not self.time_aux:
-                                    t_image = np.concatenate([t_image, time_cube], axis=-1)
+                                    t_image = np.concatenate(
+                                        [t_image, time_cube], axis=-1
+                                    )
                                 image = np.concatenate(
                                     [image, np.expand_dims(t_image, axis=0)]
                                 )
@@ -309,7 +327,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             target_mask = np.expand_dims(target_mask, axis=0)
 
                             if self.use_time and self.time_aux:
-                                time_layer = create_time_layer(target_timestep, self.output_shape)
+                                time_layer = create_time_layer(
+                                    target_timestep, self.output_shape
+                                )
                                 yield image, time_layer, target_image, target_mask
                             yield image, target_image, target_mask
 
@@ -323,10 +343,14 @@ class SatFlowIterDataset(SatFlowDataset):
 
     def __init__(self, datasets, config, train=True):
         urls = list(braceexpand.braceexpand(datasets))
-        datasets = [wds.WebDataset(src) for src in urls] # This is to ensure that each day is kept together
+        datasets = [
+            wds.WebDataset(src) for src in urls
+        ]  # This is to ensure that each day is kept together
         super(SatFlowIterDataset, self).__init__(datasets, config, train)
         self.topo = np.load("../resources/cutdown_europe_dem.npy")
-        self.topo = self.topo - np.min(self.topo) / (np.max(self.topo) - np.min(self.topo))
+        self.topo = self.topo - np.min(self.topo) / (
+            np.max(self.topo) - np.min(self.topo)
+        )
         self.topo = np.expand_dims(self.topo, axis=-1)
         self.location = np.load("../resources/location_array.npy")
         # Need to create topo and location arrays here fpr use later
@@ -365,7 +389,13 @@ class SatFlowIterDataset(SatFlowDataset):
                 pickle.loads(sample["time.pyd"]),
                 shape=(image.shape[0], image.shape[1]),
             )
-            image = np.concatenate([image, t,], axis=-1,)
+            image = np.concatenate(
+                [
+                    image,
+                    t,
+                ],
+                axis=-1,
+            )
         if self.use_mask:
             image = np.concatenate(
                 [
@@ -389,7 +419,7 @@ class SatFlowIterDataset(SatFlowDataset):
         # grid by taking the mean value of the interior ones
         sources = [iter(ds) for ds in self.datasets]
         while True:
-            np.random.shuffle(sources) # Shuffle order of the days
+            np.random.shuffle(sources)  # Shuffle order of the days
             for source in sources:
                 # Check to make sure all timesteps exist
                 # Times that have enough previous timesteps and post timesteps for training
@@ -398,17 +428,17 @@ class SatFlowIterDataset(SatFlowDataset):
                 idxs = np.random.randint(
                     self.num_timesteps * self.skip_timesteps,
                     144 - self.forecast_times,
-                    size=1, # TODO Change back to num crops when better
-                    )
+                    size=1,  # TODO Change back to num crops when better
+                )
                 # Need to get lowest to largest to keep iteration going
                 idxs = np.sort(idxs)
                 for idx in idxs:
                     # Get current and prev images
                     target_timesteps = (
-                            np.random.randint(
-                                idx + 1, idx + self.forecast_times, size=self.num_crops
-                            )
-                            - idx
+                        np.random.randint(
+                            idx + 1, idx + self.forecast_times, size=self.num_crops
+                        )
+                        - idx
                     )
                     target_timesteps = np.sort(target_timesteps)
                     s_timesteps = target_timesteps + idx
@@ -416,17 +446,21 @@ class SatFlowIterDataset(SatFlowDataset):
                     future_targets = []
                     future_images = []
                     curr_images = []
-                    for sample_idx, sample in source: # Go through one day
-                        if sample_idx == first_sample_idx: # First one
+                    for sample_idx, sample in source:  # Go through one day
+                        if sample_idx == first_sample_idx:  # First one
                             image, _ = self.get_timestep(
                                 sample, idx - self.num_timesteps
                             )  # First timestep considered
                             image = np.expand_dims(image, axis=0)
                             curr_images.append(image)
-                        elif sample_idx in np.arange(idx - ((self.num_timesteps - 1) * self.skip_timesteps), idx+self.skip_timesteps, self.skip_timesteps):
+                        elif sample_idx in np.arange(
+                            idx - ((self.num_timesteps - 1) * self.skip_timesteps),
+                            idx + self.skip_timesteps,
+                            self.skip_timesteps,
+                        ):
                             t_image, _ = self.get_timestep(sample, idx)
                             curr_images.append(t_image)
-                        elif sample_idx in s_timesteps: # In the future ones
+                        elif sample_idx in s_timesteps:  # In the future ones
                             target_image, target_mask = self.get_timestep(
                                 sample, sample_idx, return_target=True
                             )
@@ -434,9 +468,13 @@ class SatFlowIterDataset(SatFlowDataset):
                             future_targets.append(target_mask)
                     # Now do the post/pre processing
                     # First check if enough samples exist
-                    if len(curr_images) != (self.num_timesteps + 1) or len(future_images) != len(target_timesteps):
-                        print(f"Curr Wanted: {(self.num_timesteps + 1)} Curr Got: {len(curr_images)} "
-                              f"Future Wanted: {len(target_timesteps)} Future Got: {len(future_images)}")
+                    if len(curr_images) != (self.num_timesteps + 1) or len(
+                        future_images
+                    ) != len(target_timesteps):
+                        print(
+                            f"Curr Wanted: {(self.num_timesteps + 1)} Curr Got: {len(curr_images)} "
+                            f"Future Wanted: {len(target_timesteps)} Future Got: {len(future_images)}"
+                        )
                         continue
 
                     # Now do the cropping, but keep the original, adding the timecube, etc.
@@ -454,23 +492,27 @@ class SatFlowIterDataset(SatFlowDataset):
                                     "image"
                                 ]
                                 if self.use_time and not self.time_aux:
-                                    t_image = np.concatenate([t_image, time_cube], axis=-1)
+                                    t_image = np.concatenate(
+                                        [t_image, time_cube], axis=-1
+                                    )
                                 image = np.concatenate(
                                     [image, np.expand_dims(t_image, axis=0)]
                                 )
                             # Now in a Time x W x H x Channel order
-                            target_image = self.aug.replay(replay, image=future_images[i])[
-                                "image"
-                            ]
-                            target_mask = self.aug.replay(replay, image=future_targets[i])[
-                                "image"
-                            ]
+                            target_image = self.aug.replay(
+                                replay, image=future_images[i]
+                            )["image"]
+                            target_mask = self.aug.replay(
+                                replay, image=future_targets[i]
+                            )["image"]
                             # Convert to Channel x Time x W x H
                             image = np.moveaxis(image, [3], [1])
                             target_image = np.moveaxis(target_image, [2], [0])
                             target_mask = np.expand_dims(target_mask, axis=0)
 
                             if self.use_time and self.time_aux:
-                                time_layer = create_time_layer(target_timestep, self.output_shape)
+                                time_layer = create_time_layer(
+                                    target_timestep, self.output_shape
+                                )
                                 yield image, time_layer, target_image, target_mask
                             yield image, target_image, target_mask

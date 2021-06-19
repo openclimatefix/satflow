@@ -1,4 +1,4 @@
-__author__ = 'yunbo'
+__author__ = "yunbo"
 
 """
 
@@ -19,42 +19,101 @@ class SpatioTemporalLSTMCell(nn.Module):
         self._forget_bias = 1.0
         if layer_norm:
             self.conv_x = nn.Sequential(
-                nn.Conv2d(in_channel, num_hidden * 7, kernel_size=filter_size, stride=stride, padding=self.padding, bias=False),
-                nn.LayerNorm([num_hidden * 7, width, width])
+                nn.Conv2d(
+                    in_channel,
+                    num_hidden * 7,
+                    kernel_size=filter_size,
+                    stride=stride,
+                    padding=self.padding,
+                    bias=False,
+                ),
+                nn.LayerNorm([num_hidden * 7, width, width]),
             )
             self.conv_h = nn.Sequential(
-                nn.Conv2d(num_hidden, num_hidden * 4, kernel_size=filter_size, stride=stride, padding=self.padding, bias=False),
-                nn.LayerNorm([num_hidden * 4, width, width])
+                nn.Conv2d(
+                    num_hidden,
+                    num_hidden * 4,
+                    kernel_size=filter_size,
+                    stride=stride,
+                    padding=self.padding,
+                    bias=False,
+                ),
+                nn.LayerNorm([num_hidden * 4, width, width]),
             )
             self.conv_m = nn.Sequential(
-                nn.Conv2d(num_hidden, num_hidden * 3, kernel_size=filter_size, stride=stride, padding=self.padding, bias=False),
-                nn.LayerNorm([num_hidden * 3, width, width])
+                nn.Conv2d(
+                    num_hidden,
+                    num_hidden * 3,
+                    kernel_size=filter_size,
+                    stride=stride,
+                    padding=self.padding,
+                    bias=False,
+                ),
+                nn.LayerNorm([num_hidden * 3, width, width]),
             )
             self.conv_o = nn.Sequential(
-                nn.Conv2d(num_hidden * 2, num_hidden, kernel_size=filter_size, stride=stride, padding=self.padding, bias=False),
-                nn.LayerNorm([num_hidden, width, width])
+                nn.Conv2d(
+                    num_hidden * 2,
+                    num_hidden,
+                    kernel_size=filter_size,
+                    stride=stride,
+                    padding=self.padding,
+                    bias=False,
+                ),
+                nn.LayerNorm([num_hidden, width, width]),
             )
         else:
             self.conv_x = nn.Sequential(
-                nn.Conv2d(in_channel, num_hidden * 7, kernel_size=filter_size, stride=stride, padding=self.padding, bias=False),
+                nn.Conv2d(
+                    in_channel,
+                    num_hidden * 7,
+                    kernel_size=filter_size,
+                    stride=stride,
+                    padding=self.padding,
+                    bias=False,
+                ),
             )
             self.conv_h = nn.Sequential(
-                nn.Conv2d(num_hidden, num_hidden * 4, kernel_size=filter_size, stride=stride, padding=self.padding, bias=False),
+                nn.Conv2d(
+                    num_hidden,
+                    num_hidden * 4,
+                    kernel_size=filter_size,
+                    stride=stride,
+                    padding=self.padding,
+                    bias=False,
+                ),
             )
             self.conv_m = nn.Sequential(
-                nn.Conv2d(num_hidden, num_hidden * 3, kernel_size=filter_size, stride=stride, padding=self.padding, bias=False),
+                nn.Conv2d(
+                    num_hidden,
+                    num_hidden * 3,
+                    kernel_size=filter_size,
+                    stride=stride,
+                    padding=self.padding,
+                    bias=False,
+                ),
             )
             self.conv_o = nn.Sequential(
-                nn.Conv2d(num_hidden * 2, num_hidden, kernel_size=filter_size, stride=stride, padding=self.padding, bias=False),
+                nn.Conv2d(
+                    num_hidden * 2,
+                    num_hidden,
+                    kernel_size=filter_size,
+                    stride=stride,
+                    padding=self.padding,
+                    bias=False,
+                ),
             )
-        self.conv_last = nn.Conv2d(num_hidden * 2, num_hidden, kernel_size=1, stride=1, padding=0, bias=False)
-
+        self.conv_last = nn.Conv2d(
+            num_hidden * 2, num_hidden, kernel_size=1, stride=1, padding=0, bias=False
+        )
 
     def forward(self, x_t, h_t, c_t, m_t):
         x_concat = self.conv_x(x_t)
         h_concat = self.conv_h(h_t)
         m_concat = self.conv_m(m_t)
-        i_x, f_x, g_x, i_x_prime, f_x_prime, g_x_prime, o_x = torch.split(x_concat, self.num_hidden, dim=1)
+        i_x, f_x, g_x, i_x_prime, f_x_prime, g_x_prime, o_x = torch.split(
+            x_concat, self.num_hidden, dim=1
+        )
         i_h, f_h, g_h, o_h = torch.split(h_concat, self.num_hidden, dim=1)
         i_m, f_m, g_m = torch.split(m_concat, self.num_hidden, dim=1)
 
@@ -77,12 +136,3 @@ class SpatioTemporalLSTMCell(nn.Module):
         h_new = o_t * torch.tanh(self.conv_last(mem))
 
         return h_new, c_new, m_new, delta_c, delta_m
-
-
-
-
-
-
-
-
-
