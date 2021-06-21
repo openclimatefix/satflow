@@ -143,6 +143,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         )  # Time as an auxiliary input as 1D array
         self.use_mask = config.get("use_mask", True)
         self.use_image = config.get("use_image", False)
+        self.return_target_stack = config.get("stack_targets", False)
 
         self.topo = None
         self.location = None
@@ -281,7 +282,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 if self.use_latlon:
                     self.location = load_np(sample["location.npy"])
                 for idx in idxs:
-                    if self.train:
+                    target_timesteps = np.arange(start=idx+1, stop=idx+self.forecast_times) - idx
+                    if not self.return_target_stack:
                         target_timesteps = (
                             np.random.randint(
                                 idx + 1, idx + self.forecast_times, size=self.num_crops
@@ -289,14 +291,13 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             - idx
                         )
                     else:
-                        # Testing, so do it for all timesteps
-                        target_timesteps = np.arange(start=idx+1, stop=idx+self.forecast_times) - idx
-                    #print(f"IDX: {idxs} Timesteps: {target_timesteps}")
-                    for target_timestep in target_timesteps:
-                        time_cube = self.create_target_time_cube(target_timestep)
-                        for _ in range(
-                            self.num_crops
-                        ):  # Do 5 random crops as well for training
+                        # Same for all the crops TODO Change this to work for all setups/split to differnt datasets
+                        target_timesteps = np.full(self.num_crops, self.forecast_times)
+                    for _ in range(
+                        self.num_crops
+                    ):  # Do random crops as well for training
+                        for target_timestep in target_timesteps:
+                            time_cube = self.create_target_time_cube(target_timestep)
                             image, _ = self.get_timestep(
                                 sample, idx - self.num_timesteps
                             )  # First timestep considered
@@ -305,23 +306,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             image = data["image"]
                             if self.use_time and not self.time_aux:
                                 image = np.concatenate([image, time_cube], axis=-1)
-                            image = np.expand_dims(image, axis=0)
-                            for i in range(
-                                idx - (self.num_timesteps * self.skip_timesteps) + 1,
-                                idx + 1,
-                                self.skip_timesteps,
-                            ):
-                                t_image, _ = self.get_timestep(sample, i)
-                                t_image = self.aug.replay(replay, image=t_image)[
-                                    "image"
-                                ]
-                                if self.use_time and not self.time_aux:
-                                    t_image = np.concatenate(
-                                        [t_image, time_cube], axis=-1
-                                    )
-                                image = np.concatenate(
-                                    [image, np.expand_dims(t_image, axis=0)]
-                                )
+                            image = self.create_stack(idx, image, replay, sample, time_cube)
                             # Now in a Time x W x H x Channel order
                             target_image, target_mask = self.get_timestep(
                                 sample, target_timestep, return_target=True, return_image=self.use_image
@@ -334,10 +319,30 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             target_mask = self.aug.replay(replay, image=target_mask)[
                                 "image"
                             ]
-                            # Convert to Channel x Time x W x H
                             target_mask = np.expand_dims(target_mask, axis=0)
+                            # Now create stack here
+                            for i in range(idx + 1, idx + self.forecast_times):
+                                t_image, t_mask = self.get_timestep(
+                                    sample, target_timestep, return_target=True, return_image=self.use_image
+                                )
+                                t_mask = self.aug.replay(replay, image=t_mask)[
+                                    "image"
+                                ]
+                                target_mask = np.concatenate(
+                                    [target_mask, np.expand_dims(t_mask, axis=0)]
+                                )
+                                if self.use_image:
+                                    t_image = self.aug.replay(replay, image=t_image)[
+                                        "image"
+                                    ]
+                                    target_image = np.concatenate(
+                                        [target_image, np.expand_dims(t_image, axis=0)]
+                                    )
+                            # Convert to Time x Channel x W x H
+                            #target_mask = np.expand_dims(target_mask, axis=1)
                             # One timestep as well
-                            target_mask = np.expand_dims(target_mask, axis=0)
+                            if not self.return_target_stack:
+                                target_mask = np.expand_dims(target_mask, axis=0)
                             target_mask = target_mask.astype(np.float32)
 
                             # Convert to float/half-precision
@@ -354,6 +359,26 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 yield image, target_mask
                             else:
                                 yield image, target_image, target_mask
+
+    def create_stack(self, idx, image, replay, sample, time_cube):
+        image = np.expand_dims(image, axis=0)
+        for i in range(
+                idx - (self.num_timesteps * self.skip_timesteps) + 1,
+                idx + 1,
+                self.skip_timesteps,
+        ):
+            t_image, _ = self.get_timestep(sample, i)
+            t_image = self.aug.replay(replay, image=t_image)[
+                "image"
+            ]
+            if self.use_time and not self.time_aux:
+                t_image = np.concatenate(
+                    [t_image, time_cube], axis=-1
+                )
+            image = np.concatenate(
+                [image, np.expand_dims(t_image, axis=0)]
+            )
+        return image
 
 
 @register_dataset

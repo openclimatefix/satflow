@@ -4,16 +4,17 @@ import torch.nn.functional as F
 
 from satflow.models.layers.ConvLSTM import ConvLSTMCell
 
-from satflow.models.base import register_model, Model
+from satflow.models.base import register_model
 from typing import Dict, Any
 import pytorch_lightning as pl
 
 
 @register_model
 class EncoderDecoderConvLSTM(pl.LightningModule):
-    def __init__(self, num_hidden, in_channels=12, out_channels=1):
+    def __init__(self, num_hidden, in_channels, out_channels, forecast_steps, learning_rate):
         super(EncoderDecoderConvLSTM, self).__init__()
-
+        self.forecast_steps = forecast_steps
+        self.lr = learning_rate
         """ ARCHITECTURE 
 
         # Encoder (ConvLSTM)
@@ -51,7 +52,9 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
     def from_config(cls, config):
         return EncoderDecoderConvLSTM(num_hidden=config.get('num_hidden', 64),
                                       in_channels=config.get('in_channels', 12),
-                                      out_channels=config.get('out_channels', 1))
+                                      out_channels=config.get('out_channels', 1),
+                                      forecast_steps=config.get('forecast_steps', 1),
+                                      learning_rate=config.get('learning_rate', 0.001))
 
     def autoencoder(self, x, seq_len, future_step, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
 
@@ -109,11 +112,11 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
     def configure_optimizers(self):
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
         #optimizer = torch.optim.adam()
-        return torch.optim.Adam(self.parameters(), lr=0.0001)
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x, 1)
+        y_hat = self(x, self.forecast_steps)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         loss = F.mse_loss(y_hat, y)
@@ -121,12 +124,12 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x, 1)
+        y_hat = self(x, self.forecast_steps)
         val_loss = F.mse_loss(y_hat, y)
         return val_loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x, 1)
+        y_hat = self(x, self.forecast_steps)
         loss = F.mse_loss(y_hat, y)
         return loss

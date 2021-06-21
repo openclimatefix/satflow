@@ -41,10 +41,11 @@ def run_experiment(args):
     #tuner = Tuner(trainer)
 
     #new_batch_size = tuner.scale_batch_size(model)
-    trainer = Trainer(gpus=1)
+    trainer = Trainer(gpus=1, auto_lr_find=True)
+
+    trainer.tune(model, loaders['train'], loaders['test'])
 
     trainer.fit(model, loaders['train'], loaders['test'])
-
 
 if __name__ == "__main__":
     args = get_args()

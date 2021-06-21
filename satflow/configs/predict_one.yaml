@@ -8,16 +8,16 @@ training:
   optimizer: "adam"
 dataset:
   name: "SatFlowDataset"
-  batch_size: 8
+  batch_size: 4
   num_timesteps: 3
   skip_timesteps: 1
-  forecast_times: 2
+  forecast_times: 6
   output_shape: 128
   target_type: "cloudmask"
   num_crops: 10
   use_topo: True
   use_latlon: True
-  use_time: True
+  use_time: False
   time_aux: False
   use_mask: True
   use_image: False
@@ -29,6 +29,7 @@ dataset:
 test: {}
 model:
   name: "EncoderDecoderConvLSTM"
-  in_channels: 22
+  in_channels: 17
   num_hidden: 64
   out_channels: 1
+  forecast_steps: 6
