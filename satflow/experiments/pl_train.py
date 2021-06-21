@@ -41,7 +41,7 @@ def run_experiment(args):
     #tuner = Tuner(trainer)
 
     #new_batch_size = tuner.scale_batch_size(model)
-    trainer = Trainer(gpus=1, precision=16)
+    trainer = Trainer(gpus=1)
 
     trainer.fit(model, loaders['train'], loaders['test'])
 

@@ -269,12 +269,13 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 # pick one at random
 
                 idxs = np.random.randint(
-                    self.num_timesteps * self.skip_timesteps,
+                    self.num_timesteps * self.skip_timesteps + 1,
                     available_steps - self.forecast_times,
                     size=self.num_crops,
                 )
                 if self.use_topo:
                     topo = load_np(sample["topo.npy"])
+                    topo[topo < 0] = 0 # Elevation shouldn't really be below 0 here (ocean mostly)
                     self.topo = topo - np.min(topo) / (np.max(topo) - np.min(topo))
                     self.topo = np.expand_dims(self.topo, axis=-1)
                 if self.use_latlon:
@@ -290,6 +291,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     else:
                         # Testing, so do it for all timesteps
                         target_timesteps = np.arange(start=idx+1, stop=idx+self.forecast_times) - idx
+                    #print(f"IDX: {idxs} Timesteps: {target_timesteps}")
                     for target_timestep in target_timesteps:
                         time_cube = self.create_target_time_cube(target_timestep)
                         for _ in range(
@@ -334,6 +336,14 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             ]
                             # Convert to Channel x Time x W x H
                             target_mask = np.expand_dims(target_mask, axis=0)
+                            # One timestep as well
+                            target_mask = np.expand_dims(target_mask, axis=0)
+                            target_mask = target_mask.astype(np.float32)
+
+                            # Convert to float/half-precision
+                            image = image.astype(np.float32)
+                            # Move channel to Time x Channel x W x H
+                            image = np.moveaxis(image, [3], [1])
 
                             if self.use_time and self.time_aux:
                                 time_layer = create_time_layer(

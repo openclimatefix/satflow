@@ -102,25 +102,15 @@ class ConvLSTMCell(nn.Module):
     ## initialize h and c internal state only, keep weight mask the same
     def init_hidden(self, batch_size, hidden, shape):
         if self.Wci is None:
-            self.Wci = Variable(torch.zeros(1, hidden, shape[0], shape[1])).to(
-                self.device
-            )
-            self.Wcf = Variable(torch.zeros(1, hidden, shape[0], shape[1])).to(
-                self.device
-            )
-            self.Wco = Variable(torch.zeros(1, hidden, shape[0], shape[1])).to(
-                self.device
-            )
+            self.Wci = Variable(torch.zeros(1, hidden, shape[0], shape[1]))
+            self.Wcf = Variable(torch.zeros(1, hidden, shape[0], shape[1]))
+            self.Wco = Variable(torch.zeros(1, hidden, shape[0], shape[1]))
         else:
             assert shape[0] == self.Wci.size()[2], "Input Height Mismatched!"
             assert shape[1] == self.Wci.size()[3], "Input Width Mismatched!"
         return (
-            Variable(torch.zeros(batch_size, hidden, shape[0], shape[1])).to(
-                self.device
-            ),
-            Variable(torch.zeros(batch_size, hidden, shape[0], shape[1])).to(
-                self.device
-            ),
+            Variable(torch.zeros(batch_size, hidden, shape[0], shape[1])),
+            Variable(torch.zeros(batch_size, hidden, shape[0], shape[1])),
         )
 
 

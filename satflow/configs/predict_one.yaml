@@ -8,10 +8,10 @@ training:
   optimizer: "adam"
 dataset:
   name: "SatFlowDataset"
-  batch_size: 8
-  num_timesteps: 0
+  batch_size: 16
+  num_timesteps: 3
   skip_timesteps: 1
-  forecast_times: 1
+  forecast_times: 6
   output_shape: 128
   target_type: "cloudmask"
   num_crops: 10
@@ -22,13 +22,13 @@ dataset:
   use_mask: True
   use_image: False
   sources:
-    train: "/run/media/jacob/HDD/satflow-flow-{00001..00105..2}.tar"
-    test: "/run/media/jacob/HDD/satflow-flow-{00002..00106..4}.tar"
+    train: "/run/media/jacob/HDD/chunked/satflow-flow-12-{00001..00050}.tar"
+    test: "/run/media/jacob/HDD/chunked/satflow-flow-12-{00051..00141..10}.tar"
   bands: ["HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073",]
   transforms: {}
 test: {}
 model:
-  name: "LitUnet"
-  in_channels: 32
-  input_size: 128
+  name: "EncoderDecoderConvLSTM"
+  in_chan: 26
+  nf: 128
   channels: 12
