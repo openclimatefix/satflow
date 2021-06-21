@@ -11,7 +11,7 @@ dataset:
   batch_size: 8
   num_timesteps: 3
   skip_timesteps: 1
-  forecast_times: 6
+  forecast_times: 2
   output_shape: 128
   target_type: "cloudmask"
   num_crops: 10
@@ -29,6 +29,6 @@ dataset:
 test: {}
 model:
   name: "EncoderDecoderConvLSTM"
-  in_channels: 26
+  in_channels: 22
   num_hidden: 64
   out_channels: 1
