@@ -11,7 +11,7 @@ import pytorch_lightning as pl
 
 @register_model
 class EncoderDecoderConvLSTM(pl.LightningModule):
-    def __init__(self, nf, in_chan):
+    def __init__(self, num_hidden, in_channels=12, out_channels=1):
         super(EncoderDecoderConvLSTM, self).__init__()
 
         """ ARCHITECTURE 
@@ -22,35 +22,36 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         # Decoder (3D CNN) - produces regression predictions for our model
 
         """
-        self.encoder_1_convlstm = ConvLSTMCell(input_dim=in_chan,
-                                               hidden_dim=nf,
+        self.encoder_1_convlstm = ConvLSTMCell(input_dim=in_channels,
+                                               hidden_dim=num_hidden,
                                                kernel_size=(3, 3),
                                                bias=True)
 
-        self.encoder_2_convlstm = ConvLSTMCell(input_dim=nf,
-                                               hidden_dim=nf,
+        self.encoder_2_convlstm = ConvLSTMCell(input_dim=num_hidden,
+                                               hidden_dim=num_hidden,
                                                kernel_size=(3, 3),
                                                bias=True)
 
-        self.decoder_1_convlstm = ConvLSTMCell(input_dim=nf,  # nf + 1
-                                               hidden_dim=nf,
+        self.decoder_1_convlstm = ConvLSTMCell(input_dim=num_hidden,  # nf + 1
+                                               hidden_dim=num_hidden,
                                                kernel_size=(3, 3),
                                                bias=True)
 
-        self.decoder_2_convlstm = ConvLSTMCell(input_dim=nf,
-                                               hidden_dim=nf,
+        self.decoder_2_convlstm = ConvLSTMCell(input_dim=num_hidden,
+                                               hidden_dim=num_hidden,
                                                kernel_size=(3, 3),
                                                bias=True)
 
-        self.decoder_CNN = nn.Conv3d(in_channels=nf,
-                                     out_channels=1,
+        self.decoder_CNN = nn.Conv3d(in_channels=num_hidden,
+                                     out_channels=out_channels,
                                      kernel_size=(1, 3, 3),
                                      padding=(0, 1, 1))
 
     @classmethod
     def from_config(cls, config):
-        return EncoderDecoderConvLSTM(nf=config['nf'],
-                                      in_chan=config['in_chan'])
+        return EncoderDecoderConvLSTM(num_hidden=config.get('num_hidden', 64),
+                                      in_channels=config.get('in_channels', 12),
+                                      out_channels=config.get('out_channels', 1))
 
     def autoencoder(self, x, seq_len, future_step, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
 
