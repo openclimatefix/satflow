@@ -20,8 +20,8 @@ def get_loaders(config):
         Dict[Dataloader] containing the train and test dataloaders
     """
     print(config)
-    train_dset = wds.WebDataset(config["sources"]["train"])
-    test_dset = wds.WebDataset(config["sources"]["test"])
+    train_dset = wds.WebDataset(config["sources"]["train"], shardshuffle=True)
+    test_dset = wds.WebDataset(config["sources"]["test"], shardshuffle=True)
     train_dataset = get_dataset(config["name"])([train_dset], config=config, train=True)
     test_dataset = get_dataset(config["name"])([test_dset], config=config, train=False)
 
@@ -86,7 +86,7 @@ def get_args():
     )
 
     # Include DeepSpeed configuration arguments
-    parser = deepspeed.add_config_arguments(parser)
+    # parser = deepspeed.add_config_arguments(parser)
 
     args = parser.parse_args()
 

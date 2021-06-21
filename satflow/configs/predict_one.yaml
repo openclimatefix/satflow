@@ -9,24 +9,26 @@ training:
 dataset:
   name: "SatFlowDataset"
   batch_size: 8
-  num_timesteps: 6
+  num_timesteps: 3
   skip_timesteps: 1
-  forecast_times: 3
+  forecast_times: 2
   output_shape: 128
   target_type: "cloudmask"
   num_crops: 10
   use_topo: True
   use_latlon: True
-  use_time: False
+  use_time: True
   time_aux: False
   use_mask: True
+  use_image: False
   sources:
-    train: ""
-    test: ""
+    train: "/run/media/jacob/HDD/chunked/satflow-flow-12-{00001..00050}.tar"
+    test: "/run/media/jacob/HDD/chunked/satflow-flow-12-{00051..00141..10}.tar"
   bands: ["HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073",]
   transforms: {}
 test: {}
 model:
-  name: "Unet"
-  inputs: [topo, sat]
-  outputs: [3,]
+  name: "EncoderDecoderConvLSTM"
+  in_channels: 22
+  num_hidden: 64
+  out_channels: 1

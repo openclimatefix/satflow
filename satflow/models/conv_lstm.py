@@ -1,203 +1,132 @@
 import torch
-import numpy as np
-import os
 import torch.nn as nn
-from torch.autograd import Variable
+import torch.nn.functional as F
 
-"""
-Taken from https://github.com/vagr8/R_Unet
-"""
+from satflow.models.layers.ConvLSTM import ConvLSTMCell
 
-
-class ConvLSTMCell(nn.Module):
-    def __init__(self, input_channels, hidden_channels, kernel_size):
-        super(ConvLSTMCell, self).__init__()
-
-        assert hidden_channels % 2 == 0
-
-        self.input_channels = input_channels
-        self.hidden_channels = hidden_channels
-        self.kernel_size = kernel_size
-        self.num_features = 4
-
-        self.padding = int((kernel_size - 1) / 2)
-
-        self.Wxi = nn.Conv2d(
-            self.input_channels,
-            self.hidden_channels,
-            self.kernel_size,
-            1,
-            self.padding,
-            bias=True,
-        )
-        self.Whi = nn.Conv2d(
-            self.hidden_channels,
-            self.hidden_channels,
-            self.kernel_size,
-            1,
-            self.padding,
-            bias=False,
-        )
-        self.Wxf = nn.Conv2d(
-            self.input_channels,
-            self.hidden_channels,
-            self.kernel_size,
-            1,
-            self.padding,
-            bias=True,
-        )
-        self.Whf = nn.Conv2d(
-            self.hidden_channels,
-            self.hidden_channels,
-            self.kernel_size,
-            1,
-            self.padding,
-            bias=False,
-        )
-        self.Wxc = nn.Conv2d(
-            self.input_channels,
-            self.hidden_channels,
-            self.kernel_size,
-            1,
-            self.padding,
-            bias=True,
-        )
-        self.Whc = nn.Conv2d(
-            self.hidden_channels,
-            self.hidden_channels,
-            self.kernel_size,
-            1,
-            self.padding,
-            bias=False,
-        )
-        self.Wxo = nn.Conv2d(
-            self.input_channels,
-            self.hidden_channels,
-            self.kernel_size,
-            1,
-            self.padding,
-            bias=True,
-        )
-        self.Who = nn.Conv2d(
-            self.hidden_channels,
-            self.hidden_channels,
-            self.kernel_size,
-            1,
-            self.padding,
-            bias=False,
-        )
-
-        self.Wci = None
-        self.Wcf = None
-        self.Wco = None
-
-    def forward(self, x, h, c):
-        ci = torch.sigmoid(self.Wxi(x) + self.Whi(h) + c * self.Wci)
-        cf = torch.sigmoid(self.Wxf(x) + self.Whf(h) + c * self.Wcf)
-        cc = cf * c + ci * torch.tanh(self.Wxc(x) + self.Whc(h))
-        co = torch.sigmoid(self.Wxo(x) + self.Who(h) + cc * self.Wco)
-        ch = co * torch.tanh(cc)
-        return ch, cc
-
-    ## initialize h and c internal state only, keep weight mask the same
-    def init_hidden(self, batch_size, hidden, shape):
-        if self.Wci is None:
-            self.Wci = Variable(torch.zeros(1, hidden, shape[0], shape[1])).to(
-                self.device
-            )
-            self.Wcf = Variable(torch.zeros(1, hidden, shape[0], shape[1])).to(
-                self.device
-            )
-            self.Wco = Variable(torch.zeros(1, hidden, shape[0], shape[1])).to(
-                self.device
-            )
-        else:
-            assert shape[0] == self.Wci.size()[2], "Input Height Mismatched!"
-            assert shape[1] == self.Wci.size()[3], "Input Width Mismatched!"
-        return (
-            Variable(torch.zeros(batch_size, hidden, shape[0], shape[1])).to(
-                self.device
-            ),
-            Variable(torch.zeros(batch_size, hidden, shape[0], shape[1])).to(
-                self.device
-            ),
-        )
+from satflow.models.base import register_model, Model
+from typing import Dict, Any
+import pytorch_lightning as pl
 
 
-class ConvLSTM(nn.Module):
-    # input_channels corresponds to the first input feature map
-    # hidden state is a list of succeeding lstm layers.
-    def __init__(
-        self, input_channels, hidden_channels, kernel_size, step=1, effective_step=[1]
-    ):
-        super(ConvLSTM, self).__init__()
-        self.input_channels = [input_channels] + hidden_channels
-        self.hidden_channels = hidden_channels
-        self.kernel_size = kernel_size
-        self.num_layers = len(hidden_channels)
-        self.step = step
-        self.effective_step = effective_step
-        self._all_layers = []
+@register_model
+class EncoderDecoderConvLSTM(pl.LightningModule):
+    def __init__(self, num_hidden, in_channels=12, out_channels=1):
+        super(EncoderDecoderConvLSTM, self).__init__()
 
-        for i in range(self.num_layers):
-            name = "cell{}".format(i)
-            cell = ConvLSTMCell(
-                self.input_channels[i], self.hidden_channels[i], self.kernel_size
-            )
-            setattr(self, name, cell)
-            self._all_layers.append(cell)
+        """ ARCHITECTURE 
 
-    def forward(self, input, init_token=False):
+        # Encoder (ConvLSTM)
+        # Encoder Vector (final hidden state of encoder)
+        # Decoder (ConvLSTM) - takes Encoder Vector as input
+        # Decoder (3D CNN) - produces regression predictions for our model
+
+        """
+        self.encoder_1_convlstm = ConvLSTMCell(input_dim=in_channels,
+                                               hidden_dim=num_hidden,
+                                               kernel_size=(3, 3),
+                                               bias=True)
+
+        self.encoder_2_convlstm = ConvLSTMCell(input_dim=num_hidden,
+                                               hidden_dim=num_hidden,
+                                               kernel_size=(3, 3),
+                                               bias=True)
+
+        self.decoder_1_convlstm = ConvLSTMCell(input_dim=num_hidden,  # nf + 1
+                                               hidden_dim=num_hidden,
+                                               kernel_size=(3, 3),
+                                               bias=True)
+
+        self.decoder_2_convlstm = ConvLSTMCell(input_dim=num_hidden,
+                                               hidden_dim=num_hidden,
+                                               kernel_size=(3, 3),
+                                               bias=True)
+
+        self.decoder_CNN = nn.Conv3d(in_channels=num_hidden,
+                                     out_channels=out_channels,
+                                     kernel_size=(1, 3, 3),
+                                     padding=(0, 1, 1))
+
+    @classmethod
+    def from_config(cls, config):
+        return EncoderDecoderConvLSTM(num_hidden=config.get('num_hidden', 64),
+                                      in_channels=config.get('in_channels', 12),
+                                      out_channels=config.get('out_channels', 1))
+
+    def autoencoder(self, x, seq_len, future_step, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
 
         outputs = []
-        if init_token == True:
-            self.internal_state = []
 
-        for step in range(1):
-            x = input
+        # encoder
+        for t in range(seq_len):
+            h_t, c_t = self.encoder_1_convlstm(input_tensor=x[:, t, :, :],
+                                               cur_state=[h_t, c_t])  # we could concat to provide skip conn here
+            h_t2, c_t2 = self.encoder_2_convlstm(input_tensor=h_t,
+                                                 cur_state=[h_t2, c_t2])  # we could concat to provide skip conn here
 
-            for i in range(self.num_layers):
-                name = "cell{}".format(i)
+        # encoder_vector
+        encoder_vector = h_t2
 
-                # at first step of each video, pass init_token = True in, and initiallize internal states
-                if step == 0 and init_token == True:
-                    bsize, _, height, width = x.size()
-                    (h, c) = getattr(self, name).init_hidden(
-                        batch_size=bsize,
-                        hidden=self.hidden_channels[i],
-                        shape=(height, width),
-                    )
-                    self.internal_state.append((h, c))
+        # decoder
+        for t in range(future_step):
+            h_t3, c_t3 = self.decoder_1_convlstm(input_tensor=encoder_vector,
+                                                 cur_state=[h_t3, c_t3])  # we could concat to provide skip conn here
+            h_t4, c_t4 = self.decoder_2_convlstm(input_tensor=h_t3,
+                                                 cur_state=[h_t4, c_t4])  # we could concat to provide skip conn here
+            encoder_vector = h_t4
+            outputs += [h_t4]  # predictions
 
-                # do forward
-                (h, c) = self.internal_state[i]
-                x, new_c = getattr(self, name)(x, h, c)
-                self.internal_state[i] = (x, new_c)
-
-            # only record last output
-            outputs.append(x)
+        outputs = torch.stack(outputs, 1)
+        outputs = outputs.permute(0, 2, 1, 3, 4)
+        outputs = self.decoder_CNN(outputs)
+        outputs = torch.nn.Sigmoid()(outputs)
 
         return outputs
 
+    def forward(self, x, future_seq=0, hidden_state=None):
 
-if __name__ == "__main__":
-    # gradient check
-    convlstm = ConvLSTM(
-        input_channels=1024,
-        hidden_channels=[1024, 512, 512],
-        kernel_size=3,
-        step=3,
-        effective_step=[2],
-    )
-    loss_fn = torch.nn.MSELoss()
+        """
+        Parameters
+        ----------
+        input_tensor:
+            5-D Tensor of shape (b, t, c, h, w)        #   batch, time, channel, height, width
+        """
 
-    input = Variable(torch.randn(1, 1024, 16, 16))
-    target = Variable(torch.randn(1, 512, 16, 16)).double()
+        # find size of different input dimensions
+        b, seq_len, _, h, w = x.size()
 
-    output = convlstm(input)
-    output = output[0][0].double()
-    print(np.asarray(output[0].detach(), dtype=float).shape)
-    res = torch.autograd.gradcheck(
-        loss_fn, (output, target), eps=1e-6, raise_exception=True
-    )
-    print(res)
+        # initialize hidden states
+        h_t, c_t = self.encoder_1_convlstm.init_hidden(batch_size=b, image_size=(h, w))
+        h_t2, c_t2 = self.encoder_2_convlstm.init_hidden(batch_size=b, image_size=(h, w))
+        h_t3, c_t3 = self.decoder_1_convlstm.init_hidden(batch_size=b, image_size=(h, w))
+        h_t4, c_t4 = self.decoder_2_convlstm.init_hidden(batch_size=b, image_size=(h, w))
+
+        # autoencoder forward
+        outputs = self.autoencoder(x, seq_len, future_seq, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4)
+
+        return outputs
+
+    def configure_optimizers(self):
+        # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
+        #optimizer = torch.optim.adam()
+        return torch.optim.Adam(self.parameters(), lr=0.0001)
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x, 1)
+        # Generally only care about the center x crop, so the model can take into account the clouds in the area without
+        # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
+        loss = F.mse_loss(y_hat, y)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x, 1)
+        val_loss = F.mse_loss(y_hat, y)
+        return val_loss
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x, 1)
+        loss = F.mse_loss(y_hat, y)
+        return loss

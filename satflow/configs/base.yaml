@@ -11,7 +11,7 @@ dataset:
   batch_size: 8
   num_timesteps: 6
   skip_timesteps: 2
-  forecaset_times: 12
+  forecast_times: 12
   output_shape: 128
   target_type: "cloudmask"
   num_crops: 10
@@ -20,13 +20,15 @@ dataset:
   use_time: True
   time_aux: False
   use_mask: True
+  use_image: False
   sources:
-    train: ""
-    test: ""
+    train: "/run/media/jacob/HDD/satflow-flow-{00001..00105..2}.tar"
+    test: "/run/media/jacob/HDD/satflow-flow-{00002..00106..4}.tar"
   bands: ["HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073",]
   transforms: {}
 test: {}
 model:
-  name: "Unet"
-  inputs: [topo, sat]
-  outputs: [3,]
+  name: "LitUnet"
+  in_channels: 32
+  input_size: 128
+  channels: 12
