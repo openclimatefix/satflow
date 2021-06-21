@@ -41,7 +41,9 @@ def run_experiment(args):
     #tuner = Tuner(trainer)
 
     #new_batch_size = tuner.scale_batch_size(model)
-    trainer = Trainer(gpus=1, auto_lr_find=True)
+    trainer = Trainer(gpus=1, auto_lr_find=True, max_steps=config['training']['iterations'], min_epochs=0,
+                      val_check_interval=config['training']['eval_steps'],
+                      limit_train_batches=5000, limit_val_batches=config['training']['eval_examples'])
 
     trainer.tune(model, loaders['train'], loaders['test'])
 
