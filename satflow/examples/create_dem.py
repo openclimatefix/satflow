@@ -1,11 +1,11 @@
+import glob
+
+import numpy as np
 import rasterio
+from pyresample import load_area
 from rasterio.merge import merge
 from rasterio.plot import show
-import glob
 from satpy import Scene
-from pyresample import load_area
-import numpy as np
-
 
 dem_path = "/home/bieker/bda/Bulk Order 20210611_041625/SRTM 1 Arc-Second Global/*.tif"
 dem_files = glob.glob(dem_path)

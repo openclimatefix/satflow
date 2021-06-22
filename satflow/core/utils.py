@@ -1,6 +1,7 @@
-import yaml
 import logging
 import typing as Dict
+
+import yaml
 
 
 def load_config(file_path: str) -> Dict:
@@ -18,9 +19,10 @@ def make_logger(name: str, level=logging.DEBUG) -> logging.Logger:
 import logging
 import warnings
 from typing import List, Sequence
+
+import pytorch_lightning as pl
 import rich.syntax
 import rich.tree
-import pytorch_lightning as pl
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
@@ -94,16 +96,16 @@ def extras(config: DictConfig) -> None:
 
 @rank_zero_only
 def print_config(
-        config: DictConfig,
-        fields: Sequence[str] = (
-                "trainer",
-                "model",
-                "datamodule",
-                "callbacks",
-                #"logger",
-                #"seed",
-        ),
-        resolve: bool = True,
+    config: DictConfig,
+    fields: Sequence[str] = (
+        "trainer",
+        "model",
+        "datamodule",
+        "callbacks",
+        # "logger",
+        # "seed",
+    ),
+    resolve: bool = True,
 ) -> None:
     """Prints content of DictConfig using Rich library and its tree structure.
 
@@ -136,9 +138,9 @@ def empty(*args, **kwargs):
 
 @rank_zero_only
 def log_hyperparameters(
-        config: DictConfig,
-        model: pl.LightningModule,
-        trainer: pl.Trainer,
+    config: DictConfig,
+    model: pl.LightningModule,
+    trainer: pl.Trainer,
 ) -> None:
     """This method controls which parameters from Hydra config are saved by Lightning loggers.
 
@@ -171,4 +173,3 @@ def log_hyperparameters(
     # this is just a trick to prevent trainer from logging hparams of model,
     # since we already did that above
     trainer.logger.log_hyperparams = empty
-

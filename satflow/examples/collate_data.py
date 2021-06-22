@@ -1,6 +1,7 @@
-from satflow.data.utils.utils import map_satellite_to_mercator
 import os
 import subprocess
+
+from satflow.data.utils.utils import map_satellite_to_mercator
 
 eumetsat_dir = "/run/media/bieker/Round1/EUMETSAT/"
 

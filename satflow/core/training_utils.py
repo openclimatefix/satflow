@@ -1,10 +1,12 @@
+import argparse
+
 import torch
 import webdataset as wds
-import satflow.data.datasets
-from satflow.data.datasets import get_dataset
 from torch.utils.data import DataLoader
+
+import satflow.data.datasets
 from satflow.core.utils import load_config
-import argparse
+from satflow.data.datasets import get_dataset
 
 
 def get_loaders(config):
@@ -28,13 +30,19 @@ def get_loaders(config):
         train_dataset,
         num_workers=config["num_workers"],
         batch_size=config["batch_size"],
-        pin_memory=True
+        pin_memory=True,
     )
     val_dataloader = DataLoader(
-        val_dataset, num_workers=config["num_workers"], batch_size=config["batch_size"], pin_memory=True
+        val_dataset,
+        num_workers=config["num_workers"],
+        batch_size=config["batch_size"],
+        pin_memory=True,
     )
     test_dataloader = DataLoader(
-        test_dataset, num_workers=config["num_workers"], batch_size=config["batch_size"], pin_memory=True
+        test_dataset,
+        num_workers=config["num_workers"],
+        batch_size=config["batch_size"],
+        pin_memory=True,
     )
 
     return {"train": train_dataloader, "val": val_dataloader, "test": test_dataloader}

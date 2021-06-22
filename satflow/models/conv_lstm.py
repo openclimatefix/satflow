@@ -1,12 +1,12 @@
+from typing import Any, Dict
+
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from satflow.models.layers.ConvLSTM import ConvLSTMCell
-
 from satflow.models.base import register_model
-from typing import Dict, Any
-import pytorch_lightning as pl
+from satflow.models.layers.ConvLSTM import ConvLSTMCell
 
 
 @register_model
@@ -15,7 +15,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         super(EncoderDecoderConvLSTM, self).__init__()
         self.forecast_steps = forecast_steps
         self.lr = learning_rate
-        """ ARCHITECTURE 
+        """ ARCHITECTURE
 
         # Encoder (ConvLSTM)
         # Encoder Vector (final hidden state of encoder)
@@ -23,38 +23,38 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         # Decoder (3D CNN) - produces regression predictions for our model
 
         """
-        self.encoder_1_convlstm = ConvLSTMCell(input_dim=in_channels,
-                                               hidden_dim=num_hidden,
-                                               kernel_size=(3, 3),
-                                               bias=True)
+        self.encoder_1_convlstm = ConvLSTMCell(
+            input_dim=in_channels, hidden_dim=num_hidden, kernel_size=(3, 3), bias=True
+        )
 
-        self.encoder_2_convlstm = ConvLSTMCell(input_dim=num_hidden,
-                                               hidden_dim=num_hidden,
-                                               kernel_size=(3, 3),
-                                               bias=True)
+        self.encoder_2_convlstm = ConvLSTMCell(
+            input_dim=num_hidden, hidden_dim=num_hidden, kernel_size=(3, 3), bias=True
+        )
 
-        self.decoder_1_convlstm = ConvLSTMCell(input_dim=num_hidden,  # nf + 1
-                                               hidden_dim=num_hidden,
-                                               kernel_size=(3, 3),
-                                               bias=True)
+        self.decoder_1_convlstm = ConvLSTMCell(
+            input_dim=num_hidden, hidden_dim=num_hidden, kernel_size=(3, 3), bias=True  # nf + 1
+        )
 
-        self.decoder_2_convlstm = ConvLSTMCell(input_dim=num_hidden,
-                                               hidden_dim=num_hidden,
-                                               kernel_size=(3, 3),
-                                               bias=True)
+        self.decoder_2_convlstm = ConvLSTMCell(
+            input_dim=num_hidden, hidden_dim=num_hidden, kernel_size=(3, 3), bias=True
+        )
 
-        self.decoder_CNN = nn.Conv3d(in_channels=num_hidden,
-                                     out_channels=out_channels,
-                                     kernel_size=(1, 3, 3),
-                                     padding=(0, 1, 1))
+        self.decoder_CNN = nn.Conv3d(
+            in_channels=num_hidden,
+            out_channels=out_channels,
+            kernel_size=(1, 3, 3),
+            padding=(0, 1, 1),
+        )
 
     @classmethod
     def from_config(cls, config):
-        return EncoderDecoderConvLSTM(num_hidden=config.get('num_hidden', 64),
-                                      in_channels=config.get('in_channels', 12),
-                                      out_channels=config.get('out_channels', 1),
-                                      forecast_steps=config.get('forecast_steps', 1),
-                                      learning_rate=config.get('learning_rate', 0.001))
+        return EncoderDecoderConvLSTM(
+            num_hidden=config.get("num_hidden", 64),
+            in_channels=config.get("in_channels", 12),
+            out_channels=config.get("out_channels", 1),
+            forecast_steps=config.get("forecast_steps", 1),
+            learning_rate=config.get("learning_rate", 0.001),
+        )
 
     def autoencoder(self, x, seq_len, future_step, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
 
@@ -62,20 +62,24 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
 
         # encoder
         for t in range(seq_len):
-            h_t, c_t = self.encoder_1_convlstm(input_tensor=x[:, t, :, :],
-                                               cur_state=[h_t, c_t])  # we could concat to provide skip conn here
-            h_t2, c_t2 = self.encoder_2_convlstm(input_tensor=h_t,
-                                                 cur_state=[h_t2, c_t2])  # we could concat to provide skip conn here
+            h_t, c_t = self.encoder_1_convlstm(
+                input_tensor=x[:, t, :, :], cur_state=[h_t, c_t]
+            )  # we could concat to provide skip conn here
+            h_t2, c_t2 = self.encoder_2_convlstm(
+                input_tensor=h_t, cur_state=[h_t2, c_t2]
+            )  # we could concat to provide skip conn here
 
         # encoder_vector
         encoder_vector = h_t2
 
         # decoder
         for t in range(future_step):
-            h_t3, c_t3 = self.decoder_1_convlstm(input_tensor=encoder_vector,
-                                                 cur_state=[h_t3, c_t3])  # we could concat to provide skip conn here
-            h_t4, c_t4 = self.decoder_2_convlstm(input_tensor=h_t3,
-                                                 cur_state=[h_t4, c_t4])  # we could concat to provide skip conn here
+            h_t3, c_t3 = self.decoder_1_convlstm(
+                input_tensor=encoder_vector, cur_state=[h_t3, c_t3]
+            )  # we could concat to provide skip conn here
+            h_t4, c_t4 = self.decoder_2_convlstm(
+                input_tensor=h_t3, cur_state=[h_t4, c_t4]
+            )  # we could concat to provide skip conn here
             encoder_vector = h_t4
             outputs += [h_t4]  # predictions
 
@@ -105,13 +109,15 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         h_t4, c_t4 = self.decoder_2_convlstm.init_hidden(batch_size=b, image_size=(h, w))
 
         # autoencoder forward
-        outputs = self.autoencoder(x, seq_len, future_seq, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4)
+        outputs = self.autoencoder(
+            x, seq_len, future_seq, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4
+        )
 
         return outputs
 
     def configure_optimizers(self):
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
-        #optimizer = torch.optim.adam()
+        # optimizer = torch.optim.adam()
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def training_step(self, batch, batch_idx):

@@ -1,7 +1,9 @@
-import torch
-from satflow.models.base import register_model, Model
-from typing import Dict, Any
+from typing import Any, Dict
+
 import pytorch_lightning as pl
+import torch
+
+from satflow.models.base import Model, register_model
 
 
 @register_model

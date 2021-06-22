@@ -1,6 +1,8 @@
+import os
+
 from satip import eumetsat
 from satip.eumetsat import compress_downloaded_files
-import os
+
 from satflow.data.utils import eumetsat_name_to_datetime
 
 data_dir = "/run/media/bieker/Round1/EUMETSAT/"
@@ -8,8 +10,8 @@ debug_fp = "../logs/EUMETSAT_download.txt"
 metadata_db_fp = "../data/EUMETSAT_metadata.db"
 
 
-from glob import glob
 import shutil
+from glob import glob
 
 grb_files = glob(data_dir + "*.grb")
 
@@ -57,7 +59,5 @@ for day in [2, 8, 15, 22, 27]:
                 f"{year}-{month}-{day} 20:04",
                 product_id="EO:EUM:DAT:MSG:RSS-MPE-GRIB",
             )
-            dm.download_date_range(
-                f"{year}-{month}-{day} 07:59", f"{year}-{month}-{day} 20:04"
-            )
+            dm.download_date_range(f"{year}-{month}-{day} 07:59", f"{year}-{month}-{day} 20:04")
             compress_downloaded_files(data_dir=data_dir, compressed_dir=data_dir)

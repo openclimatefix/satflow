@@ -10,9 +10,9 @@ from pytorch_lightning import (
     seed_everything,
 )
 from pytorch_lightning.loggers import LightningLoggerBase
-from satflow.core.training_utils import get_loaders
 
 from satflow.core import utils
+from satflow.core.training_utils import get_loaders
 
 log = utils.get_logger(__name__)
 
@@ -59,7 +59,9 @@ def train(config: DictConfig) -> Optional[float]:
     # Init Lightning trainer
     log.info(f"Instantiating trainer <{config.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(
-        config.trainer, callbacks=callbacks, logger=logger,
+        config.trainer,
+        callbacks=callbacks,
+        logger=logger,
     )
 
     # Send some parameters from config to all lightning loggers
@@ -72,12 +74,12 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Train the model
     log.info("Starting training!")
-    trainer.fit(model=model, train_dataloader=loaders['train'], val_dataloaders=loaders['val'])
+    trainer.fit(model=model, train_dataloader=loaders["train"], val_dataloaders=loaders["val"])
 
     # Evaluate model on test set after training
     if not config.trainer.get("fast_dev_run"):
         log.info("Starting testing!")
-        trainer.test(test_dataloaders=loaders['test'])
+        trainer.test(test_dataloaders=loaders["test"])
 
     # Print path to best checkpoint
     log.info(f"Best checkpoint path:\n{trainer.checkpoint_callback.best_model_path}")

@@ -24,7 +24,21 @@ dataset:
   sources:
     train: "/run/media/jacob/HDD/chunked/satflow-flow-12-{00001..00050}.tar"
     test: "/run/media/jacob/HDD/chunked/satflow-flow-12-{00051..00141..10}.tar"
-  bands: ["HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073",]
+  bands:
+    [
+      "HRV",
+      "IR016",
+      "IR039",
+      "IR087",
+      "IR097",
+      "IR108",
+      "IR120",
+      "IR134",
+      "VIS006",
+      "VIS008",
+      "WV062",
+      "WV073",
+    ]
   transforms: {}
 test: {}
 model:

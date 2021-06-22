@@ -23,10 +23,24 @@ dataset:
   sources:
     train: ""
     test: ""
-  bands: ["HRV","IR016","IR039","IR087","IR097","IR108","IR120","IR134","VIS006","VIS008","WV062","WV073",]
+  bands:
+    [
+      "HRV",
+      "IR016",
+      "IR039",
+      "IR087",
+      "IR097",
+      "IR108",
+      "IR120",
+      "IR134",
+      "VIS006",
+      "VIS008",
+      "WV062",
+      "WV073",
+    ]
   transforms: {}
 test: {}
 model:
   name: "Unet"
   inputs: [topo, sat]
-  outputs: [3,]
+  outputs: [3]

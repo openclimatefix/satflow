@@ -1,12 +1,12 @@
 # SatFlow
-***Sat***ellite Optical ***Flow*** with machine learning models. 
+***Sat***ellite Optical ***Flow*** with machine learning models.
 
-The goal of this repo is to improve upon optical flow models for predicting 
+The goal of this repo is to improve upon optical flow models for predicting
 future satellite images from current and past ones, focused primarily on EUMETSAT data.
 
 ## Installation
 
-Clone the repository, then run 
+Clone the repository, then run
 ```shell
 conda env create -f environment.yml
 conda activate satflow
