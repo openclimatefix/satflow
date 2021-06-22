@@ -10,6 +10,7 @@ from pytorch_lightning import (
     seed_everything,
 )
 from pytorch_lightning.loggers import LightningLoggerBase
+from satflow.core.training_utils import get_loaders
 
 from satflow.core import utils
 
@@ -31,9 +32,9 @@ def train(config: DictConfig) -> Optional[float]:
     if "seed" in config:
         seed_everything(config.seed, workers=True)
 
-    # Init Lightning datamodule
-    log.info(f"Instantiating datamodule <{config.datamodule._target_}>")
-    datamodule: LightningDataModule = hydra.utils.instantiate(config.datamodule)
+    # Init Dataloaders
+    log.info(f"Instantiating dataloaders <{config.datamodule._target_}>")
+    loaders = get_loaders(config.dataloader)
 
     # Init Lightning model
     log.info(f"Instantiating model <{config.model._target_}>")
@@ -66,7 +67,6 @@ def train(config: DictConfig) -> Optional[float]:
     utils.log_hyperparameters(
         config=config,
         model=model,
-        datamodule=datamodule,
         trainer=trainer,
         callbacks=callbacks,
         logger=logger,
@@ -74,23 +74,12 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Train the model
     log.info("Starting training!")
-    trainer.fit(model=model, datamodule=datamodule)
+    trainer.fit(model=model, train_dataloader=loaders['train'], val_dataloaders=loaders['val'])
 
     # Evaluate model on test set after training
     if not config.trainer.get("fast_dev_run"):
         log.info("Starting testing!")
-        trainer.test()
-
-    # Make sure everything closed properly
-    log.info("Finalizing!")
-    utils.finish(
-        config=config,
-        model=model,
-        datamodule=datamodule,
-        trainer=trainer,
-        callbacks=callbacks,
-        logger=logger,
-    )
+        trainer.test(test_dataloaders=loaders['test'])
 
     # Print path to best checkpoint
     log.info(f"Best checkpoint path:\n{trainer.checkpoint_callback.best_model_path}")

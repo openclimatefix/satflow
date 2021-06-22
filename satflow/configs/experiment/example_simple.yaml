@@ -6,7 +6,7 @@
 defaults:
   - override /trainer: minimal.yaml # choose trainer from 'configs/trainer/'
   - override /model: convlstm_model.yaml
-  - override /datamodule: mnist_datamodule.yaml
+  - override /datamodule: satflow_dataloaders.yaml
   - override /callbacks: default.yaml
   - override /logger: null
 

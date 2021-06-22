@@ -18,20 +18,26 @@ def get_loaders(config):
     """
     print(config)
     train_dset = wds.WebDataset(config["sources"]["train"])
+    val_dset = wds.WebDataset(config["sources"]["val"])
     test_dset = wds.WebDataset(config["sources"]["test"])
     train_dataset = get_dataset(config["name"])([train_dset], config=config, train=True)
+    val_dataset = get_dataset(config["name"])([val_dset], config=config, train=False)
     test_dataset = get_dataset(config["name"])([test_dset], config=config, train=False)
 
     train_dataloader = DataLoader(
         train_dataset,
         num_workers=config["num_workers"],
         batch_size=config["batch_size"],
+        pin_memory=True
+    )
+    val_dataloader = DataLoader(
+        val_dataset, num_workers=config["num_workers"], batch_size=config["batch_size"], pin_memory=True
     )
     test_dataloader = DataLoader(
-        test_dataset, num_workers=config["num_workers"], batch_size=config["batch_size"]
+        test_dataset, num_workers=config["num_workers"], batch_size=config["batch_size"], pin_memory=True
     )
 
-    return {"train": train_dataloader, "test": test_dataloader}
+    return {"train": train_dataloader, "val": val_dataloader, "test": test_dataloader}
 
 
 def setup_experiment(args):

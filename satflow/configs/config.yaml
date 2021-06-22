@@ -4,7 +4,7 @@
 defaults:
   - trainer: minimal.yaml
   - model: convlstm_model.yaml
-  - datamodule: mnist_datamodule.yaml
+  - datamodule: satflow_dataloaders.yaml
   - callbacks: default.yaml # set this to null if you don't want to use callbacks
   - logger: null # set logger here or use command line (e.g. `python run.py logger=wandb`)
 
@@ -24,7 +24,7 @@ defaults:
 work_dir: ${hydra:runtime.cwd}
 
 # path to folder with data
-data_dir: ${work_dir}/data/
+data_dir: /run/media/bieker/data/EUMETSAT/
 
 # use `python run.py debug=true` for easy debugging!
 # this will run 1 train, val and test loop with only 1 batch

@@ -1,9 +1,5 @@
 _target_: satflow.models.convlstm.EncoderDecoderConvLSTM
-
-input_size: 784
-lin1_size: 256
-lin2_size: 256
-lin3_size: 256
-output_size: 10
-lr: 0.001
-weight_decay: 0.0005
+in_channels: 17
+num_hidden: 64
+out_channels: 1
+forecast_steps: 12
