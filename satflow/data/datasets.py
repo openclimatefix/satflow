@@ -334,11 +334,11 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if self.time_as_chennels:
                                 images = image[0]
                                 for m in image[1:]:
-                                    images = np.concatenate(images, m, axis=0)
+                                    images = np.concatenate([images, m], axis=0)
                                 image = images
                                 ts = target_mask[0]
                                 for t in target_mask[1:]:
-                                    ts = np.concatenate(ts, t, axis=0)
+                                    ts = np.concatenate([ts, t], axis=0)
                                 target_mask = ts
 
                             if self.use_time and self.time_aux:

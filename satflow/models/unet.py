@@ -31,8 +31,8 @@ class Unet(pl.LightningModule):
             learning_rate=config.get("learning_rate", 0.001),
         )
 
-    def forward(self, *args, **kwargs):
-        return
+    def forward(self, x):
+        return self.model.forward(x)
 
     def configure_optimizers(self):
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
