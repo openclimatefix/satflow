@@ -128,6 +128,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.use_mask = config.get("use_mask", True)
         self.use_image = config.get("use_image", False)
         self.return_target_stack = config.get("stack_targets", False)
+        self.time_as_chennels = config.get("time_as_channels", False)
 
         self.topo = None
         self.location = None
@@ -330,6 +331,15 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             image = image.astype(np.float32)
                             # Move channel to Time x Channel x W x H
                             image = np.moveaxis(image, [3], [1])
+                            if self.time_as_chennels:
+                                images = image[0]
+                                for m in image[1:]:
+                                    images = np.concatenate(images, m, axis=0)
+                                image = images
+                                ts = target_mask[0]
+                                for t in target_mask[1:]:
+                                    ts = np.concatenate(ts, t, axis=0)
+                                target_mask = ts
 
                             if self.use_time and self.time_aux:
                                 time_layer = create_time_layer(target_timestep, self.output_shape)

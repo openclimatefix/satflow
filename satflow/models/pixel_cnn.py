@@ -2,28 +2,28 @@ import torch
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from satflow.models.base import register_model
-from pl_bolts.models.vision import UNet
+from pl_bolts.models.vision import PixelCNN as Pixcnn
 
 
 @register_model
-class Unet(pl.LightningModule):
+class PixelCNN(pl.LightningModule):
     def __init__(
         self,
-        forecast_steps: int,
+        future_timesteps: int,
         input_channels: int = 3,
         num_layers: int = 5,
         features_start: int = 64,
         bilinear: bool = False,
         learning_rate: float = 0.001,
     ):
-        super(Unet, self).__init__()
+        super(PixelCNN, self).__init__()
         self.lr = learning_rate
-        self.model = UNet(forecast_steps, input_channels, num_layers, features_start, bilinear)
+        self.model = Pixcnn(future_timesteps, input_channels, num_layers, features_start, bilinear)
 
     @classmethod
     def from_config(cls, config):
-        return Unet(
-            forecast_steps=config.get("forecast_steps", 12),
+        return PixelCNN(
+            future_timesteps=config.get("future_timesteps", 12),
             input_channels=config.get("in_channels", 12),
             features_start=config.get("features", 64),
             num_layers=config.get("num_layers", 5),

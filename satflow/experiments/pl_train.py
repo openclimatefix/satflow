@@ -76,7 +76,7 @@ def train(config: DictConfig) -> Optional[float]:
     trainer.fit(model=model, train_dataloader=loaders["train"], val_dataloaders=loaders["val"])
 
     # Evaluate model on test set after training
-    if not config.trainer.get("fast_dev_run"):
+    if not config.trainer.get("fast_dev_run", False):
         log.info("Starting testing!")
         trainer.test(test_dataloaders=loaders["test"])
 
