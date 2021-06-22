@@ -1,54 +1,101 @@
-import os
-import torch
-from satflow.data.datasets import SatFlowDataset
-from satflow.core.utils import load_config, make_logger
-import webdataset as wds
-from torch.utils.data import DataLoader
-from tqdm import tqdm
+from typing import List, Optional
+
 import hydra
-from omegaconf import DictConfig, OmegaConf
-import satflow.models
-import torch.nn.functional as F
-from satflow.models import get_model
-from satflow.core.training_utils import get_loaders, get_args, setup_experiment
-from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.tuner.tuning import Tuner
-from pytorch_lightning.plugins import DeepSpeedPlugin
+from omegaconf import DictConfig
+from pytorch_lightning import (
+    Callback,
+    LightningDataModule,
+    LightningModule,
+    Trainer,
+    seed_everything,
+)
+from pytorch_lightning.loggers import LightningLoggerBase
+
+from satflow.core import utils
+
+log = utils.get_logger(__name__)
 
 
+def train(config: DictConfig) -> Optional[float]:
+    """Contains training pipeline.
+    Instantiates all PyTorch Lightning objects from config.
 
-logger = make_logger("satflow.train")
+    Args:
+        config (DictConfig): Configuration composed by Hydra.
 
+    Returns:
+        Optional[float]: Metric score for hyperparameter optimization.
+    """
 
-def run_experiment(args):
-    config = setup_experiment(args)
-    config["device"] = (
-        ("cuda" if torch.cuda.is_available() else "cpu") if not args.with_cpu else "cpu"
+    # Set seed for random number generators in pytorch, numpy and python.random
+    if "seed" in config:
+        seed_everything(config.seed, workers=True)
+
+    # Init Lightning datamodule
+    log.info(f"Instantiating datamodule <{config.datamodule._target_}>")
+    datamodule: LightningDataModule = hydra.utils.instantiate(config.datamodule)
+
+    # Init Lightning model
+    log.info(f"Instantiating model <{config.model._target_}>")
+    model: LightningModule = hydra.utils.instantiate(config.model)
+
+    # Init Lightning callbacks
+    callbacks: List[Callback] = []
+    if "callbacks" in config:
+        for _, cb_conf in config["callbacks"].items():
+            if "_target_" in cb_conf:
+                log.info(f"Instantiating callback <{cb_conf._target_}>")
+                callbacks.append(hydra.utils.instantiate(cb_conf))
+
+    # Init Lightning loggers
+    logger: List[LightningLoggerBase] = []
+    if "logger" in config:
+        for _, lg_conf in config["logger"].items():
+            if "_target_" in lg_conf:
+                log.info(f"Instantiating logger <{lg_conf._target_}>")
+                logger.append(hydra.utils.instantiate(lg_conf))
+
+    # Init Lightning trainer
+    log.info(f"Instantiating trainer <{config.trainer._target_}>")
+    trainer: Trainer = hydra.utils.instantiate(
+        config.trainer, callbacks=callbacks, logger=logger, _convert_="partial"
     )
 
-    # Load Model
-    model = (
-        get_model(config["model"]["name"])
-            .from_config(config["model"])
+    # Send some parameters from config to all lightning loggers
+    log.info("Logging hyperparameters!")
+    utils.log_hyperparameters(
+        config=config,
+        model=model,
+        datamodule=datamodule,
+        trainer=trainer,
+        callbacks=callbacks,
+        logger=logger,
     )
-    # Load Datasets
-    loaders = get_loaders(config["dataset"])
 
-    # Get batch size that fits in memory
+    # Train the model
+    log.info("Starting training!")
+    trainer.fit(model=model, datamodule=datamodule)
 
-    #trainer = Trainer(auto_scale_batch_size='power')
-    #trainer.tune(model)
-    #tuner = Tuner(trainer)
+    # Evaluate model on test set after training
+    if not config.trainer.get("fast_dev_run"):
+        log.info("Starting testing!")
+        trainer.test()
 
-    #new_batch_size = tuner.scale_batch_size(model)
-    trainer = Trainer(gpus=1, auto_lr_find=True, max_steps=config['training']['iterations'], min_epochs=0,
-                      val_check_interval=config['training']['eval_steps'],
-                      limit_train_batches=5000, limit_val_batches=config['training']['eval_examples'])
+    # Make sure everything closed properly
+    log.info("Finalizing!")
+    utils.finish(
+        config=config,
+        model=model,
+        datamodule=datamodule,
+        trainer=trainer,
+        callbacks=callbacks,
+        logger=logger,
+    )
 
-    trainer.tune(model, loaders['train'], loaders['test'])
+    # Print path to best checkpoint
+    log.info(f"Best checkpoint path:\n{trainer.checkpoint_callback.best_model_path}")
 
-    trainer.fit(model, loaders['train'], loaders['test'])
-
-if __name__ == "__main__":
-    args = get_args()
-    run_experiment(args)
+    # Return metric score for hyperparameter optimization
+    optimized_metric = config.get("optimized_metric")
+    if optimized_metric:
+        return trainer.callback_metrics[optimized_metric]

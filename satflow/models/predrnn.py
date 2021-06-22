@@ -16,7 +16,6 @@ from satflow.models.layers.SpatioTemporalLSTMCell_memory_decoupling import (
 import torch.nn.functional as F
 from satflow.models.base import Model, register_model
 import pytorch_lightning as pl
-from deepspeed.ops.adam import DeepSpeedCPUAdam
 
 
 
@@ -283,7 +282,7 @@ class LitPredRNN(pl.LightningModule):
 
     def configure_optimizers(self):
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
-        return DeepSpeedCPUAdam(self.parameters())
+        return None #DeepSpeedCPUAdam(self.parameters())
 
     def training_step(self, batch, batch_idx):
         x, y = batch
