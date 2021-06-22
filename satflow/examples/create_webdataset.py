@@ -48,7 +48,7 @@ box_2 = (446, -1, 978, -1)
 eumetsat_dir = "/run/media/bieker/Round1/EUMETSAT/"
 
 
-def make_day(data, flow=True, batch=36):
+def make_day(data, flow=True, batch=144, tile=True):
     root_dir, shard_num = data
     # reset optical flow samples
     flow_sample = {}

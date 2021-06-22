@@ -126,12 +126,14 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         loss = F.mse_loss(y_hat, y)
+        self.log("train/loss", loss, on_step=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x, self.forecast_steps)
         val_loss = F.mse_loss(y_hat, y)
+        self.log("val/loss", val_loss, on_step=True, on_epoch=True)
         return val_loss
 
     def test_step(self, batch, batch_idx):
