@@ -18,7 +18,8 @@ def make_logger(name: str, level=logging.DEBUG) -> logging.Logger:
 import logging
 import warnings
 from typing import List, Sequence
-
+import rich.syntax
+import rich.tree
 import pytorch_lightning as pl
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers.wandb import WandbLogger
@@ -99,8 +100,8 @@ def print_config(
                 "model",
                 "datamodule",
                 "callbacks",
-                "logger",
-                "seed",
+                #"logger",
+                #"seed",
         ),
         resolve: bool = True,
 ) -> None:
@@ -137,10 +138,7 @@ def empty(*args, **kwargs):
 def log_hyperparameters(
         config: DictConfig,
         model: pl.LightningModule,
-        datamodule: pl.LightningDataModule,
         trainer: pl.Trainer,
-        callbacks: List[pl.Callback],
-        logger: List[pl.loggers.LightningLoggerBase],
 ) -> None:
     """This method controls which parameters from Hydra config are saved by Lightning loggers.
 

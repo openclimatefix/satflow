@@ -33,8 +33,8 @@ def train(config: DictConfig) -> Optional[float]:
         seed_everything(config.seed, workers=True)
 
     # Init Dataloaders
-    log.info(f"Instantiating dataloaders <{config.datamodule._target_}>")
-    loaders = get_loaders(config.dataloader)
+    log.info(f"Instantiating dataloaders <{config.datamodule.name}>")
+    loaders = get_loaders(config.datamodule)
 
     # Init Lightning model
     log.info(f"Instantiating model <{config.model._target_}>")
@@ -59,7 +59,7 @@ def train(config: DictConfig) -> Optional[float]:
     # Init Lightning trainer
     log.info(f"Instantiating trainer <{config.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(
-        config.trainer, callbacks=callbacks, logger=logger, _convert_="partial"
+        config.trainer, callbacks=callbacks, logger=logger,
     )
 
     # Send some parameters from config to all lightning loggers
@@ -68,8 +68,6 @@ def train(config: DictConfig) -> Optional[float]:
         config=config,
         model=model,
         trainer=trainer,
-        callbacks=callbacks,
-        logger=logger,
     )
 
     # Train the model

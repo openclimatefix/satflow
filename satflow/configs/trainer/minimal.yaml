@@ -1,3 +1,4 @@
+# @package _group_
 _target_: pytorch_lightning.Trainer
 
 # set `1` to train on GPU, `0` to train on CPU only
