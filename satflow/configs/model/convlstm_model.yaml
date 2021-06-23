@@ -3,5 +3,5 @@ _target_: satflow.models.conv_lstm.EncoderDecoderConvLSTM
 in_channels: 17
 num_hidden: 64
 out_channels: 1
-forecast_steps: 12
+forecast_steps: 18
 learning_rate: 0.0078

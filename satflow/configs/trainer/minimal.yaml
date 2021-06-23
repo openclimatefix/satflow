@@ -5,7 +5,7 @@ _target_: pytorch_lightning.Trainer
 gpus: 1
 
 min_epochs: 0
-max_epochs: 1
+max_epochs: 99999
 min_steps: 20000
 max_steps: 200000
 val_check_interval: 1000

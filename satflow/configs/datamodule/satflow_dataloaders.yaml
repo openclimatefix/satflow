@@ -4,7 +4,7 @@ batch_size: 2
 num_workers: 4
 num_timesteps: 3
 skip_timesteps: 1
-forecast_times: 12
+forecast_times: 18
 output_shape: 128
 target_type: "cloudmask"
 num_crops: 10
@@ -15,6 +15,7 @@ time_aux: False
 use_mask: True
 use_image: False
 pin_memory: True
+time_as_channels: False
 sources:
   train: "/run/media/bieker/data/EUMETSAT/2020/satflow-flow-36-{00001..00105..2}.tar"
   val: "/run/media/bieker/data/EUMETSAT/2020/satflow-flow-36-{00002..00105..4}.tar"

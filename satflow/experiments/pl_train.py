@@ -78,7 +78,7 @@ def train(config: DictConfig) -> Optional[float]:
     # Evaluate model on test set after training
     if not config.trainer.get("fast_dev_run", False):
         log.info("Starting testing!")
-        trainer.test(test_dataloaders=loaders["test"])
+        # trainer.test(test_dataloaders=loaders["test"])
 
     # Print path to best checkpoint
     log.info(f"Best checkpoint path:\n{trainer.checkpoint_callback.best_model_path}")
