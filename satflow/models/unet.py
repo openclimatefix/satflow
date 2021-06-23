@@ -19,6 +19,7 @@ class Unet(pl.LightningModule):
         super(Unet, self).__init__()
         self.lr = learning_rate
         self.model = UNet(forecast_steps, input_channels, num_layers, features_start, bilinear)
+        self.save_hyperparameters()
 
     @classmethod
     def from_config(cls, config):

@@ -47,6 +47,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
             kernel_size=(1, 3, 3),
             padding=(0, 1, 1),
         )
+        self.save_hyperparameters()
 
     @classmethod
     def from_config(cls, config):
