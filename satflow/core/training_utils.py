@@ -1,13 +1,12 @@
+import argparse
+
 import torch
 import webdataset as wds
-import satflow.data.datasets
-from satflow.data.datasets import get_dataset
 from torch.utils.data import DataLoader
+
+import satflow.data.datasets
 from satflow.core.utils import load_config
-import hydra
-from omegaconf import DictConfig, OmegaConf
-import argparse
-import deepspeed
+from satflow.data.datasets import get_dataset
 
 
 def get_loaders(config):
@@ -20,21 +19,33 @@ def get_loaders(config):
         Dict[Dataloader] containing the train and test dataloaders
     """
     print(config)
-    train_dset = wds.WebDataset(config["sources"]["train"], shardshuffle=True)
-    test_dset = wds.WebDataset(config["sources"]["test"], shardshuffle=True)
+    train_dset = wds.WebDataset(config["sources"]["train"])
+    val_dset = wds.WebDataset(config["sources"]["val"])
+    test_dset = wds.WebDataset(config["sources"]["test"])
     train_dataset = get_dataset(config["name"])([train_dset], config=config, train=True)
+    val_dataset = get_dataset(config["name"])([val_dset], config=config, train=False)
     test_dataset = get_dataset(config["name"])([test_dset], config=config, train=False)
 
     train_dataloader = DataLoader(
         train_dataset,
         num_workers=config["num_workers"],
         batch_size=config["batch_size"],
+        pin_memory=True,
+    )
+    val_dataloader = DataLoader(
+        val_dataset,
+        num_workers=config["num_workers"],
+        batch_size=config["batch_size"],
+        pin_memory=True,
     )
     test_dataloader = DataLoader(
-        test_dataset, num_workers=config["num_workers"], batch_size=config["batch_size"]
+        test_dataset,
+        num_workers=config["num_workers"],
+        batch_size=config["batch_size"],
+        pin_memory=True,
     )
 
-    return {"train": train_dataloader, "test": test_dataloader}
+    return {"train": train_dataloader, "val": val_dataloader, "test": test_dataloader}
 
 
 def setup_experiment(args):

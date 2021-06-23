@@ -1,16 +1,17 @@
+import os
+
 import torch
-from satflow.data.datasets import SatFlowDataset
-from satflow.core.utils import load_config, make_logger
-import webdataset as wds
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-import hydra
-from omegaconf import DictConfig, OmegaConf
-import satflow.models
 import torch.nn.functional as F
+import webdataset as wds
+from pytorch_lightning import Trainer, seed_everything
+from pytorch_lightning.tuner.tuning import Tuner
+from torch.utils.data import DataLoader
+
+import satflow.models
+from satflow.core.training_utils import get_args, get_loaders, setup_experiment
+from satflow.core.utils import load_config, make_logger
+from satflow.data.datasets import SatFlowDataset
 from satflow.models import get_model
-from satflow.core.training_utils import get_loaders, get_args, setup_experiment
-import deepspeed
 
 logger = make_logger("satflow.train")
 
@@ -23,55 +24,32 @@ def run_experiment(args):
 
     # Load Model
     model = get_model(config["model"]["name"]).from_config(config["model"])
-    criterion = F.mse_loss
     # Load Datasets
     loaders = get_loaders(config["dataset"])
-    parameters = filter(lambda p: p.requires_grad, model.parameters())
 
-    model_engine, optimizer, _, _ = deepspeed.initialize(
-        args=args, model=model, model_parameters=parameters
+    # Get batch size that fits in memory
+
+    # trainer = Trainer(auto_scale_batch_size='power')
+    # trainer.tune(model)
+    # tuner = Tuner(trainer)
+
+    # new_batch_size = tuner.scale_batch_size(model)
+    trainer = Trainer(
+        gpus=1,
+        auto_lr_find=True,
+        max_steps=config["training"]["iterations"],
+        min_epochs=0,
+        val_check_interval=config["training"]["eval_steps"],
+        limit_train_batches=2000,
+        limit_val_batches=config["training"]["eval_examples"],
+        accumulate_grad_batches=4,
     )
-    # Run training
-    global_iteration = 0
-    running_loss = 0.0
-    for i, data in enumerate(loaders["train"]):
-        # get the inputs; data is a list of [inputs, target_image, target_mask]
-        inputs, labels = (
-            data[0].to(model_engine.local_rank),
-            data[2].to(model_engine.local_rank),
-        )
 
-        outputs = model_engine(inputs)
-        loss = criterion(outputs, labels)
+    trainer.tune(model, loaders["train"], loaders["test"])
 
-        model_engine.backward(loss)
-        model_engine.step()
-
-        # print statistics
-        running_loss += loss.item()
-        global_iteration += 1
-        if global_iteration > config["iterations"]:
-            break
-        if global_iteration % config["eval_steps"] == 0:
-            # Run testing
-            test_loss = 0.0
-            test_iteration = 0
-            for j, test_data in enumerate(loaders["test"]):
-                inputs, labels = (
-                    test_data[0].to(model_engine.local_rank),
-                    test_data[2].to(model_engine.local_rank),
-                )
-
-                outputs = model(inputs)
-                test_loss += criterion(outputs, labels).item()
-                test_iteration += 1
-                if (test_iteration * inputs.shape[0]) % config["eval_examples"] == 0:
-                    break
-            test_loss /= test_iteration * inputs.shape[0]
-            logger.info(f"Avg. Test Loss: {test_loss} Iteration: {global_iteration}")
+    trainer.fit(model, loaders["train"], loaders["test"])
 
 
 if __name__ == "__main__":
     args = get_args()
-
     run_experiment(args)

@@ -49,7 +49,7 @@ Notes:
   2. Assumes image origin is top left (i.e. that header[24] = 0)
   3. Tested on UK composite 1km and 5km data, under Linux and Windows XP
   4. Further details of NIMROD data and software at the NERC BADC website:
-      http://badc.nerc.ac.uk/browse/badc/ukmo-nimrod/   
+      http://badc.nerc.ac.uk/browse/badc/ukmo-nimrod/
 
 Copyright (c) 2015 Richard Thomas
 (Nimrod.__init__() method based on read_nimrod.py by Charles Kilburn Aug 2008)
@@ -63,9 +63,9 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 """
 
-import sys
-import struct
 import array
+import struct
+import sys
 
 
 class Nimrod:
@@ -227,9 +227,7 @@ class Nimrod:
         print("Data Specific (Real) header entries (%d):" % self.n_data_specific_reals)
         for i in range(60, 60 + self.n_data_specific_reals):
             print(" ", i, "\t", self.hdr_element[i])
-        print(
-            "Data Specific (Integer) header entries (%d):" % self.n_data_specific_ints
-        )
+        print("Data Specific (Integer) header entries (%d):" % self.n_data_specific_ints)
         for i in range(108, 108 + self.n_data_specific_ints):
             print(" ", i, "\t", self.hdr_element[i])
         print("Character header entries:")
@@ -313,9 +311,7 @@ class Nimrod:
         bbox_data = []
         for i in range(yMinPixelId, yMaxPixelId + 1):
             bbox_data.extend(
-                self.data[
-                    i * self.ncols + xMinPixelId : i * self.ncols + xMaxPixelId + 1
-                ]
+                self.data[i * self.ncols + xMinPixelId : i * self.ncols + xMaxPixelId + 1]
             )
 
         # Update object where necessary

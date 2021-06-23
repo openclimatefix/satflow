@@ -1,0 +1,7 @@
+# @package _group_
+_target_: satflow.models.unet.Unet
+input_channels: 68
+features_start: 64
+num_layers: 5
+forecast_steps: 18
+learning_rate: 0.0078

@@ -1,9 +1,10 @@
+import datetime
+import re
+
 import affine
 import numpy as np
-import re
-import datetime
-from satpy import Scene
 from pyresample import load_area
+from satpy import Scene
 
 
 def eumetsat_filename_to_datetime(inner_tar_name):
