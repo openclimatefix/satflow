@@ -48,8 +48,10 @@ class Unet(pl.LightningModule):
         if np.random.random() < 0.001:
             in_image = x[0] # Input image stack, Unet takes everything in channels, so no time dimension
             for i, in_slice in enumerate(in_image):
-                if i < self.input_channels: # First one
-                    tensorboard.add_image(f"Input_Image_Channel_{i}", in_slice, global_step=batch_idx) # Each Channel
+                j = 0
+                if i % self.input_channels == 0: # First one
+                    j += 1
+                    tensorboard.add_image(f"Input_Image_{j}_Channel_{i}", in_slice, global_step=batch_idx) # Each Channel
             out_image = y_hat[0]
             for i, out_slice in enumerate(out_image):
                 tensorboard.add_image(f"Output_Image_{i}", out_slice, global_step=batch_idx) # Each Channel
