@@ -19,7 +19,7 @@ time_as_channels: True
 sources:
   train: "/run/media/bieker/data/EUMETSAT/2020/satflow-flow-36-{00001..00105..2}.tar"
   val: "/run/media/bieker/data/EUMETSAT/2020/satflow-flow-36-{00002..00105..4}.tar"
-  test: "/run/media/bieker/data/EUMETSAT/2021/satflow-flow-36-{000106..00150}.tar"
+  test: "/run/media/bieker/data/EUMETSAT/2021/satflow-flow-36-{00106..00150}.tar"
 bands:
   [
     "HRV",

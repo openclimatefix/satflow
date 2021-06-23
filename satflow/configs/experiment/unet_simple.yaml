@@ -1,0 +1,25 @@
+# @package _global_
+
+# to execute this experiment run:
+# python run.py experiment=example_simple.yaml
+
+defaults:
+  - override /trainer: minimal.yaml # choose trainer from 'configs/trainer/'
+  - override /model: unet_model.yaml
+  - override /datamodule: unet_dataloaders.yaml
+  - override /callbacks: default.yaml
+  - override /logger: null
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+seed: 12345
+
+trainer:
+  min_epochs: 1
+  max_epochs: 5
+  min_steps: 1000
+  max_steps: 2000
+  val_check_interval: 100
+  limit_train_batches: 200
+  limit_val_batches: 100
