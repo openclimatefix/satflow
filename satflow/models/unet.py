@@ -15,9 +15,11 @@ class Unet(pl.LightningModule):
         features_start: int = 64,
         bilinear: bool = False,
         learning_rate: float = 0.001,
+        make_vis: bool = False
     ):
         super(Unet, self).__init__()
         self.lr = learning_rate
+        self.make_vis = make_vis
         self.model = UNet(forecast_steps, input_channels, num_layers, features_start, bilinear)
         self.save_hyperparameters()
 
@@ -43,20 +45,10 @@ class Unet(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        # the logger you used (in this case tensorboard)
-        tensorboard = self.logger.experiment
-        # Add all the different timesteps for a single prediction, 0.1% of the time
-        if np.random.random() < 0.001:
-            in_image = x[0] # Input image stack, Unet takes everything in channels, so no time dimension
-            for i, in_slice in enumerate(in_image):
-                j = 0
-                if i % self.input_channels == 0: # First one
-                    j += 1
-                    tensorboard.add_image(f"Input_Image_{j}_Channel_{i}", in_slice, global_step=batch_idx) # Each Channel
-            out_image = y_hat[0]
-            for i, out_slice in enumerate(out_image):
-                tensorboard.add_image(f"Output_Image_{i}", out_slice, global_step=batch_idx) # Each Channel
 
+        if self.make_vis:
+            if np.random.random() < 0.01:
+                self.visualize(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         loss = F.mse_loss(y_hat, y)
@@ -75,3 +67,20 @@ class Unet(pl.LightningModule):
         y_hat = self(x, self.forecast_steps)
         loss = F.mse_loss(y_hat, y)
         return loss
+
+    def visualize(self, x, y, y_hat, batch_idx):
+        # the logger you used (in this case tensorboard)
+        tensorboard = self.logger.experiment
+        # Add all the different timesteps for a single prediction, 0.1% of the time
+        in_image = x[0].cpu().detach().numpy() # Input image stack, Unet takes everything in channels, so no time dimension
+        for i, in_slice in enumerate(in_image):
+            j = 0
+            if i % self.input_channels == 0: # First one
+                j += 1
+                tensorboard.add_image(f"Input_Image_{j}_Channel_{i}", in_slice, global_step=batch_idx) # Each Channel
+        out_image = y_hat[0].cpu().detach().numpy()
+        for i, out_slice in enumerate(out_image):
+            tensorboard.add_image(f"Output_Image_{i}", out_slice, global_step=batch_idx) # Each Channel
+        out_image = y[0].cpu().detach().numpy()
+        for i, out_slice in enumerate(out_image):
+            tensorboard.add_image(f"Target_Image_{i}", out_slice, global_step=batch_idx) # Each Channel
