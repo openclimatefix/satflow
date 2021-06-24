@@ -112,6 +112,9 @@ def make_day(data, flow=True, batch=144, tile=True):
                             515:-641, 603:
                         ]  # Done by handish to exclude all NODATA and invalid masks for clouds and images (clouds have a smaller extant)
                         channel = f.split("_")
+                        from scipy import stats
+                        print(f"Channel: {channel}")
+                        print(stats.describe(cropped_data))
                         if channel[0] in ["IR", "WV", "cloud"]:
                             channel = channel[0] + channel[1]  # These are split across multiple
                         else:
