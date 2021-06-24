@@ -15,33 +15,34 @@ from satpy import Scene
 logger = logging.getLogger("satflow")
 logger.setLevel(logging.DEBUG)
 
-areas = load_area("/home/bieker/Development/satflow/satflow/resources/areas.yaml")
-filenames = {
-    "seviri_l1b_native": [
-        "/run/media/bieker/Round1/EUMETSAT/2021/03/14/10/19/MSG3-SEVI-MSG15-0100-NA-20210314101915.098000000Z-NA.nat"
-    ]
-}
-scene = Scene(filenames=filenames)
-scene.load(("HRV",))
+#areas = load_area("/home/bieker/Development/satflow/satflow/resources/areas.yaml")
+#filenames = {
+#    "seviri_l1b_native": [
+#        "/run/media/bieker/Round1/EUMETSAT/2021/03/14/10/19/MSG3-SEVI-MSG15-0100-NA-20210314101915.098000000Z-NA.nat"
+#    ]
+#}
+#scene = Scene(filenames=filenames)
+#scene.load(("HRV",))
 # By default resamples to 3km, as thats the native resolution of all bands other than HRV
-scene = scene.resample(areas[0])
-hrv_long, hrv_lat = scene["HRV"].attrs["area"].get_lonlats()
-hrv_long = hrv_long[515:-641, 603:]
-hrv_lat = hrv_lat[515:-641, 603:]
-loc_x = np.cos(hrv_lat) * np.cos(hrv_long)
-loc_y = np.cos(hrv_lat) * np.sin(hrv_long)
-loc_z = np.sin(hrv_lat)
+#scene = scene.resample(areas[0])
+#hrv_long, hrv_lat = scene["HRV"].attrs["area"].get_lonlats()
+#hrv_long = hrv_long[515:-641, 603:]
+#hrv_lat = hrv_lat[515:-641, 603:]
+#loc_x = np.cos(hrv_lat) * np.cos(hrv_long)
+#loc_y = np.cos(hrv_lat) * np.sin(hrv_long)
+#loc_z = np.sin(hrv_lat)
 
-location_array = np.stack([loc_x, loc_y, loc_z], axis=-1)
-print(location_array.dtype)
-print(len(np.unique(location_array)))
-print(len(np.unique(location_array.astype(np.float32))))
-print(len(np.unique(location_array.astype(np.float16))))
-np.save("../resources/location_array.npy", location_array)
+#location_array = np.stack([loc_x, loc_y, loc_z], axis=-1).astype(np.float32) # We aren't using float64 anyway, so some small overlap of locations should be fine?
+#print(location_array.dtype)
+#print(len(np.unique(location_array)))
+#print(len(np.unique(location_array.astype(np.float32))))
+#print(len(np.unique(location_array.astype(np.float16))))
+#np.save("../resources/location_array.npy", location_array)
 topo_data = np.load("../resources/cutdown_europe_dem.npy")
-print(topo_data.dtype)
-print(topo_data.shape)
-print(location_array.shape)
+location_array = np.load("../resources/location_array.npy")
+#print(topo_data.dtype)
+#print(topo_data.shape)
+#print(location_array.shape)
 box_1 = (0, 446, 0, 978)
 box_2 = (446, -1, 978, -1)
 # Create WebDataset with each shard being a single day and all the images for that day
@@ -61,6 +62,9 @@ def make_day(data, flow=True, batch=144, tile=True):
         flow_sample["__key__"] = overall_datetime.strftime("%Y/%m/%d")
     else:
         flow_sample["__key__"] = overall_datetime.strftime("%Y/%m/%d") + f"{batch_num}"
+    if tile:
+        # Split data into 8 chunks? 446x489 squareish areas
+        samples = [{"__key__": overall_datetime.strftime("%Y/%m/%d") + f"_{i}", "time.pyd": []} for i in range(8)]
     flow_sample["time.pyd"] = []
     if flow:
         flow_sample["topo.npy"] = topo_data
@@ -95,6 +99,7 @@ def make_day(data, flow=True, batch=144, tile=True):
             if not flow:
                 flow_sample = {}
                 flow_sample["__key__"] = datetime_object.strftime("%Y/%m/%d/%H/%M")
+
             try:
                 # Want this at the top, as if this extraction fails, we still then know if there is a missing frame
                 interday_frame += 1
@@ -111,6 +116,19 @@ def make_day(data, flow=True, batch=144, tile=True):
                             channel = channel[0] + channel[1]  # These are split across multiple
                         else:
                             channel = channel[0]
+                        if tile:
+                            height = (0,446,-1)
+                            width = (0,490,980,1470,-1)
+                            s_num = 0
+                            for j in range(4):
+                                for i in range(2):
+                                    tile_cropped_data = cropped_data[height[i]:height[i+1], width[j]:width[j+1]]
+                                    tiled_topo = topo_data[height[i]:height[i+1], width[j]:width[j+1]]
+                                    tiled_loc = location_array[height[i]:height[i+1], width[j]:width[j+1]]
+                                    samples[s_num][channel + f".{interday_frame:03d}.npy"] = tile_cropped_data
+                                    samples[s_num]['location.npy'] = tiled_loc
+                                    samples[s_num]['topo.npy'] = tiled_topo
+                                    s_num += 1
                         if not flow:
                             flow_sample[channel + ".npy"] = cropped_data
                         else:
@@ -118,19 +136,24 @@ def make_day(data, flow=True, batch=144, tile=True):
                 # Now all channels added to thing, write to shard
                 if flow:
                     flow_sample["time.pyd"].append(datetime_object)
+                    samples = [s["time.pyd"].append(datetime_object) for s in samples]
                     if batch > 0:
                         print(
                             f"In Batch: {len(flow_sample['time.pyd'])} == {batch} Shard: {shard_num}"
                         )
                         if len(flow_sample["time.pyd"]) == batch:
-                            sink_flow.write(flow_sample)
+                            if tile:
+                                for s in samples:
+                                    sink_flow.write(s)
+                            else:
+                                sink_flow.write(flow_sample)
+                                flow_sample["__key__"] = datetime_object.strftime("%Y/%m/%d/%H/%M")
+                                flow_sample["topo.npy"] = topo_data
+                                flow_sample["location.npy"] = location_array
+                                flow_sample["time.pyd"] = []
                             interday_frame = 0
                             flow_sample = {}
                             batch_num += 1
-                            flow_sample["__key__"] = datetime_object.strftime("%Y/%m/%d/%H/%M")
-                            flow_sample["topo.npy"] = topo_data
-                            flow_sample["location.npy"] = location_array
-                            flow_sample["time.pyd"] = []
                 else:
                     flow_sample["time.pyd"] = datetime_object
                     sink_flow.write(flow_sample)
