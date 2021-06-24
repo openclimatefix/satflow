@@ -129,17 +129,34 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         # the logger you used (in this case tensorboard)
-        tensorboard = self.logger.experiment
+        tensorboard = self.logger.experiment[0]
+        # print(tensorboard)
         # Add all the different timesteps for a single prediction, 0.1% of the time
-        if np.random.random() < 0.001:
-            in_image = x[0] # Input image stack
+        if np.random.random() < 0.01:
+            in_image = x[0].cpu().detach().numpy()  # Input image stack
             for i, in_slice in enumerate(in_image):
                 for j, in_channel in enumerate(in_slice):
-                    tensorboard.add_image(f"Input_Image_{i}_Channel_{j}", in_channel, global_step=batch_idx) # Each Channel
-            out_image = y_hat[0]
+                    tensorboard.add_image(
+                        f"Input_Image_{i}_Channel_{j}",
+                        np.expand_dims(in_channel, axis=0),
+                        global_step=batch_idx,
+                    )  # Each Channel
+            out_image = y_hat[0].cpu().detach().numpy()
             for i, out_slice in enumerate(out_image):
                 for j, out_channel in enumerate(out_slice):
-                    tensorboard.add_image(f"Output_Image_{i}_Channel_{j}", out_channel, global_step=batch_idx) # Each Channel
+                    tensorboard.add_image(
+                        f"Output_Image_{i}_Channel_{j}",
+                        np.expand_dims(out_channel, axis=0),
+                        global_step=batch_idx,
+                    )  # Each Channel
+            out_image = y[0].cpu().detach().numpy()
+            for i, out_slice in enumerate(out_image):
+                for j, out_channel in enumerate(out_slice):
+                    tensorboard.add_image(
+                        f"Target_{i}_Channel_{j}",
+                        np.expand_dims(out_channel, axis=0),
+                        global_step=batch_idx,
+                    )  # Each Channel
         loss = F.mse_loss(y_hat, y)
         self.log("train/loss", loss, on_step=True)
         return loss
