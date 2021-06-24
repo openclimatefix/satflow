@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 from satflow.models.base import register_model
 from pl_bolts.models.vision import UNet
-
+import numpy as np
 
 @register_model
 class Unet(pl.LightningModule):
@@ -19,6 +19,7 @@ class Unet(pl.LightningModule):
         super(Unet, self).__init__()
         self.lr = learning_rate
         self.model = UNet(forecast_steps, input_channels, num_layers, features_start, bilinear)
+        self.save_hyperparameters()
 
     @classmethod
     def from_config(cls, config):
@@ -42,6 +43,20 @@ class Unet(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
+        # the logger you used (in this case tensorboard)
+        tensorboard = self.logger.experiment
+        # Add all the different timesteps for a single prediction, 0.1% of the time
+        if np.random.random() < 0.001:
+            in_image = x[0] # Input image stack, Unet takes everything in channels, so no time dimension
+            for i, in_slice in enumerate(in_image):
+                j = 0
+                if i % self.input_channels == 0: # First one
+                    j += 1
+                    tensorboard.add_image(f"Input_Image_{j}_Channel_{i}", in_slice, global_step=batch_idx) # Each Channel
+            out_image = y_hat[0]
+            for i, out_slice in enumerate(out_image):
+                tensorboard.add_image(f"Output_Image_{i}", out_slice, global_step=batch_idx) # Each Channel
+
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         loss = F.mse_loss(y_hat, y)
