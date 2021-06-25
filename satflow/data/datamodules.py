@@ -23,6 +23,9 @@ class SatFlowDataModule(pl.LightningDataModule):
         if stage == 'fit' or stage is None:
             train_dset = wds.WebDataset(os.path.join(self.data_dir,self.config["sources"]["train"]))
             val_dset = wds.WebDataset(os.path.join(self.data_dir,self.config["sources"]["val"]))
+            if self.config.get("shuffle_data", False):
+                # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
+                train_dset = train_dset.shuffle(10)
             self.train_dataset = SatFlowDataset([train_dset], config=self.config, train=True)
             self.val_dataset = SatFlowDataset([val_dset], config=self.config, train=False)
 
