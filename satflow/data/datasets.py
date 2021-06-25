@@ -134,6 +134,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.location = None
 
         self.num_crops = config.get("num_crops", 5)
+        self.num_times = config.get("num_times", 10)
 
         self.vis = config.get("visualize", False)
 
@@ -248,7 +249,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 [
                     image,
                     np.expand_dims(
-                        binarize_mask(load_np(sample[f"cloudmask.{idx:03d}.npy"])),
+                        binarize_mask(load_np(sample[f"cloudmask.{idx:03d}.npy"]).astype(np.int8)),
                         axis=-1,
                     ),
                 ],
@@ -291,25 +292,22 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 )
                 if self.use_topo:
                     topo = load_np(sample["topo.npy"])
-                    topo[topo < 0] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
+                    topo[topo < 100] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
                     self.topo = topo - np.min(topo) / (np.max(topo) - np.min(topo))
                     self.topo = np.expand_dims(self.topo, axis=-1)
                 if self.use_latlon:
                     self.location = load_np(sample["location.npy"])
                 for idx in idxs:
-                    target_timesteps = (
-                        np.arange(start=idx + 1, stop=idx + self.forecast_times) - idx
-                    )
                     if not self.return_target_stack:
                         target_timesteps = (
                             np.random.randint(
-                                idx + 1, idx + self.forecast_times, size=self.num_crops
+                                idx + 1, idx + self.forecast_times, size=self.num_times
                             )
                             - idx
                         )
                     else:
                         # Same for all the crops TODO Change this to work for all setups/split to differnt datasets
-                        target_timesteps = np.full(self.num_crops, self.forecast_times)
+                        target_timesteps = np.full(self.num_times, self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         for target_timestep in target_timesteps:
                             time_cube = self.create_target_time_cube(target_timestep)
@@ -365,6 +363,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             target_mask = np.moveaxis(target_mask, [1], [0])
                             if target_image is not None:
                                 target_image = np.moveaxis(target_image, [3], [1])
+                                target_image = target_image.astype(np.float32)
                             if self.time_as_chennels:
                                 images = image[0]
                                 for m in image[1:]:
@@ -387,7 +386,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
     def create_stack(self, idx, image, replay, sample, time_cube):
         image = np.expand_dims(image, axis=0)
         for i in range(
-            idx - (self.num_timesteps * self.skip_timesteps) + 1,
+            idx - (self.num_timesteps * self.skip_timesteps) + self.skip_timesteps,
             idx + 1,
             self.skip_timesteps,
         ):
