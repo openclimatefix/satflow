@@ -312,7 +312,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                         for target_timestep in target_timesteps:
                             time_cube = self.create_target_time_cube(target_timestep)
                             image, _ = self.get_timestep(
-                                sample, idx - self.num_timesteps
+                                sample, idx - (self.num_timesteps * self.skip_timesteps)
                             )  # First timestep considered
                             data = self.aug(image=image)
                             replay = data["replay"]
