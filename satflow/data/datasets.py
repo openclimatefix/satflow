@@ -288,7 +288,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 idxs = np.random.randint(
                     self.num_timesteps * self.skip_timesteps + 1,
                     available_steps - self.forecast_times,
-                    size=self.num_crops,
+                    size=self.num_times,
                 )
                 if self.use_topo:
                     topo = load_np(sample["topo.npy"])
@@ -307,7 +307,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                         )
                     else:
                         # Same for all the crops TODO Change this to work for all setups/split to differnt datasets
-                        target_timesteps = np.full(self.num_times, self.forecast_times)
+                        target_timesteps = np.full(self.num_crops, self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         for target_timestep in target_timesteps:
                             time_cube = self.create_target_time_cube(target_timestep)
