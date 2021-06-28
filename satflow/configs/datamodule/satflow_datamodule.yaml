@@ -3,8 +3,13 @@ _target_: satflow.data.datamodules.SatFlowDataModule
 
 batch_size: 2
 data_dir: ${data_dir} # data_dir is specified in config.yaml
+shuffle: True
+sources:
+  train: "satflow-flow-144-tiled-{00001..00149..2}.tar"
+  val: "satflow-flow-144-tiled-{00002..00149..4}.tar"
+  test: "satflow-flow-144-tiled-{000014..00149..4}.tar"
+num_workers: 6
 config:
-  num_workers: 4
   num_timesteps: 12
   skip_timesteps: 1
   forecast_times: 48
@@ -18,23 +23,19 @@ config:
   use_mask: True
   use_image: False
   time_as_channels: False
-  sources:
-    train: "satflow-flow-36-{00001..00105..2}.tar"
-    val: "satflow-flow-36-{00002..00105..4}.tar"
-    test: "satflow-flow-36-{000106..00150}.tar"
   bands:
     [
-        "HRV",
-        "IR016",
-        "IR039",
-        "IR087",
-        "IR097",
-        "IR108",
-        "IR120",
-        "IR134",
-        "VIS006",
-        "VIS008",
-        "WV062",
-        "WV073",
+      "HRV",
+      "IR016",
+      "IR039",
+      "IR087",
+      "IR097",
+      "IR108",
+      "IR120",
+      "IR134",
+      "VIS006",
+      "VIS008",
+      "WV062",
+      "WV073",
     ]
   transforms: {}
