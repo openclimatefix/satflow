@@ -3,7 +3,7 @@ import os
 from satip import eumetsat
 from satip.eumetsat import compress_downloaded_files
 
-from satflow.data.utils import eumetsat_name_to_datetime
+from satflow.data.utils.utils import eumetsat_name_to_datetime
 
 data_dir = "/run/media/bieker/Round1/EUMETSAT/"
 debug_fp = "../logs/EUMETSAT_download.txt"
@@ -41,22 +41,22 @@ for day in [2, 8, 15, 22, 27]:
         for year in [2020, 2021]:
             dm.download_date_range(
                 f"{year}-{month}-{day} 07:59",
-                f"{year}-{month}-{day} 20:04",
+                f"{year}-{month}-{day} 20:05",
                 product_id="EO:EUM:DAT:MSG:RSS-CLM",
             )
             dm.download_date_range(
-                f"{year}-{month}-{day} 08:00",
-                f"{year}-{month}-{day} 20:00",
+                f"{year}-{month}-{day} 07:59",
+                f"{year}-{month}-{day} 20:05",
                 product_id="EO:EUM:DAT:MSG:RII",
             )
             dm.download_date_range(
                 f"{year}-{month}-{day} 07:59",
-                f"{year}-{month}-{day} 20:04",
+                f"{year}-{month}-{day} 20:05",
                 product_id="EO:EUM:DAT:MSG:RSS-AMV",
             )
             dm.download_date_range(
                 f"{year}-{month}-{day} 07:59",
-                f"{year}-{month}-{day} 20:04",
+                f"{year}-{month}-{day} 20:05",
                 product_id="EO:EUM:DAT:MSG:RSS-MPE-GRIB",
             )
             dm.download_date_range(f"{year}-{month}-{day} 07:59", f"{year}-{month}-{day} 20:04")
