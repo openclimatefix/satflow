@@ -41,7 +41,7 @@ def create_time_layer(dt: datetime.datetime, shape):
 def binarize_mask(mask):
     """Binarize mask, taking max value as the data, and setting everything else to 0"""
     mask[mask == 255] = 0  # hardcoded incase missing any of the cloud mask background problem
-    mask[mask < 2] = 0 # 2 is cloud, others are clear
+    mask[mask < 2] = 0  # 2 is cloud, others are clear over land (1) and clear over water (0)
     mask[mask > 0] = 1
     return mask
 
@@ -134,6 +134,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.location = None
 
         self.num_crops = config.get("num_crops", 5)
+        self.num_times = config.get("num_times", 10)
 
         self.vis = config.get("visualize", False)
 
@@ -152,31 +153,32 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
     def visualize(self, image, target_image, mask):
         import matplotlib.pyplot as plt
-        fig, axs = plt.subplots(len(self.bands)+1, self.num_timesteps + 1 + self.forecast_times, figsize=(15,15))
+
+        fig, axs = plt.subplots(
+            len(self.bands) + 1, self.num_timesteps + 1 + self.forecast_times, figsize=(15, 15)
+        )
         for t_step, img in enumerate(image):
             for channel, channel_img in enumerate(img):
                 if channel >= len(self.bands):
                     break
                 # Now should be 2D array
-                axs[channel,t_step].imshow(channel_img)
-                #axs[channel,t_step].set_title(f"{self.bands[channel]} T{'+' if t_step-self.num_timesteps >= 0 else '-'}{t_step - self.num_timesteps}")
+                axs[channel, t_step].imshow(channel_img)
+                # axs[channel,t_step].set_title(f"{self.bands[channel]} T{'+' if t_step-self.num_timesteps >= 0 else '-'}{t_step - self.num_timesteps}")
         for t_step, img in enumerate(target_image):
             for channel, channel_img in enumerate(img):
                 if channel >= len(self.bands):
                     break
                 # Now should be 2D array
-                axs[channel,t_step+self.num_timesteps+1].imshow(channel_img)
-                #axs[channel,t_step+self.num_timesteps+1].set_title(f"{self.bands[channel]} T{'+' if t_step+1 >= 0 else '-'}{t_step+1}")
+                axs[channel, t_step + self.num_timesteps + 1].imshow(channel_img)
+                # axs[channel,t_step+self.num_timesteps+1].set_title(f"{self.bands[channel]} T{'+' if t_step+1 >= 0 else '-'}{t_step+1}")
         for t_step, img in enumerate(mask):
             # Now should be 2D array
-            axs[-1,t_step+self.num_timesteps+1].imshow(img[0])
-            #axs[-1,t_step+self.num_timesteps+1].set_title(f"Mask T{'+' if t_step+1 >= 0 else '-'}{t_step+1}")
+            axs[-1, t_step + self.num_timesteps + 1].imshow(img[0])
+            # axs[-1,t_step+self.num_timesteps+1].set_title(f"Mask T{'+' if t_step+1 >= 0 else '-'}{t_step+1}")
         for ax in axs.flat:
             ax.label_outer()
         plt.show()
         plt.close()
-
-
 
     def create_target_time_cube(self, target_timestep):
         """Create target time layer"""
@@ -247,7 +249,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 [
                     image,
                     np.expand_dims(
-                        binarize_mask(load_np(sample[f"cloudmask.{idx:03d}.npy"])),
+                        binarize_mask(load_np(sample[f"cloudmask.{idx:03d}.npy"]).astype(np.int8)),
                         axis=-1,
                     ),
                 ],
@@ -286,23 +288,20 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 idxs = np.random.randint(
                     self.num_timesteps * self.skip_timesteps + 1,
                     available_steps - self.forecast_times,
-                    size=self.num_crops,
+                    size=self.num_times,
                 )
                 if self.use_topo:
                     topo = load_np(sample["topo.npy"])
-                    topo[topo < 0] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
+                    topo[topo < 100] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
                     self.topo = topo - np.min(topo) / (np.max(topo) - np.min(topo))
                     self.topo = np.expand_dims(self.topo, axis=-1)
                 if self.use_latlon:
                     self.location = load_np(sample["location.npy"])
                 for idx in idxs:
-                    target_timesteps = (
-                        np.arange(start=idx + 1, stop=idx + self.forecast_times) - idx
-                    )
                     if not self.return_target_stack:
                         target_timesteps = (
                             np.random.randint(
-                                idx + 1, idx + self.forecast_times, size=self.num_crops
+                                idx + 1, idx + self.forecast_times, size=self.num_times
                             )
                             - idx
                         )
@@ -313,7 +312,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                         for target_timestep in target_timesteps:
                             time_cube = self.create_target_time_cube(target_timestep)
                             image, _ = self.get_timestep(
-                                sample, idx - self.num_timesteps
+                                sample, idx - (self.num_timesteps * self.skip_timesteps)
                             )  # First timestep considered
                             data = self.aug(image=image)
                             replay = data["replay"]
@@ -364,6 +363,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             target_mask = np.moveaxis(target_mask, [1], [0])
                             if target_image is not None:
                                 target_image = np.moveaxis(target_image, [3], [1])
+                                target_image = target_image.astype(np.float32)
                             if self.time_as_chennels:
                                 images = image[0]
                                 for m in image[1:]:
@@ -386,7 +386,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
     def create_stack(self, idx, image, replay, sample, time_cube):
         image = np.expand_dims(image, axis=0)
         for i in range(
-            idx - (self.num_timesteps * self.skip_timesteps) + 1,
+            idx - (self.num_timesteps * self.skip_timesteps) + self.skip_timesteps,
             idx + 1,
             self.skip_timesteps,
         ):

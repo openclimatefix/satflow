@@ -43,6 +43,7 @@ def run_experiment(args):
         limit_train_batches=2000,
         limit_val_batches=config["training"]["eval_examples"],
         accumulate_grad_batches=4,
+        profiler="simple",
     )
 
     trainer.tune(model, loaders["train"], loaders["test"])
