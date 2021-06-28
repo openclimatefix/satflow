@@ -3,5 +3,5 @@ _target_: satflow.models.unet.Unet
 input_channels: 68
 features_start: 64
 num_layers: 5
-forecast_steps: 18
+forecast_steps: 48
 learning_rate: 0.0078

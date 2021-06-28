@@ -48,6 +48,7 @@ def extras(config: DictConfig) -> None:
     - easier access to debug mode
     - forcing debug friendly configuration
     - forcing multi-gpu friendly configuration
+    - Ensure correct number of timesteps/etc for all of them
 
     Modifies DictConfig in place.
 
@@ -59,6 +60,19 @@ def extras(config: DictConfig) -> None:
 
     # enable adding new keys to config
     OmegaConf.set_struct(config, False)
+    # Ensure that model and dataloader are doing the same thing
+    config.datamodule.config.forecast_times = config.model.forecast_steps
+    channels = len(config.datamodule.config.bands)
+    channels = channels + 1 if config.datamodule.config.use_topo else channels
+    channels = channels + 1 if config.datamodule.config.use_mask else channels
+    channels = channels + 3 if config.datamodule.config.use_latlon else channels
+    channels = channels + 3 if config.datamodule.config.use_time and not config.datamodule.config.time_aux else channels
+
+    if config.datamodule.config.get("time_as_channels"):
+        # Calc number of channels + inital ones
+        config.model.input_channels = channels * config.datamodule.config.num_timesteps
+    else:
+        config.model.input_channels = channels
 
     # disable python warnings if <config.ignore_warnings=True>
     if config.get("ignore_warnings"):

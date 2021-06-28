@@ -24,7 +24,7 @@ defaults:
 work_dir: ${hydra:runtime.cwd}
 
 # path to folder with data
-data_dir: /run/media/bieker/data/EUMETSAT/
+data_dir: /run/media/jacob/T7/
 
 # use `python run.py debug=true` for easy debugging!
 # this will run 1 train, val and test loop with only 1 batch

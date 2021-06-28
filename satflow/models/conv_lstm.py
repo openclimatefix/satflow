@@ -14,7 +14,7 @@ from satflow.models.layers.ConvLSTM import ConvLSTMCell
 @register_model
 class EncoderDecoderConvLSTM(pl.LightningModule):
     def __init__(
-        self, num_hidden, in_channels, out_channels, forecast_steps, learning_rate, make_vis=False
+        self, features_start, input_channels, out_channels, forecast_steps, learning_rate, make_vis=False
     ):
         super(EncoderDecoderConvLSTM, self).__init__()
         self.forecast_steps = forecast_steps
@@ -29,23 +29,23 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
 
         """
         self.encoder_1_convlstm = ConvLSTMCell(
-            input_dim=in_channels, hidden_dim=num_hidden, kernel_size=(3, 3), bias=True
+            input_dim=input_channels, hidden_dim=features_start, kernel_size=(3, 3), bias=True
         )
 
         self.encoder_2_convlstm = ConvLSTMCell(
-            input_dim=num_hidden, hidden_dim=num_hidden, kernel_size=(3, 3), bias=True
+            input_dim=features_start, hidden_dim=features_start, kernel_size=(3, 3), bias=True
         )
 
         self.decoder_1_convlstm = ConvLSTMCell(
-            input_dim=num_hidden, hidden_dim=num_hidden, kernel_size=(3, 3), bias=True  # nf + 1
+            input_dim=features_start, hidden_dim=features_start, kernel_size=(3, 3), bias=True  # nf + 1
         )
 
         self.decoder_2_convlstm = ConvLSTMCell(
-            input_dim=num_hidden, hidden_dim=num_hidden, kernel_size=(3, 3), bias=True
+            input_dim=features_start, hidden_dim=features_start, kernel_size=(3, 3), bias=True
         )
 
         self.decoder_CNN = nn.Conv3d(
-            in_channels=num_hidden,
+            in_channels=features_start,
             out_channels=out_channels,
             kernel_size=(1, 3, 3),
             padding=(0, 1, 1),
@@ -55,8 +55,8 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
     @classmethod
     def from_config(cls, config):
         return EncoderDecoderConvLSTM(
-            num_hidden=config.get("num_hidden", 64),
-            in_channels=config.get("in_channels", 12),
+            features_start=config.get("num_hidden", 64),
+            input_channels=config.get("in_channels", 12),
             out_channels=config.get("out_channels", 1),
             forecast_steps=config.get("forecast_steps", 1),
             learning_rate=config.get("learning_rate", 0.001),

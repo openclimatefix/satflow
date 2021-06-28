@@ -327,28 +327,35 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 return_target=True,
                                 return_image=self.use_image,
                             )
+                            # Only keep is target also
                             if target_image is not None:
                                 target_image = self.aug.replay(replay, image=target_image)["image"]
                                 target_image = np.expand_dims(target_image, axis=0)
                             target_mask = self.aug.replay(replay, image=target_mask)["image"]
                             target_mask = np.expand_dims(target_mask, axis=0)
+
+                            if np.isclose(np.min(target_mask),np.max(target_mask)):
+                                continue # Ignore if target timestep has no clouds, or only clouds
                             # Now create stack here
                             for i in range(idx + 1, idx + self.forecast_times):
                                 t_image, t_mask = self.get_timestep(
                                     sample,
-                                    target_timestep,
+                                    i,
                                     return_target=True,
                                     return_image=self.use_image,
                                 )
                                 t_mask = self.aug.replay(replay, image=t_mask)["image"]
                                 target_mask = np.concatenate(
-                                    [target_mask, np.expand_dims(t_mask, axis=0)]
+                                    [np.expand_dims(t_mask, axis=0), target_mask]
                                 )
                                 if self.use_image:
                                     t_image = self.aug.replay(replay, image=t_image)["image"]
                                     target_image = np.concatenate(
-                                        [target_image, np.expand_dims(t_image, axis=0)]
+                                        [np.expand_dims(t_image, axis=0), target_image]
                                     )
+                            # Ensure last target mask is also different than previous ones -> only want ones where things change
+                            if np.allclose(target_mask[0], target_mask[-1]):
+                                continue
                             # Convert to Time x Channel x W x H
                             # target_mask = np.expand_dims(target_mask, axis=1)
                             # One timestep as well
