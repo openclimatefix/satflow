@@ -32,6 +32,7 @@ def train(config: DictConfig) -> Optional[float]:
     if "seed" in config:
         seed_everything(config.seed, workers=True)
 
+    # If required
     # Init Dataloaders
     log.info(f"Instantiating datamodule <{config.datamodule._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(config.datamodule, _convert_='partial')

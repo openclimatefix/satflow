@@ -12,9 +12,10 @@ class SatFlowDataModule(pl.LightningDataModule):
         config: dict,
         sources: dict,
         batch_size: int = 2,
-        shuffle: bool = False,
+        shuffle: int = 0,
         data_dir: str = "./",
         num_workers: int = 1,
+        pin_memory: bool = True
     ):
         super().__init__()
         self.data_dir = data_dir
@@ -23,6 +24,7 @@ class SatFlowDataModule(pl.LightningDataModule):
         self.shuffle = shuffle
         self.sources = sources
         self.num_workers = num_workers
+        self.pin_memory = pin_memory
 
     def prepare_data(self):
         # download
@@ -33,9 +35,9 @@ class SatFlowDataModule(pl.LightningDataModule):
         if stage == "fit" or stage is None:
             train_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["train"]))
             val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"]))
-            if self.shuffle:
+            if self.shuffle > 0:
                 # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
-                train_dset = train_dset.shuffle(10)
+                train_dset = train_dset.shuffle(self.shuffle)
             self.train_dataset = SatFlowDataset([train_dset], config=self.config, train=True)
             self.val_dataset = SatFlowDataset([val_dset], config=self.config, train=False)
 
@@ -48,7 +50,7 @@ class SatFlowDataModule(pl.LightningDataModule):
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
-            pin_memory=True,
+            pin_memory=self.pin_memory,
             num_workers=self.num_workers,
         )
 
@@ -56,7 +58,7 @@ class SatFlowDataModule(pl.LightningDataModule):
         return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
-            pin_memory=True,
+            pin_memory=self.pin_memory,
             num_workers=self.num_workers,
         )
 
@@ -64,6 +66,6 @@ class SatFlowDataModule(pl.LightningDataModule):
         return DataLoader(
             self.test_dataset,
             batch_size=self.batch_size,
-            pin_memory=True,
+            pin_memory=self.pin_memory,
             num_workers=self.num_workers,
         )

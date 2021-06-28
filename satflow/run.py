@@ -26,6 +26,8 @@ def main(config: DictConfig):
     # You can safely get rid of this line if you don't want those
     utils.extras(config)
 
+    #
+
     # Pretty print config using Rich library
     if config.get("print_config"):
         utils.print_config(config, resolve=True)
