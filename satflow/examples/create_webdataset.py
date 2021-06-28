@@ -40,6 +40,8 @@ areas = load_area("/home/bieker/Development/satflow/satflow/resources/areas.yaml
 # print(len(np.unique(location_array.astype(np.float16))))
 # np.save("../resources/location_array.npy", location_array)
 topo_data = np.load("../resources/cutdown_europe_dem.npy")
+# print(f"Channel: {channel}")
+topo_data[topo_data < -100] = 0  # Ocean
 location_array = np.load("../resources/location_array.npy")
 # print(topo_data.dtype)
 # print(topo_data.shape)
@@ -143,24 +145,26 @@ def make_day(data, flow=True, batch=144, tile=True):
                                 ]
                                 samples[s_num][
                                     channel + f".{interday_frame:03d}.npy"
-                                ] = tile_cropped_data
+                                ] = tile_cropped_data.astype(np.float16)
                                 samples[s_num]["location.npy"] = tiled_loc
                                 samples[s_num]["topo.npy"] = tiled_topo
                                 s_num += 1
-                    if not flow:
+
+                    elif not flow:
                         flow_sample[channel + ".npy"] = cropped_data
                     else:
-                        flow_sample[channel + f".{interday_frame:03d}.npy"] = cropped_data
+                        flow_sample[channel + f".{interday_frame:03d}.npy"] = cropped_data.astype(
+                            np.float16
+                        )
             # Now all channels added to thing, write to shard
             if flow:
-                flow_sample["time.pyd"].append(datetime_object)
+                if not tile:
+                    flow_sample["time.pyd"].append(datetime_object)
                 for i, s in enumerate(samples):
                     samples[i]["time.pyd"].append(datetime_object)
                 if batch > 0:
-                    print(
-                        f"In Batch: {len(flow_sample['time.pyd'])} == {batch} Shard: {shard_num}"
-                    )
-                    if len(flow_sample["time.pyd"]) == batch:
+                    print(f"In Batch: {len(samples[0]['time.pyd'])} == {batch} Shard: {shard_num}")
+                    if len(samples[0]["time.pyd"]) == batch:
                         if tile:
                             for s in samples:
                                 sink_flow.write(s)
@@ -186,8 +190,11 @@ def make_day(data, flow=True, batch=144, tile=True):
             # except Exception as e:
             #    print(e)
     # print(f"Write Sample: {flow_sample.keys()}")
-    if flow and batch <= 0:
-        sink_flow.write(flow_sample)
+    # if flow and batch <= 0:
+    #    sink_flow.write(flow_sample)
+    if tile:
+        for s in samples:
+            sink_flow.write(s)
     # Close old shard
     # sink.close()
     sink_flow.close()
@@ -195,7 +202,7 @@ def make_day(data, flow=True, batch=144, tile=True):
 
 import multiprocessing
 
-pool = multiprocessing.Pool(4)
+pool = multiprocessing.Pool(6)
 
 old = os.listdir(os.path.join(eumetsat_dir, "2020"))
 old.sort(key=int)

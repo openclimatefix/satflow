@@ -26,14 +26,18 @@ for root, dirs, files in os.walk(eumetsat_dir):
     sat_file = ""
     cloud_mask = ""
     try:
+        if len(files) > 10:
+            print(f"skipping: {root}")
+            continue
         for f in files:
             if ".bz2" in f:
-                sat_file = decompress(os.path.join(root, f))
+                sat_file = os.path.join(root, f)
             elif ".nat" in f:
                 sat_file = os.path.join(root, f)
             if ".grb" in f:
                 cloud_mask = os.path.join(root, f)
-            if sat_file and cloud_mask:
+            if sat_file != "" and cloud_mask != "":
+                sat_file = decompress(sat_file)
                 map_satellite_to_mercator(
                     native_satellite=sat_file,
                     grib_files=cloud_mask,
