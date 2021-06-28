@@ -16,10 +16,11 @@ use_mask: True
 use_image: False
 pin_memory: True
 time_as_channels: False
+data_dir: ${data_dir} # data_dir is specified in config.yaml
 sources:
-  train: "/run/media/bieker/data/EUMETSAT/2020/satflow-flow-36-{00001..00105..2}.tar"
-  val: "/run/media/bieker/data/EUMETSAT/2020/satflow-flow-36-{00002..00105..4}.tar"
-  test: "/run/media/bieker/data/EUMETSAT/2021/satflow-flow-36-{000106..00150}.tar"
+  train: "satflow-flow-36-{00001..00105..2}.tar"
+  val: "satflow-flow-36-{00002..00105..4}.tar"
+  test: "satflow-flow-36-{000106..00150}.tar"
 bands:
   [
     "HRV",

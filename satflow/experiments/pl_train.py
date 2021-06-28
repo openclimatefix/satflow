@@ -5,6 +5,7 @@ from omegaconf import DictConfig
 from pytorch_lightning import (
     Callback,
     LightningModule,
+    LightningDataModule,
     Trainer,
     seed_everything,
 )
@@ -32,8 +33,8 @@ def train(config: DictConfig) -> Optional[float]:
         seed_everything(config.seed, workers=True)
 
     # Init Dataloaders
-    log.info(f"Instantiating dataloaders <{config.datamodule.name}>")
-    loaders = get_loaders(config.datamodule)
+    log.info(f"Instantiating datamodule <{config.datamodule.name}>")
+    datamodule: LightningDataModule = hydra.utils.instantiate(config.datamodule)
 
     # Init Lightning model
     log.info(f"Instantiating model <{config.model._target_}>")
@@ -73,7 +74,7 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Train the model
     log.info("Starting training!")
-    trainer.fit(model=model, train_dataloader=loaders["train"], val_dataloaders=loaders["val"])
+    trainer.fit(model=model, datamodule=datamodule)
 
     # Evaluate model on test set after training
     if not config.trainer.get("fast_dev_run", False):
