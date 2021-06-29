@@ -1,4 +1,5 @@
 import numpy as np
+
 OCEAN = 0
 MOUNTAIN = 2000
 HILLY = 100

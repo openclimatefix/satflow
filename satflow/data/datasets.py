@@ -292,7 +292,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 )
                 if self.use_topo:
                     topo = load_np(sample["topo.npy"])
-                    topo[topo < 100] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
+                    topo[
+                        topo < 100
+                    ] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
                     self.topo = topo - np.min(topo) / (np.max(topo) - np.min(topo))
                     self.topo = np.expand_dims(self.topo, axis=-1)
                 if self.use_latlon:
@@ -334,8 +336,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             target_mask = self.aug.replay(replay, image=target_mask)["image"]
                             target_mask = np.expand_dims(target_mask, axis=0)
 
-                            if np.isclose(np.min(target_mask),np.max(target_mask)):
-                                continue # Ignore if target timestep has no clouds, or only clouds
+                            if np.isclose(np.min(target_mask), np.max(target_mask)):
+                                continue  # Ignore if target timestep has no clouds, or only clouds
                             # Now create stack here
                             for i in range(idx + 1, idx + self.forecast_times):
                                 t_image, t_mask = self.get_timestep(

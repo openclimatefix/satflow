@@ -1,16 +1,17 @@
 # @package _group_
 _target_: satflow.data.datamodules.SatFlowDataModule
 
-batch_size: 4
+batch_size: 1
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 shuffle: 0
 sources:
   train: "satflow-flow-144-tiled-{00001..00149..2}.tar"
   val: "satflow-flow-144-tiled-{00002..00149..4}.tar"
   test: "satflow-flow-144-tiled-{000014..00149..4}.tar"
-num_workers: 6
+num_workers: 1
 pin_memory: True
 config:
+  visualize: False
   num_timesteps: 12
   skip_timesteps: 1
   forecast_times: 48
@@ -22,7 +23,7 @@ config:
   use_time: False
   time_aux: False
   use_mask: True
-  use_image: False
+  use_image: True
   time_as_channels: False
   bands:
     [
