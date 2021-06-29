@@ -66,7 +66,11 @@ def extras(config: DictConfig) -> None:
     channels = channels + 1 if config.datamodule.config.use_topo else channels
     channels = channels + 1 if config.datamodule.config.use_mask else channels
     channels = channels + 3 if config.datamodule.config.use_latlon else channels
-    channels = channels + 3 if config.datamodule.config.use_time and not config.datamodule.config.time_aux else channels
+    channels = (
+        channels + 3
+        if config.datamodule.config.use_time and not config.datamodule.config.time_aux
+        else channels
+    )
 
     if config.datamodule.config.get("time_as_channels"):
         # Calc number of channels + inital ones

@@ -5,6 +5,7 @@ from satflow.models.base import register_model
 from pl_bolts.models.vision import UNet
 import numpy as np
 
+
 @register_model
 class Unet(pl.LightningModule):
     def __init__(
@@ -15,7 +16,7 @@ class Unet(pl.LightningModule):
         features_start: int = 64,
         bilinear: bool = False,
         learning_rate: float = 0.001,
-        make_vis: bool = False
+        make_vis: bool = False,
     ):
         super(Unet, self).__init__()
         self.lr = learning_rate
@@ -72,15 +73,23 @@ class Unet(pl.LightningModule):
         # the logger you used (in this case tensorboard)
         tensorboard = self.logger.experiment
         # Add all the different timesteps for a single prediction, 0.1% of the time
-        in_image = x[0].cpu().detach().numpy() # Input image stack, Unet takes everything in channels, so no time dimension
+        in_image = (
+            x[0].cpu().detach().numpy()
+        )  # Input image stack, Unet takes everything in channels, so no time dimension
         for i, in_slice in enumerate(in_image):
             j = 0
-            if i % self.input_channels == 0: # First one
+            if i % self.input_channels == 0:  # First one
                 j += 1
-                tensorboard.add_image(f"Input_Image_{j}_Channel_{i}", in_slice, global_step=batch_idx) # Each Channel
+                tensorboard.add_image(
+                    f"Input_Image_{j}_Channel_{i}", in_slice, global_step=batch_idx
+                )  # Each Channel
         out_image = y_hat[0].cpu().detach().numpy()
         for i, out_slice in enumerate(out_image):
-            tensorboard.add_image(f"Output_Image_{i}", out_slice, global_step=batch_idx) # Each Channel
+            tensorboard.add_image(
+                f"Output_Image_{i}", out_slice, global_step=batch_idx
+            )  # Each Channel
         out_image = y[0].cpu().detach().numpy()
         for i, out_slice in enumerate(out_image):
-            tensorboard.add_image(f"Target_Image_{i}", out_slice, global_step=batch_idx) # Each Channel
+            tensorboard.add_image(
+                f"Target_Image_{i}", out_slice, global_step=batch_idx
+            )  # Each Channel

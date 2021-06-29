@@ -15,7 +15,7 @@ class SatFlowDataModule(pl.LightningDataModule):
         shuffle: int = 0,
         data_dir: str = "./",
         num_workers: int = 1,
-        pin_memory: bool = True
+        pin_memory: bool = True,
     ):
         super().__init__()
         self.data_dir = data_dir

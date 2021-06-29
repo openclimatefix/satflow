@@ -14,7 +14,13 @@ from satflow.models.layers.ConvLSTM import ConvLSTMCell
 @register_model
 class EncoderDecoderConvLSTM(pl.LightningModule):
     def __init__(
-        self, features_start, input_channels, out_channels, forecast_steps, learning_rate, make_vis=False
+        self,
+        features_start,
+        input_channels,
+        out_channels,
+        forecast_steps,
+        learning_rate,
+        make_vis=False,
     ):
         super(EncoderDecoderConvLSTM, self).__init__()
         self.forecast_steps = forecast_steps
@@ -37,7 +43,10 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         )
 
         self.decoder_1_convlstm = ConvLSTMCell(
-            input_dim=features_start, hidden_dim=features_start, kernel_size=(3, 3), bias=True  # nf + 1
+            input_dim=features_start,
+            hidden_dim=features_start,
+            kernel_size=(3, 3),
+            bias=True,  # nf + 1
         )
 
         self.decoder_2_convlstm = ConvLSTMCell(
