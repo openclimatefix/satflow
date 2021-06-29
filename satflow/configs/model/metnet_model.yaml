@@ -1,0 +1,10 @@
+# @package _group_
+_target_: satflow.models.metnet.MetNet
+input_channels: 17
+hidden_dim: 64
+forecast_steps: 48
+learning_rate: 0.0078
+kernel_size: 3
+num_layers: 1
+num_att_layers: 1
+temporal_dropout: 0.2

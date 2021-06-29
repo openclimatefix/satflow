@@ -1,0 +1,43 @@
+# @package _group_
+_target_: satflow.data.datamodules.SatFlowDataModule
+
+batch_size: 1
+data_dir: ${data_dir} # data_dir is specified in config.yaml
+shuffle: 0
+sources:
+  train: "satflow-flow-144-tiled-{00001..00149..2}.tar"
+  val: "satflow-flow-144-tiled-{00002..00149..4}.tar"
+  test: "satflow-flow-144-tiled-{000014..00149..4}.tar"
+num_workers: 1
+pin_memory: True
+config:
+  visualize: False
+  num_timesteps: 12
+  skip_timesteps: 1
+  forecast_times: 48
+  output_shape: 256
+  target_type: "cloudmask"
+  num_crops: 10
+  use_topo: True
+  use_latlon: True
+  use_time: False
+  time_aux: False
+  use_mask: True
+  use_image: False
+  time_as_channels: False
+  bands:
+    [
+      "HRV",
+      "IR016",
+      "IR039",
+      "IR087",
+      "IR097",
+      "IR108",
+      "IR120",
+      "IR134",
+      "VIS006",
+      "VIS008",
+      "WV062",
+      "WV073",
+    ]
+  transforms: {}

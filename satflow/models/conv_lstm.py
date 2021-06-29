@@ -15,7 +15,7 @@ from satflow.models.layers.ConvLSTM import ConvLSTMCell
 class EncoderDecoderConvLSTM(pl.LightningModule):
     def __init__(
         self,
-        features_start,
+        hidden_dim,
         input_channels,
         out_channels,
         forecast_steps,
@@ -35,26 +35,26 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
 
         """
         self.encoder_1_convlstm = ConvLSTMCell(
-            input_dim=input_channels, hidden_dim=features_start, kernel_size=(3, 3), bias=True
+            input_dim=input_channels, hidden_dim=hidden_dim, kernel_size=(3, 3), bias=True
         )
 
         self.encoder_2_convlstm = ConvLSTMCell(
-            input_dim=features_start, hidden_dim=features_start, kernel_size=(3, 3), bias=True
+            input_dim=hidden_dim, hidden_dim=hidden_dim, kernel_size=(3, 3), bias=True
         )
 
         self.decoder_1_convlstm = ConvLSTMCell(
-            input_dim=features_start,
-            hidden_dim=features_start,
+            input_dim=hidden_dim,
+            hidden_dim=hidden_dim,
             kernel_size=(3, 3),
             bias=True,  # nf + 1
         )
 
         self.decoder_2_convlstm = ConvLSTMCell(
-            input_dim=features_start, hidden_dim=features_start, kernel_size=(3, 3), bias=True
+            input_dim=hidden_dim, hidden_dim=hidden_dim, kernel_size=(3, 3), bias=True
         )
 
         self.decoder_CNN = nn.Conv3d(
-            in_channels=features_start,
+            in_channels=hidden_dim,
             out_channels=out_channels,
             kernel_size=(1, 3, 3),
             padding=(0, 1, 1),
@@ -64,7 +64,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
     @classmethod
     def from_config(cls, config):
         return EncoderDecoderConvLSTM(
-            features_start=config.get("num_hidden", 64),
+            hidden_dim=config.get("num_hidden", 64),
             input_channels=config.get("in_channels", 12),
             out_channels=config.get("out_channels", 1),
             forecast_steps=config.get("forecast_steps", 1),

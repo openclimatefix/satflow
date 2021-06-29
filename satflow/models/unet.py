@@ -13,7 +13,7 @@ class Unet(pl.LightningModule):
         forecast_steps: int,
         input_channels: int = 3,
         num_layers: int = 5,
-        features_start: int = 64,
+        hidden_dim: int = 64,
         bilinear: bool = False,
         learning_rate: float = 0.001,
         make_vis: bool = False,
@@ -21,7 +21,7 @@ class Unet(pl.LightningModule):
         super(Unet, self).__init__()
         self.lr = learning_rate
         self.make_vis = make_vis
-        self.model = UNet(forecast_steps, input_channels, num_layers, features_start, bilinear)
+        self.model = UNet(forecast_steps, input_channels, num_layers, hidden_dim, bilinear)
         self.save_hyperparameters()
 
     @classmethod
@@ -29,7 +29,7 @@ class Unet(pl.LightningModule):
         return Unet(
             forecast_steps=config.get("forecast_steps", 12),
             input_channels=config.get("in_channels", 12),
-            features_start=config.get("features", 64),
+            hidden_dim=config.get("features", 64),
             num_layers=config.get("num_layers", 5),
             bilinear=config.get("bilinear", False),
             learning_rate=config.get("learning_rate", 0.001),

@@ -32,26 +32,32 @@ class DownSampler(nn.Module):
 class MetNet(pl.LightningModule):
     def __init__(
         self,
-        image_encoder: nn.Module = DownSampler(12),
+        image_encoder: Optional[nn.Module] = None,
+        input_channels: int = 12,
         hidden_dim: int = 64,
-        ks: int = 3,
-        n_layers: int = 1,
-        n_att_layers: int = 1,
+        kernel_size: int = 3,
+        num_layers: int = 1,
+        num_att_layers: int = 1,
         head: nn.Module = nn.Identity(),
-        horizon: int = 48,
-        p: float = 0.2,
+        forecast_steps: int = 48,
+        temporal_dropout: float = 0.2,
+        learning_rate: float = 0.001,
     ):
         super().__init__()
-        self.horizon = horizon
-        self.drop = nn.Dropout(p)
+
+        self.horizon = forecast_steps
+        self.lr = learning_rate
+        self.drop = nn.Dropout(temporal_dropout)
+        if image_encoder is None:
+            image_encoder = DownSampler(input_channels)
         nf = 256  # from the simple image encoder
         self.image_encoder = TimeDistributed(image_encoder)
-        self.ct = ConditionTime(horizon)
-        self.temporal_enc = TemporalEncoder(nf, hidden_dim, ks=ks, n_layers=n_layers)
+        self.ct = ConditionTime(forecast_steps)
+        self.temporal_enc = TemporalEncoder(nf, hidden_dim, ks=kernel_size, n_layers=num_layers)
         self.temporal_agg = nn.Sequential(
             *[
                 AxialAttention(dim=hidden_dim, dim_index=1, heads=8, num_dimensions=2)
-                for _ in range(n_att_layers)
+                for _ in range(num_att_layers)
             ]
         )
 

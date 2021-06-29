@@ -1,7 +1,7 @@
 # @package _group_
 _target_: satflow.models.conv_lstm.EncoderDecoderConvLSTM
 input_channels: 17
-features_start: 64
+hidden_dim: 64
 out_channels: 1
 forecast_steps: 48
 learning_rate: 0.0078
