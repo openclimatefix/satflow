@@ -9,16 +9,35 @@ from satflow.models.layers import ConvGRU, TimeDistributed
 from axial_attention import AxialAttention
 
 
+class DownSampler(nn.Module):
+    def __init__(self, in_channels):
+        super().__init__()
+        self.module = nn.Sequential(
+            nn.Conv2d(in_channels, 160, 3, padding=1),
+            nn.MaxPool2d((2, 2), stride=2),
+            nn.BatchNorm2d(160),
+            nn.Conv2d(160, 256, 3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256, 256, 3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256, 256, 3, padding=1),
+            nn.MaxPool2d((2, 2), stride=2),
+        )
+
+    def forward(self, x):
+        return self.module.forward(x)
+
+
 @register_model
 class MetNet(pl.LightningModule):
     def __init__(
         self,
-        image_encoder: nn.Module,
-        hidden_dim: int,
+        image_encoder: nn.Module = DownSampler(12),
+        hidden_dim: int = 64,
         ks: int = 3,
         n_layers: int = 1,
         n_att_layers: int = 1,
-        head: Optional[nn.Module] = None,
+        head: nn.Module = nn.Identity(),
         horizon: int = 48,
         p: float = 0.2,
     ):
@@ -36,10 +55,7 @@ class MetNet(pl.LightningModule):
             ]
         )
 
-        if head is None:
-            self.head = nn.Identity()
-        else:
-            self.head = head
+        self.head = head
 
     def encode_timestep(self, x, fstep=1):
 
@@ -102,20 +118,6 @@ class MetNet(pl.LightningModule):
         y_hat = self(x, self.forecast_steps)
         loss = F.mse_loss(y_hat, y)
         return loss
-
-
-def DownSampler(in_channels):
-    return nn.Sequential(
-        nn.Conv2d(in_channels, 160, 3, padding=1),
-        nn.MaxPool2d((2, 2), stride=2),
-        nn.BatchNorm2d(160),
-        nn.Conv2d(160, 256, 3, padding=1),
-        nn.BatchNorm2d(256),
-        nn.Conv2d(256, 256, 3, padding=1),
-        nn.BatchNorm2d(256),
-        nn.Conv2d(256, 256, 3, padding=1),
-        nn.MaxPool2d((2, 2), stride=2),
-    )
 
 
 class TemporalEncoder(nn.Module):
