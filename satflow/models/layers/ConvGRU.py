@@ -101,7 +101,7 @@ class ConvGRUCell(nn.Module):
 
 def one_param(m):
     "First parameter in `m`"
-    return m.parameters()[0]
+    return next(m.parameters())
 
 
 def dropout_mask(x, sz, p):

@@ -11,6 +11,7 @@ import torch
 import torch.utils.data as thd
 import webdataset as wds
 from torch.utils.data.dataset import T_co
+from satflow.data.utils.utils import crop_center
 
 REGISTERED_DATASET_CLASSES = {}
 
@@ -102,6 +103,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
         # Defined output sizes, etc.
         self.output_shape = config["output_shape"]
+        self.output_target = config.get("output_target", config["output_shape"])
         self.target_type = config.get("target", "cloudmask")
         # Should load the common data here
         self.bands = config.get(
@@ -382,6 +384,14 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 for t in target_mask[1:]:
                                     ts = np.concatenate([ts, t], axis=0)
                                 target_mask = ts
+                            if self.output_target != self.output_shape:
+                                if self.use_image:
+                                    target_image = crop_center(
+                                        target_image, self.output_target, self.output_target
+                                    )
+                                target_mask = crop_center(
+                                    target_mask, self.output_target, self.output_target
+                                )
                             if self.vis:
                                 self.visualize(image, target_image, target_mask)
                             if self.use_time and self.time_aux:

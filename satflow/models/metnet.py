@@ -49,7 +49,7 @@ class MetNet(pl.LightningModule):
         self.lr = learning_rate
         self.drop = nn.Dropout(temporal_dropout)
         if image_encoder is None:
-            image_encoder = DownSampler(input_channels)
+            image_encoder = DownSampler(input_channels + forecast_steps)
         nf = 256  # from the simple image encoder
         self.image_encoder = TimeDistributed(image_encoder)
         self.ct = ConditionTime(forecast_steps)
@@ -62,6 +62,8 @@ class MetNet(pl.LightningModule):
         )
 
         self.head = head
+        self.head = nn.Conv2d(hidden_dim, 1, kernel_size=(1, 1))  # Reduces to mask
+        # self.head = nn.Sequential(nn.AdaptiveAvgPool2d(1), )
 
     def encode_timestep(self, x, fstep=1):
 
@@ -102,6 +104,7 @@ class MetNet(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
+        y = torch.squeeze(y)
 
         # if self.make_vis:
         #    if np.random.random() < 0.01:
@@ -115,13 +118,15 @@ class MetNet(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
+        y = torch.squeeze(y)
         val_loss = F.mse_loss(y_hat, y)
         self.log("val/loss", val_loss, on_step=True, on_epoch=True)
         return val_loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x, self.forecast_steps)
+        y_hat = self(x)
+        y = torch.squeeze(y)
         loss = F.mse_loss(y_hat, y)
         return loss
 
