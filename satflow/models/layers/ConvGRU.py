@@ -1,5 +1,3 @@
-__all__ = ["ConvGRUCell", "ConvGRU"]
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -99,6 +97,29 @@ class ConvGRUCell(nn.Module):
         if self.batchnorm:
             self.bn1.reset_parameters()
             self.bn2.reset_parameters()
+
+
+def one_param(m):
+    "First parameter in `m`"
+    return m.parameters()[0]
+
+
+def dropout_mask(x, sz, p):
+    "Return a dropout mask of the same type as `x`, size `sz`, with probability `p` to cancel an element."
+    return x.new_empty(*sz).bernoulli_(1 - p).div_(1 - p)
+
+
+class RNNDropout(nn.Module):
+    "Dropout with probability `p` that is consistent on the seq_len dimension."
+
+    def __init__(self, p=0.5):
+        super().__init__()
+        self.p = p
+
+    def forward(self, x):
+        if not self.training or self.p == 0.0:
+            return x
+        return x * dropout_mask(x.data, (x.size(0), 1, *x.shape[2:]), self.p)
 
 
 class ConvGRU(nn.Module):
