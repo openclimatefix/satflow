@@ -1,12 +1,10 @@
-from typing import Any, Dict
-
+from typing import Any, Dict, Optional
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 
-from satflow.models.base import Model, register_model
+from satflow.models.base import register_model
 from satflow.models.layers import ConvGRU, TimeDistributed
 from axial_attention import AxialAttention
 
@@ -15,20 +13,17 @@ from axial_attention import AxialAttention
 class MetNet(pl.LightningModule):
     def __init__(
         self,
-        image_encoder,
-        hidden_dim,
-        ks=3,
-        n_layers=1,
-        n_att_layers=1,
-        head=None,
-        horizon=3,
-        n_feats=0,
-        p=0.2,
-        debug=False,
+        image_encoder: nn.Module,
+        hidden_dim: int,
+        ks: int = 3,
+        n_layers: int = 1,
+        n_att_layers: int = 1,
+        head: Optional[nn.Module] = None,
+        horizon: int = 48,
+        p: float = 0.2,
     ):
         super().__init__()
         self.horizon = horizon
-        self.n_feats = n_feats
         self.drop = nn.Dropout(p)
         nf = 256  # from the simple image encoder
         self.image_encoder = TimeDistributed(image_encoder)
@@ -46,8 +41,6 @@ class MetNet(pl.LightningModule):
         else:
             self.head = head
 
-        self.debug = debug
-
     def encode_timestep(self, x, fstep=1):
 
         # Condition Time
@@ -60,15 +53,16 @@ class MetNet(pl.LightningModule):
         _, state = self.temporal_enc(self.drop(x))
         return self.temporal_agg(state)
 
-    def forward(self, imgs, feats):
+    def forward(self, imgs):
         """It takes a rank 5 tensor
         - imgs [bs, seq_len, channels, h, w]
-        - feats [bs, n_feats, seq_len]"""
+        """
         # stack feature as images
         # TODO Could leave this out? Do this in dataloader?
-        if self.n_feats > 0:
-            feats = feat2image(feats, target_size=imgs.shape[-2:])
-            imgs = torch.cat([imgs, feats], dim=2)
+        # - feats [bs, n_feats, seq_len]
+        # if self.n_feats > 0:
+        # feats = feat2image(feats, target_size=imgs.shape[-2:])
+        # imgs = torch.cat([imgs, feats], dim=2)
         # Compute all timesteps, probably can be parallelized
         res = []
         for i in range(self.horizon):
@@ -87,9 +81,9 @@ class MetNet(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
 
-        if self.make_vis:
-            if np.random.random() < 0.01:
-                self.visualize(x, y, y_hat, batch_idx)
+        # if self.make_vis:
+        #    if np.random.random() < 0.01:
+        #        self.visualize(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         loss = F.mse_loss(y_hat, y)
