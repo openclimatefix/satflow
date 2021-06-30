@@ -18,9 +18,9 @@ pin_memory: True
 time_as_channels: False
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 sources:
-  train: "satflow-flow-36-{00001..00105..2}.tar"
-  val: "satflow-flow-36-{00002..00105..4}.tar"
-  test: "satflow-flow-36-{000106..00150}.tar"
+  train: "satflow-flow-144-tiled-{00001..00105}.tar"
+  val: "satflow-flow-144-tiled-{00106..00129}.tar"
+  test: "satflow-flow-144-tiled-{00130..00149}.tar"
 bands:
   [
     "HRV",
