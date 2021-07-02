@@ -7,14 +7,6 @@ from pyresample import load_area
 from satpy import Scene
 
 
-def crop_center(img, cropx, cropy):
-    """Crops center of image through timestack, fails if all the images are concatenated as channels"""
-    t, c, y, x = img.shape
-    startx = x // 2 - (cropx // 2)
-    starty = y // 2 - (cropy // 2)
-    return img[:, :, starty : starty + cropy, startx : startx + cropx]
-
-
 def eumetsat_filename_to_datetime(inner_tar_name):
     """Takes a file from the EUMETSAT API and returns
     the date and time part of the filename"""

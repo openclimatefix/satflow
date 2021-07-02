@@ -71,10 +71,9 @@ def extras(config: DictConfig) -> None:
         if config.datamodule.config.use_time and not config.datamodule.config.time_aux
         else channels
     )
-
     if config.datamodule.config.get("time_as_channels"):
         # Calc number of channels + inital ones
-        config.model.input_channels = channels * config.datamodule.config.num_timesteps
+        config.model.input_channels = channels * (config.datamodule.config.num_timesteps + 1)
     else:
         config.model.input_channels = channels
 
