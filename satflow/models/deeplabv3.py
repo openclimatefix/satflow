@@ -2,27 +2,26 @@ import torch
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from satflow.models.base import register_model
-from pl_bolts.models.vision import UNet
+from torchvision.models.segmentation import deeplabv3_resnet50, deeplabv3_resnet101
 import numpy as np
 from typing import Union
 from satflow.models.losses import FocalLoss
 
 
 @register_model
-class Unet(pl.LightningModule):
+class DeeplabV3(pl.LightningModule):
     def __init__(
         self,
-        forecast_steps: int,
-        input_channels: int = 3,
-        num_layers: int = 5,
-        hidden_dim: int = 64,
-        bilinear: bool = False,
+        forecast_steps: int = 48,
+        input_channels: int = 12,
         lr: float = 0.001,
         make_vis: bool = False,
         loss: Union[str, torch.nn.Module] = "mse",
+        backbone: str = "resnet50",
         pretrained: bool = False,
+        aux_loss: bool = False,
     ):
-        super(Unet, self).__init__()
+        super(DeeplabV3, self).__init__()
         self.lr = lr
         assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
         if loss == "mse":
@@ -34,12 +33,24 @@ class Unet(pl.LightningModule):
         else:
             raise ValueError(f"loss {loss} not recognized")
         self.make_vis = make_vis
-        self.model = UNet(forecast_steps, input_channels, num_layers, hidden_dim, bilinear)
+        if backbone in ["r101", "resnet101"]:
+            self.model = deeplabv3_resnet101(
+                pretrained=pretrained, num_classes=forecast_steps, aux_loss=aux_loss
+            )
+        else:
+            self.model = deeplabv3_resnet50(
+                pretrained=pretrained, num_classes=forecast_steps, aux_loss=aux_loss
+            )
+
+        if input_channels != 3:
+            self.model.backbone.conv1 = torch.nn.Conv2d(
+                input_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
+            )
         self.save_hyperparameters()
 
     @classmethod
     def from_config(cls, config):
-        return Unet(
+        return DeeplabV3(
             forecast_steps=config.get("forecast_steps", 12),
             input_channels=config.get("in_channels", 12),
             hidden_dim=config.get("features", 64),

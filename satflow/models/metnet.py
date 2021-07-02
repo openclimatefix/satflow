@@ -32,7 +32,7 @@ class DownSampler(nn.Module):
 class MetNet(pl.LightningModule):
     def __init__(
         self,
-        image_encoder: Optional[nn.Module] = None,
+        image_encoder: str = "downsampler",
         input_channels: int = 12,
         hidden_dim: int = 64,
         kernel_size: int = 3,
@@ -41,15 +41,18 @@ class MetNet(pl.LightningModule):
         head: nn.Module = nn.Identity(),
         forecast_steps: int = 48,
         temporal_dropout: float = 0.2,
-        learning_rate: float = 0.001,
+        lr: float = 0.001,
+        pretrained: bool = False,
     ):
         super().__init__()
 
         self.horizon = forecast_steps
-        self.lr = learning_rate
+        self.lr = lr
         self.drop = nn.Dropout(temporal_dropout)
-        if image_encoder is None:
+        if image_encoder in ["downsampler", "default"]:
             image_encoder = DownSampler(input_channels + forecast_steps)
+        else:
+            raise ValueError(f"Image_encoder {image_encoder} is not recognized")
         nf = 256  # from the simple image encoder
         self.image_encoder = TimeDistributed(image_encoder)
         self.ct = ConditionTime(forecast_steps)

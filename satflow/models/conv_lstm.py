@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 import pytorch_lightning as pl
 import torch
@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import numpy as np
+from satflow.models.losses import FocalLoss
 
 from satflow.models.base import register_model
 from satflow.models.layers.ConvLSTM import ConvLSTMCell
@@ -15,16 +16,30 @@ from satflow.models.layers.ConvLSTM import ConvLSTMCell
 class EncoderDecoderConvLSTM(pl.LightningModule):
     def __init__(
         self,
-        hidden_dim,
-        input_channels,
-        out_channels,
-        forecast_steps,
-        learning_rate,
-        make_vis=False,
+        hidden_dim: int = 64,
+        input_channels: int = 12,
+        out_channels: int = 1,
+        forecast_steps: int = 48,
+        lr: float = 0.001,
+        make_vis: bool = False,
+        loss: Union[str, torch.nn.Module] = "mse",
+        pretrained: bool = False,
     ):
         super(EncoderDecoderConvLSTM, self).__init__()
         self.forecast_steps = forecast_steps
-        self.lr = learning_rate
+        if isinstance(loss, torch.nn.Module):
+            self.criterion = loss
+        else:
+            assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
+            if loss == "mse":
+                self.criterion = F.mse_loss
+            elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
+                self.criterion = F.nll_loss
+            elif loss in ["focal"]:
+                self.criterion = FocalLoss()
+            else:
+                raise ValueError(f"loss {loss} not recognized")
+        self.lr = lr
         self.make_vis = make_vis
         """ ARCHITECTURE
 
@@ -68,7 +83,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
             input_channels=config.get("in_channels", 12),
             out_channels=config.get("out_channels", 1),
             forecast_steps=config.get("forecast_steps", 1),
-            learning_rate=config.get("learning_rate", 0.001),
+            lr=config.get("lr", 0.001),
         )
 
     def autoencoder(self, x, seq_len, future_step, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
@@ -143,21 +158,21 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         # the logger you used (in this case tensorboard)
         if self.make_vis:
             self.visualize(x, y, y_hat, batch_idx)
-        loss = F.mse_loss(y_hat, y)
+        loss = self.criterion(y_hat, y)
         self.log("train/loss", loss, on_step=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x, self.forecast_steps)
-        val_loss = F.mse_loss(y_hat, y)
+        val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss, on_step=True, on_epoch=True)
         return val_loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x, self.forecast_steps)
-        loss = F.mse_loss(y_hat, y)
+        loss = self.criterion(y_hat, y)
         return loss
 
     def visualize(self, x, y, y_hat, batch_idx):

@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from typing import Any, Dict, Type
 import torch.nn
 
@@ -64,7 +63,7 @@ def create_model(model_name, pretrained=False, checkpoint_path="", **kwargs):
     kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
     if model_name in REGISTERED_MODELS:
-        model = get_model(model_name).from_config(pretrained=pretrained, **kwargs)
+        model = get_model(model_name)(pretrained=pretrained, **kwargs)
     else:
         raise RuntimeError("Unknown model (%s)" % model_name)
 
