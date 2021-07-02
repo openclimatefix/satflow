@@ -12,7 +12,6 @@ from pytorch_lightning import (
 from pytorch_lightning.loggers import LightningLoggerBase
 
 from satflow.core import utils
-from satflow.core.training_utils import get_loaders
 
 log = utils.get_logger(__name__)
 
@@ -76,13 +75,16 @@ def train(config: DictConfig) -> Optional[float]:
     )
 
     # Train the model
+    if config.trainer.auto_lr_find or config.trainer.auto_scale_batch_size:
+        log.info("Starting tuning!")
+        trainer.tune(model=model, datamodule=datamodule)
     log.info("Starting training!")
     trainer.fit(model=model, datamodule=datamodule)
 
     # Evaluate model on test set after training
     if not config.trainer.get("fast_dev_run", False):
         log.info("Starting testing!")
-        # trainer.test(test_dataloaders=loaders["test"])
+        trainer.test(model=model, datamodule=datamodule)
 
     # Print path to best checkpoint
     log.info(f"Best checkpoint path:\n{trainer.checkpoint_callback.best_model_path}")
