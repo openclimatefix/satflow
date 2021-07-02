@@ -85,6 +85,46 @@ def load_np(data):
     return numpy.lib.format.read_array(io.BytesIO(data))
 
 
+def create_pixel_coord_layers(x_dim: int, y_dim: int, with_r: bool = False) -> np.ndarray:
+    """
+    Creates Coord layer for CoordConv model
+
+    :param x_dim: size of x dimension for output
+    :param y_dim: size of y dimension for output
+    :param with_r: Whether to include polar coordinates from center
+    :return: (2, x_dim, y_dim) or (3, x_dim, y_dim) array of the pixel coordinates
+    """
+    xx_ones = np.ones([1, x_dim], dtype=np.int32)
+    xx_ones = np.expand_dims(xx_ones, -1)
+
+    xx_range = np.expand_dims(np.arange(x_dim), 0)
+    xx_range = np.expand_dims(xx_range, 1)
+
+    xx_channel = np.matmul(xx_ones, xx_range)
+    xx_channel = np.expand_dims(xx_channel, -1)
+
+    yy_ones = np.ones([1, y_dim], dtype=np.int32)
+    yy_ones = np.expand_dims(yy_ones, 1)
+
+    yy_range = np.expand_dims(np.arange(y_dim), 0)
+    yy_range = np.expand_dims(yy_range, -1)
+
+    yy_channel = np.matmul(yy_range, yy_ones)
+    yy_channel = np.expand_dims(yy_channel, -1)
+
+    xx_channel = xx_channel.astype("float32") / (x_dim - 1)
+    yy_channel = yy_channel.astype("float32") / (y_dim - 1)
+
+    xx_channel = xx_channel * 2 - 1
+    yy_channel = yy_channel * 2 - 1
+    ret = np.stack([xx_channel, yy_channel], axis=0)
+
+    if with_r:
+        rr = np.sqrt(np.square(xx_channel - 0.5) + np.square(yy_channel - 0.5))
+        ret = np.concatenate([ret, np.expand_dims(rr, axis=0)], axis=0)
+    return ret
+
+
 @register_dataset
 class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
     def __init__(self, datasets, config, train=True):
@@ -134,6 +174,11 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.use_image = config.get("use_image", False)
         self.return_target_stack = config.get("stack_targets", False)
         self.time_as_chennels = config.get("time_as_channels", False)
+        self.add_pixel_coords = config.get("add_pixel_coords", False)
+
+        self.pixel_coords = create_pixel_coord_layers(
+            self.output_shape, self.output_shape, with_r=config.get("add_polar_coords", False)
+        )
 
         self.topo = None
         self.location = None
@@ -374,6 +419,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             image = image.astype(np.float32)
                             # Move channel to Time x Channel x W x H
                             image = np.moveaxis(image, [3], [1])
+                            if self.add_pixel_coords:
+                                # Add channels for pixel_coords
+                                image = np.concatenate([image, self.pixel_coords], axis=1)
                             target_mask = np.moveaxis(target_mask, [1], [0])
                             if target_image is not None:
                                 target_image = np.moveaxis(target_image, [3], [1])
