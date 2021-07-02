@@ -20,6 +20,7 @@ class Unet(pl.LightningModule):
         lr: float = 0.001,
         make_vis: bool = False,
         loss: Union[str, torch.nn.Module] = "mse",
+        pretrained: bool = False,
     ):
         super(Unet, self).__init__()
         self.lr = lr

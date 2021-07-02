@@ -23,6 +23,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         lr: float = 0.001,
         make_vis: bool = False,
         loss: Union[str, torch.nn.Module] = "mse",
+        pretrained: bool = False,
     ):
         super(EncoderDecoderConvLSTM, self).__init__()
         self.forecast_steps = forecast_steps

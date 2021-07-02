@@ -13,7 +13,7 @@ class PixelCNN(pl.LightningModule):
         input_channels: int = 3,
         num_layers: int = 5,
         num_hidden: int = 64,
-        bilinear: bool = False,
+        pretrained: bool = False,
         lr: float = 0.001,
     ):
         super(PixelCNN, self).__init__()
