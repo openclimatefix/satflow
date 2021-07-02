@@ -46,41 +46,39 @@ def binarize_mask(mask):
     return mask
 
 
-# Taken from OCF Zarr file min and max for all the channels
-MSG_MEAN = np.array(
-    [
-        14.04300588,
-        12.08545261,
-        277.3749233,
-        269.09229239,
-        246.08281192,
-        271.22961027,
-        269.87252372,
-        251.17556403,
-        12.23808318,
-        14.80151262,
-        232.57341978,
-        248.14469363,
-    ]
-)
+# Taken from training set
+MSG_MEAN = {
+    "HRV": 14.04300588,
+    "IR016": 12.08545261,
+    "IR039": 277.3749233,
+    "IR087": 269.09229239,
+    "IR097": 246.08281192,
+    "IR108": 271.22961027,
+    "IR120": 269.87252372,
+    "IR134": 251.17556403,
+    "VIS006": 12.23808318,
+    "VIS008": 14.80151262,
+    "WV062": 232.57341978,
+    "WV073": 248.14469363,
+}
 
+MSG_STD = {
+    "HRV": 7.6144786,
+    "IR016": 6.70064364,
+    "IR039": 10.4374892,
+    "IR087": 13.27530427,
+    "IR097": 6.9411872,
+    "IR108": 14.14880209,
+    "IR120": 14.15595176,
+    "IR134": 8.41474376,
+    "VIS006": 7.16105213,
+    "VIS008": 8.04250388,
+    "WV062": 4.20345723,
+    "WV073": 6.93812301,
+}
 
-MSG_STD = np.array(
-    [
-        7.6144786,
-        6.70064364,
-        10.4374892,
-        13.27530427,
-        6.9411872,
-        14.14880209,
-        14.15595176,
-        8.41474376,
-        7.16105213,
-        8.04250388,
-        4.20345723,
-        6.93812301,
-    ]
-)
+TOPO_MEAN = 224.3065682349895
+TOPO_STD = 441.7514422990341
 
 
 def load_np(data):
@@ -124,6 +122,10 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 "WV073",
             ),
         )
+
+        self.mean = np.array([MSG_MEAN[b] for b in self.bands])
+        self.std = np.array([MSG_STD[b] for b in self.bands])
+
         self.use_topo = config.get("use_topo", False)
         self.use_latlon = config.get("use_latlon", False)
         self.use_time = config.get("use_time", True)
@@ -226,7 +228,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         )
 
         # Regularize here
-        image = (image - MSG_MEAN) / MSG_STD
+        image = (image - self.mean) / self.std
 
         if return_target and return_image:
             return image, target
@@ -298,7 +300,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     topo[
                         topo < 100
                     ] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
-                    self.topo = topo - np.min(topo) / (np.max(topo) - np.min(topo))
+                    self.topo = (topo - TOPO_MEAN) / TOPO_STD
                     self.topo = np.expand_dims(self.topo, axis=-1)
                 if self.use_latlon:
                     self.location = load_np(sample["location.npy"])
