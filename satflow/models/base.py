@@ -41,6 +41,8 @@ def safe_model_name(model_name, remove_source=True):
 def create_model(model_name, pretrained=False, checkpoint_path="", **kwargs):
     """Create a model
 
+    Almost entirely taken from timm https://github.com/rwightman/pytorch-image-models
+
     Args:
         model_name (str): name of model to instantiate
         pretrained (bool): load pretrained ImageNet-1k weights if true
