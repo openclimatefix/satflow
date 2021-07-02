@@ -41,12 +41,12 @@ class MetNet(pl.LightningModule):
         head: nn.Module = nn.Identity(),
         forecast_steps: int = 48,
         temporal_dropout: float = 0.2,
-        learning_rate: float = 0.001,
+        lr: float = 0.001,
     ):
         super().__init__()
 
         self.horizon = forecast_steps
-        self.lr = learning_rate
+        self.lr = lr
         self.drop = nn.Dropout(temporal_dropout)
         if image_encoder is None:
             image_encoder = DownSampler(input_channels + forecast_steps)

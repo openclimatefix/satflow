@@ -4,4 +4,4 @@ input_channels: 17
 hidden_dim: 64
 out_channels: 1
 forecast_steps: 48
-learning_rate: 0.0078
+lr: 0.0001

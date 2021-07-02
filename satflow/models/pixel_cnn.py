@@ -14,10 +14,10 @@ class PixelCNN(pl.LightningModule):
         num_layers: int = 5,
         features_start: int = 64,
         bilinear: bool = False,
-        learning_rate: float = 0.001,
+        lr: float = 0.001,
     ):
         super(PixelCNN, self).__init__()
-        self.lr = learning_rate
+        self.lr = lr
         self.model = Pixcnn(future_timesteps, input_channels, num_layers, features_start, bilinear)
 
     @classmethod
@@ -28,7 +28,7 @@ class PixelCNN(pl.LightningModule):
             features_start=config.get("features", 64),
             num_layers=config.get("num_layers", 5),
             bilinear=config.get("bilinear", False),
-            learning_rate=config.get("learning_rate", 0.001),
+            lr=config.get("lr", 0.001),
         )
 
     def forward(self, *args, **kwargs):

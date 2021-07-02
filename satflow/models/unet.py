@@ -15,11 +15,11 @@ class Unet(pl.LightningModule):
         num_layers: int = 5,
         hidden_dim: int = 64,
         bilinear: bool = False,
-        learning_rate: float = 0.001,
+        lr: float = 0.001,
         make_vis: bool = False,
     ):
         super(Unet, self).__init__()
-        self.lr = learning_rate
+        self.lr = lr
         self.make_vis = make_vis
         self.model = UNet(forecast_steps, input_channels, num_layers, hidden_dim, bilinear)
         self.save_hyperparameters()
@@ -32,7 +32,7 @@ class Unet(pl.LightningModule):
             hidden_dim=config.get("features", 64),
             num_layers=config.get("num_layers", 5),
             bilinear=config.get("bilinear", False),
-            learning_rate=config.get("learning_rate", 0.001),
+            lr=config.get("lr", 0.001),
         )
 
     def forward(self, x):

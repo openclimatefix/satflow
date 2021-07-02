@@ -19,12 +19,12 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         input_channels,
         out_channels,
         forecast_steps,
-        learning_rate,
+        lr,
         make_vis=False,
     ):
         super(EncoderDecoderConvLSTM, self).__init__()
         self.forecast_steps = forecast_steps
-        self.lr = learning_rate
+        self.lr = lr
         self.make_vis = make_vis
         """ ARCHITECTURE
 
@@ -68,7 +68,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
             input_channels=config.get("in_channels", 12),
             out_channels=config.get("out_channels", 1),
             forecast_steps=config.get("forecast_steps", 1),
-            learning_rate=config.get("learning_rate", 0.001),
+            lr=config.get("lr", 0.001),
         )
 
     def autoencoder(self, x, seq_len, future_step, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
