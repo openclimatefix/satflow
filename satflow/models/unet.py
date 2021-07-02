@@ -4,6 +4,8 @@ import pytorch_lightning as pl
 from satflow.models.base import register_model
 from pl_bolts.models.vision import UNet
 import numpy as np
+from typing import Union
+from satflow.models.losses import FocalLoss
 
 
 @register_model
@@ -17,9 +19,19 @@ class Unet(pl.LightningModule):
         bilinear: bool = False,
         lr: float = 0.001,
         make_vis: bool = False,
+        loss: Union[str, torch.nn.Module] = "mse",
     ):
         super(Unet, self).__init__()
         self.lr = lr
+        assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
+        if loss == "mse":
+            self.criterion = F.mse_loss
+        elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
+            self.criterion = F.nll_loss
+        elif loss in ["focal"]:
+            self.criterion = FocalLoss()
+        else:
+            raise ValueError(f"loss {loss} not recognized")
         self.make_vis = make_vis
         self.model = UNet(forecast_steps, input_channels, num_layers, hidden_dim, bilinear)
         self.save_hyperparameters()
@@ -52,21 +64,21 @@ class Unet(pl.LightningModule):
                 self.visualize(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
-        loss = F.mse_loss(y_hat, y)
+        loss = self.criterion(y_hat, y)
         self.log("train/loss", loss, on_step=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        val_loss = F.mse_loss(y_hat, y)
+        val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss, on_step=True, on_epoch=True)
         return val_loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x, self.forecast_steps)
-        loss = F.mse_loss(y_hat, y)
+        loss = self.criterion(y_hat, y)
         return loss
 
     def visualize(self, x, y, y_hat, batch_idx):

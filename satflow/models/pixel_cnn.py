@@ -12,13 +12,15 @@ class PixelCNN(pl.LightningModule):
         future_timesteps: int,
         input_channels: int = 3,
         num_layers: int = 5,
-        features_start: int = 64,
+        num_hidden: int = 64,
         bilinear: bool = False,
         lr: float = 0.001,
     ):
         super(PixelCNN, self).__init__()
         self.lr = lr
-        self.model = Pixcnn(future_timesteps, input_channels, num_layers, features_start, bilinear)
+        self.model = Pixcnn(
+            input_channels=input_channels, hidden_channels=num_hidden, num_blocks=num_layers
+        )
 
     @classmethod
     def from_config(cls, config):
@@ -31,8 +33,8 @@ class PixelCNN(pl.LightningModule):
             lr=config.get("lr", 0.001),
         )
 
-    def forward(self, *args, **kwargs):
-        return
+    def forward(self, x):
+        self.model.forward(x)
 
     def configure_optimizers(self):
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
