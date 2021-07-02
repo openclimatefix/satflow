@@ -164,6 +164,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        # print(x.shape)
         y_hat = self(x, self.forecast_steps)
         val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss, on_step=True, on_epoch=True)
