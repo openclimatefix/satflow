@@ -1,0 +1,10 @@
+# @package _group_
+_target_: satflow.models.deeplabv3.DeepLabV3
+forecast_steps: 6
+input_channels: 12
+lr: 0.001
+make_vis: False
+loss: "bce"
+backbone: "resnet50"
+pretrained: False
+aux_loss: False

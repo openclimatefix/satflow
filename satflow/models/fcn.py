@@ -2,14 +2,14 @@ import torch
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from satflow.models.base import register_model
-from torchvision.models.segmentation import deeplabv3_resnet50, deeplabv3_resnet101
+from torchvision.models.segmentation import fcn_resnet50, fcn_resnet101
 import numpy as np
 from typing import Union
 from satflow.models.losses import FocalLoss
 
 
 @register_model
-class DeeplabV3(pl.LightningModule):
+class FCN(pl.LightningModule):
     def __init__(
         self,
         forecast_steps: int = 48,
@@ -19,9 +19,8 @@ class DeeplabV3(pl.LightningModule):
         loss: Union[str, torch.nn.Module] = "mse",
         backbone: str = "resnet50",
         pretrained: bool = False,
-        aux_loss: bool = False,
     ):
-        super(DeeplabV3, self).__init__()
+        super(FCN, self).__init__()
         self.lr = lr
         assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
         if loss == "mse":
@@ -34,13 +33,9 @@ class DeeplabV3(pl.LightningModule):
             raise ValueError(f"loss {loss} not recognized")
         self.make_vis = make_vis
         if backbone in ["r101", "resnet101"]:
-            self.model = deeplabv3_resnet101(
-                pretrained=pretrained, num_classes=forecast_steps, aux_loss=aux_loss
-            )
+            self.model = fcn_resnet101(pretrained=pretrained, num_classes=forecast_steps)
         else:
-            self.model = deeplabv3_resnet50(
-                pretrained=pretrained, num_classes=forecast_steps, aux_loss=aux_loss
-            )
+            self.model = fcn_resnet50(pretrained=pretrained, num_classes=forecast_steps)
 
         if input_channels != 3:
             self.model.backbone.conv1 = torch.nn.Conv2d(
