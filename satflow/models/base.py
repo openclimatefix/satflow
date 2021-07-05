@@ -1,10 +1,11 @@
 from typing import Any, Dict, Type
 import torch.nn
+import pytorch_lightning as pl
 
 REGISTERED_MODELS = {}
 
 
-def register_model(cls: Type[torch.nn.Module]):
+def register_model(cls: Type[pl.LightningModule]):
     global REGISTERED_MODELS
     name = cls.__name__
     assert name not in REGISTERED_MODELS, f"exists class: {REGISTERED_MODELS}"
@@ -12,7 +13,7 @@ def register_model(cls: Type[torch.nn.Module]):
     return cls
 
 
-def get_model(name: str) -> Type[torch.nn.Module]:
+def get_model(name: str) -> Type[pl.LightningModule]:
     global REGISTERED_MODELS
     assert name in REGISTERED_MODELS, f"available class: {REGISTERED_MODELS}"
     return REGISTERED_MODELS[name]
