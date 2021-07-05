@@ -14,6 +14,11 @@ auto_lr_find: True
 auto_scale_batch_size: False
 reload_dataloaders_every_epoch: True
 
+terminate_on_nan: True
+auto_lr_find: False
+auto_scale_batch_size: False
+accumulate_grad_batches: 1
+
 weights_summary: null
 progress_bar_refresh_rate: 10
 # resume_from_checkpoint: null

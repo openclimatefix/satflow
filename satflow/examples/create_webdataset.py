@@ -52,7 +52,7 @@ box_2 = (446, -1, 978, -1)
 eumetsat_dir = "/run/media/bieker/Round1/EUMETSAT/"
 
 
-def make_day(data, flow=True, batch=144, tile=True):
+def make_day(data, flow=True, batch=4, tile=True):
     root_dir, shard_num = data
     # reset optical flow samples
     flow_sample = {}
@@ -78,11 +78,11 @@ def make_day(data, flow=True, batch=144, tile=True):
     shard_num += 1
     interday_frame = 0
     if os.path.exists(
-        f"/run/media/bieker/data/EUMETSAT/satflow{'-' if not flow else '-flow'}{'-' if not flow and batch > 0 else f'-{batch}-'}{'tiled-' if tile else ''}{shard_num:05d}.tar"
+        f"/home/bieker/Development/satflow/datasets/satflow{'-' if not flow else '-flow'}{'-' if not flow and batch > 0 else f'-{batch}-'}{'tiled-' if tile else ''}{shard_num:05d}.tar"
     ):
         return
     sink_flow = wds.TarWriter(
-        f"/run/media/bieker/data/EUMETSAT/satflow{'-' if not flow else '-flow'}{'-' if not flow and batch > 0 else f'-{batch}-'}{'tiled-' if tile else ''}{shard_num:05d}.tar",
+        f"/home/bieker/Development/satflow/datasets/satflow{'-' if not flow else '-flow'}{'-' if not flow and batch > 0 else f'-{batch}-'}{'tiled-' if tile else ''}{shard_num:05d}.tar",
         compress=True,
     )
     for root, dirs, files in os.walk(root_dir):
@@ -184,6 +184,9 @@ def make_day(data, flow=True, batch=144, tile=True):
                             for i in range(8)
                         ]
                         batch_num += 1
+                        if batch_num >= 1:
+                            sink_flow.close()
+                            return
             else:
                 flow_sample["time.pyd"] = datetime_object
                 sink_flow.write(flow_sample)
@@ -229,3 +232,4 @@ all_dates = zip(all_dates, range(len(all_dates)))
 # exit()
 for data in all_dates:
     make_day(data)
+    exit()

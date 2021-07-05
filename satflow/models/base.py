@@ -53,7 +53,10 @@ def create_model(model_name, pretrained=False, checkpoint_path="", **kwargs):
         global_pool (str): global pool type (default: 'avg')
         input_channels (int): number of input channels (default: 12)
         forecast_steps (int): number of steps to forecast (default: 48)
+        optimizer (str): optimizer (default: 'adam')
         lr (float): learning rate (default: 0.001)
+        lr_scheduler (str): learning rate scheduler (default: '')
+        lr_scheduler_**: lr_scheduler specific arguments
         **: other kwargs are model specific
     """
     source_name, model_name = split_model_name(model_name)
@@ -61,10 +64,11 @@ def create_model(model_name, pretrained=False, checkpoint_path="", **kwargs):
     # Parameters that aren't supported by all models or are intended to only override model defaults if set
     # should default to None in command line args/cfg. Remove them if they are present and not set so that
     # non-supporting models don't break and default args remain in effect.
-    kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    lr_kwargs = {k: v for k, v in kwargs.items() if v is not None and "lr_scheduler_" in k}
+    kwargs = {k: v for k, v in kwargs.items() if v is not None and "lr_scheduler_" not in k}
 
     if model_name in REGISTERED_MODELS:
-        model = get_model(model_name)(pretrained=pretrained, **kwargs)
+        model = get_model(model_name)(pretrained=pretrained, lr_scheduler=lr_kwargs, **kwargs)
     else:
         raise RuntimeError("Unknown model (%s)" % model_name)
 

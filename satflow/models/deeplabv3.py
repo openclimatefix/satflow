@@ -9,7 +9,7 @@ from satflow.models.losses import FocalLoss
 
 
 @register_model
-class DeeplabV3(pl.LightningModule):
+class DeepLabV3(pl.LightningModule):
     def __init__(
         self,
         forecast_steps: int = 48,
@@ -21,8 +21,9 @@ class DeeplabV3(pl.LightningModule):
         pretrained: bool = False,
         aux_loss: bool = False,
     ):
-        super(DeeplabV3, self).__init__()
+        super(DeepLabV3, self).__init__()
         self.lr = lr
+        self.forecast_steps = forecast_steps
         assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
         if loss == "mse":
             self.criterion = F.mse_loss
@@ -50,7 +51,7 @@ class DeeplabV3(pl.LightningModule):
 
     @classmethod
     def from_config(cls, config):
-        return DeeplabV3(
+        return DeepLabV3(
             forecast_steps=config.get("forecast_steps", 12),
             input_channels=config.get("in_channels", 12),
             hidden_dim=config.get("features", 64),
@@ -60,6 +61,7 @@ class DeeplabV3(pl.LightningModule):
         )
 
     def forward(self, x):
+        print(f"INputs: {x.shape}")
         return self.model.forward(x)
 
     def configure_optimizers(self):
@@ -69,27 +71,42 @@ class DeeplabV3(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x)
-
+        print(f"X: {x.shape} Y: {y.shape} Max: {torch.max(y)} Min: {torch.min(y)}")
+        y_hat = self(x)["out"]
+        y = y.long()
         if self.make_vis:
             if np.random.random() < 0.01:
                 self.visualize(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
+
+        # loss = 0
+        # for f_step in range(self.forecast_steps):
+        #    loss += self.criterion(y_hat, y[:,f_step,:,:])
+        # loss /= self.forecast_steps
         loss = self.criterion(y_hat, y)
         self.log("train/loss", loss, on_step=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x)
+        print(f"X: {x.shape} Y: {y.shape}")
+        y = y.long()
+        y_hat = self(x)["out"]
+
+        # Loss is then the loss for each input timestep in the y_hat, so have to break it up per forecase_step
+        # val_loss = 0
+        # for f_step in range(self.forecast_steps):
+        #    val_loss += self.criterion(y_hat, y[:,f_step,:,:])
+        # val_loss /= self.forecast_steps
         val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss, on_step=True, on_epoch=True)
         return val_loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x, self.forecast_steps)
+        y = y.long()
+        y_hat = self(x)["out"]
         loss = self.criterion(y_hat, y)
         return loss
 

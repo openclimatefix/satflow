@@ -45,7 +45,7 @@ class FCN(pl.LightningModule):
 
     @classmethod
     def from_config(cls, config):
-        return DeeplabV3(
+        return FCN(
             forecast_steps=config.get("forecast_steps", 12),
             input_channels=config.get("in_channels", 12),
             hidden_dim=config.get("features", 64),

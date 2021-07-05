@@ -6,7 +6,7 @@ defaults:
   - model: convlstm_model.yaml
   - datamodule: satflow_datamodule.yaml
   - callbacks: default.yaml # set this to null if you don't want to use callbacks
-  - logger: tensorboard # set logger here or use command line (e.g. `python run.py logger=wandb`)
+  - logger: null # set logger here or use command line (e.g. `python run.py logger=wandb`)
 
   - experiment: null
   - hparams_search: null
@@ -24,7 +24,7 @@ defaults:
 work_dir: ${hydra:runtime.cwd}
 
 # path to folder with data
-data_dir: /run/media/jacob/T7/
+data_dir: /run/media/bieker/data/EUMETSAT/
 
 # use `python run.py debug=true` for easy debugging!
 # this will run 1 train, val and test loop with only 1 batch

@@ -1,31 +1,33 @@
 # @package _group_
-_target_: satflow.data.datamodules.SatFlowDataModule
+_target_: satflow.data.datamodules.SegFlowDataModule
 
 batch_size: 1
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 shuffle: 0
 sources:
-  train: "satflow-flow-144-tiled-{00001..00105}.tar"
-  val: "satflow-flow-144-tiled-{00106..00129}.tar"
-  test: "satflow-flow-144-tiled-{00130..00149}.tar"
+  train: "satflow-flow-144-tiled-{00001..00105}.tar" # 2020
+  val: "satflow-flow-144-tiled-{00106..00129}.tar" # 2021
+  test: "satflow-flow-144-tiled-{00130..00149}.tar" # 2021
 num_workers: 12
 pin_memory: True
 config:
   visualize: False
-  num_timesteps: 6
+  num_timesteps: 0
   skip_timesteps: 1
-  forecast_times: 6
-  output_shape: 128
+  forecast_times: 1
+  output_shape: 256
   target_type: "cloudmask"
-  num_crops: 10
-  num_times: 10
+  num_crops: 5
+  num_times: 20
   use_topo: True
-  use_latlon: True
+  use_latlon: False
   use_time: False
   time_aux: False
   use_mask: False
   use_image: False
   time_as_channels: True
+  add_pixel_coords: False
+  add_polar_coords: False
   bands:
     [
       "HRV",
