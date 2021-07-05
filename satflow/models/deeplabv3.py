@@ -28,7 +28,7 @@ class DeepLabV3(pl.LightningModule):
         if loss == "mse":
             self.criterion = F.mse_loss
         elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
-            self.criterion = F.nll_loss
+            self.criterion = F.cross_entropy
         elif loss in ["focal"]:
             self.criterion = FocalLoss()
         else:
@@ -61,7 +61,6 @@ class DeepLabV3(pl.LightningModule):
         )
 
     def forward(self, x):
-        print(f"INputs: {x.shape}")
         return self.model.forward(x)
 
     def configure_optimizers(self):
@@ -71,7 +70,6 @@ class DeepLabV3(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        print(f"X: {x.shape} Y: {y.shape} Max: {torch.max(y)} Min: {torch.min(y)}")
         y_hat = self(x)["out"]
         y = y.long()
         if self.make_vis:
@@ -90,7 +88,6 @@ class DeepLabV3(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        print(f"X: {x.shape} Y: {y.shape}")
         y = y.long()
         y_hat = self(x)["out"]
 

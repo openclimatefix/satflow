@@ -1,7 +1,7 @@
 # @package _group_
 _target_: satflow.data.datamodules.SegFlowDataModule
 
-batch_size: 1
+batch_size: 16
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 shuffle: 0
 sources:
@@ -14,7 +14,7 @@ config:
   visualize: False
   num_timesteps: 0
   skip_timesteps: 1
-  forecast_times: 1
+  forecast_times: 2
   output_shape: 256
   target_type: "cloudmask"
   num_crops: 5

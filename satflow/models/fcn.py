@@ -26,7 +26,7 @@ class FCN(pl.LightningModule):
         if loss == "mse":
             self.criterion = F.mse_loss
         elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
-            self.criterion = F.nll_loss
+            self.criterion = F.cross_entropy
         elif loss in ["focal"]:
             self.criterion = FocalLoss()
         else:

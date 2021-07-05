@@ -18,6 +18,7 @@ terminate_on_nan: True
 auto_lr_find: False
 auto_scale_batch_size: False
 accumulate_grad_batches: 1
+precision: 16
 
 weights_summary: null
 progress_bar_refresh_rate: 10

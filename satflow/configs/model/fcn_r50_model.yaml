@@ -6,4 +6,4 @@ lr: 0.001
 make_vis: False
 loss: "bce"
 backbone: "resnet50"
-pretrained: True
+pretrained: False
