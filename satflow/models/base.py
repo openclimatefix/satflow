@@ -1,5 +1,6 @@
 from typing import Any, Dict, Type
 import torch.nn
+import pytorch_lightning as pl
 
 REGISTERED_MODELS = {}
 

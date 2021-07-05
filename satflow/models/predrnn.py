@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from satflow.models.base import Model, register_model
+from satflow.models.base import register_model
 from satflow.models.layers.SpatioTemporalLSTMCell_memory_decoupling import SpatioTemporalLSTMCell
 
 
@@ -147,27 +147,7 @@ class RNN(nn.Module):
 
 
 @register_model
-class PredRNN(Model):
-    def __init__(self, num_layers, num_hidden, configs):
-        super().__init__()
-        self.model = RNN(num_layers, num_hidden, configs)
-
-    def forward(self, inputs):
-        self.model.forward(
-            inputs,
-        )
-
-    @classmethod
-    def from_config(cls, config: Dict[str, Any]):
-        return PredRNN(
-            num_layers=config["num_layers"],
-            num_hidden=config["num_hidden"],
-            configs=config,
-        )
-
-
-@register_model
-class LitPredRNN(pl.LightningModule):
+class PredRNN(pl.LightningModule):
     def __init__(self, num_layers, num_hidden, configs):
         super().__init__()
         self.configs = configs
