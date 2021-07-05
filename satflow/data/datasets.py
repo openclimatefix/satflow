@@ -592,7 +592,8 @@ class CloudFlowDataset(SatFlowDataset):
                             # Convert to float/half-precision
                             mask = mask.astype(np.float32)
                             # Move channel to Time x Channel x W x H
-                            mask = np.moveaxis(mask, [3], [1])
+                            # mask = np.moveaxis(mask, [2], [1])
+                            mask = np.expand_dims(mask, axis=1)
                             target_mask = np.moveaxis(target_mask, [1], [0])
                             if self.time_as_chennels:
                                 images = mask[0]

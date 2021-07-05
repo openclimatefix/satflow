@@ -1,14 +1,14 @@
 # @package _group_
 _target_: satflow.data.datamodules.MaskFlowDataModule
 
-batch_size: 8
+batch_size: 6
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 shuffle: 0
 sources:
   train: "satflow-flow-144-tiled-{00001..00105}.tar"
   val: "satflow-flow-144-tiled-{00106..00129}.tar"
   test: "satflow-flow-144-tiled-{00130..00149}.tar"
-num_workers: 12
+num_workers: 16
 pin_memory: True
 config:
   visualize: False
