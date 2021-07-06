@@ -24,7 +24,7 @@ config:
   time_aux: False
   use_mask: True
   use_image: False
-  add_pixel_coords: False
+  add_pixel_coords: True
   time_as_channels: False
   bands: ["IR016"]
   transforms: {}

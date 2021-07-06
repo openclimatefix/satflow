@@ -490,6 +490,7 @@ class CloudFlowDataset(SatFlowDataset):
                 try:
                     sample = next(source)
                 except StopIteration:
+                    sources = [iter(ds) for ds in self.datasets]
                     continue
                 timesteps = sample["time.pyd"]
                 available_steps = len(timesteps)  # number of available timesteps
@@ -616,6 +617,12 @@ class CloudFlowDataset(SatFlowDataset):
                                     target_timestep - idx - 1, self.output_shape
                                 )
                                 yield mask, time_layer, target_mask
+                            if self.add_pixel_coords:
+                                # Add channels for pixel_coords, once per channel, or once per stack, dependent
+                                if self.time_as_channels:
+                                    mask = np.concatenate([mask, self.pixel_coords], axis=0)
+                                else:
+                                    mask = np.concatenate([mask, self.pixel_coords], axis=1)
                             logger.debug(f"Mask: {mask.shape} Target: {target_mask.shape}")
                             yield mask, target_mask
 
