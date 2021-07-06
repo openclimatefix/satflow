@@ -30,7 +30,7 @@ def test_satflow_all():
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, image, y = data
-    assert x.shape == (13, 12, 128, 128)
+    assert x.shape == (13, 46, 128, 128)
     assert y.shape == (24, 1, 128, 128)
     assert image.shape == (24, 12, 128, 128)
 
@@ -43,7 +43,7 @@ def test_satflow_large():
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, image, y = data
-    assert x.shape == (13, 12, 256, 256)
+    assert x.shape == (13, 46, 256, 256)
     assert y.shape == (24, 1, 256, 256)
     assert image.shape == (24, 12, 256, 256)
 
@@ -56,9 +56,22 @@ def test_satflow_crop():
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, image, y = data
-    assert x.shape == (13, 12, 256, 256)
+    assert x.shape == (13, 46, 256, 256)
     assert y.shape == (24, 1, 64, 64)
     assert image.shape == (24, 12, 64, 64)
+
+
+def test_satflow_channels():
+    dataset = wds.WebDataset("datasets/satflow-test.tar").decode()
+    # d = next(iter(dataset))
+    # print(d["time.pyd"])
+    config = load_config("satflow/tests/configs/satflow_channels.yaml")
+    cloudflow = SatFlowDataset([dataset], config)
+    data = next(iter(cloudflow))
+    x, image, y = data
+    assert x.shape == (13, 5, 256, 256)
+    assert y.shape == (24, 1, 64, 64)
+    assert image.shape == (24, 5, 64, 64)
 
 
 def test_cloudflow():
