@@ -11,6 +11,10 @@ import torch
 import torch.utils.data as thd
 import webdataset as wds
 from torch.utils.data.dataset import T_co
+import logging
+
+logger = logging.getLogger("satflow.dataset")
+logger.setLevel(logging.INFO)
 
 REGISTERED_DATASET_CLASSES = {}
 
@@ -350,17 +354,11 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 if self.use_latlon:
                     self.location = load_np(sample["location.npy"])
                 for idx in idxs:
-                    if not self.return_target_stack:
-                        target_timesteps = np.random.randint(
-                            idx + 1, idx + self.forecast_times, size=self.num_times
-                        )
-                    else:
-                        # Same for all the crops TODO Change this to work for all setups/split to differnt datasets
-                        target_timesteps = np.full(self.num_crops, self.forecast_times)
+                    target_timesteps = np.full(self.num_crops, idx + self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         for target_timestep in target_timesteps:
                             time_cube = self.create_target_time_cube(
-                                target_timestep - idx
+                                target_timestep - idx - 1
                             )  # Want relative tiemstep forward
                             image, _ = self.get_timestep(
                                 sample, idx - (self.num_timesteps * self.skip_timesteps)
@@ -451,7 +449,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 self.visualize(image, target_image, target_mask)
                             if self.use_time and self.time_aux:
                                 time_layer = create_time_layer(
-                                    target_timestep - idx, self.output_shape
+                                    target_timestep - idx - 1, self.output_shape
                                 )
                                 yield image, time_layer, target_image, target_mask
                             if not self.use_image:
@@ -517,19 +515,13 @@ class CloudFlowDataset(SatFlowDataset):
                 if self.use_latlon:
                     self.location = load_np(sample["location.npy"])
                 for idx in idxs:
-                    if not self.return_target_stack:
-                        target_timesteps = (
-                            np.random.randint(
-                                idx + 1, idx + self.forecast_times, size=self.num_times
-                            )
-                            - idx
-                        )
-                    else:
-                        # Same for all the crops TODO Change this to work for all setups/split to differnt datasets
-                        target_timesteps = np.full(self.num_crops, self.forecast_times)
+                    target_timesteps = np.full(self.num_crops, idx + self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         for target_timestep in target_timesteps:
-                            time_cube = self.create_target_time_cube(target_timestep)
+                            logger.debug(
+                                f"Timestep: {target_timestep} IDX: {idx} Timecube idx: {target_timestep - idx} Future Timesteps: {self.forecast_times}"
+                            )
+                            time_cube = self.create_target_time_cube(target_timestep - idx - 1)
                             _, mask = self.get_timestep(
                                 sample,
                                 idx - (self.num_timesteps * self.skip_timesteps),
@@ -569,7 +561,7 @@ class CloudFlowDataset(SatFlowDataset):
                             if np.isclose(np.min(target_mask), np.max(target_mask)):
                                 continue  # Ignore if target timestep has no clouds, or only clouds
                             # Now create stack here
-                            for i in range(idx + 1, idx + self.forecast_times):
+                            for i in range(idx + 1, target_timestep):
                                 _, t_mask = self.get_timestep(
                                     sample,
                                     i,
@@ -613,8 +605,11 @@ class CloudFlowDataset(SatFlowDataset):
                             mask = np.nan_to_num(mask, posinf=0.0, neginf=0.0)
                             target_mask = np.nan_to_num(target_mask, posinf=0, neginf=0)
                             if self.use_time and self.time_aux:
-                                time_layer = create_time_layer(target_timestep, self.output_shape)
+                                time_layer = create_time_layer(
+                                    target_timestep - idx - 1, self.output_shape
+                                )
                                 yield mask, time_layer, target_mask
+                            logger.debug(f"Mask: {mask.shape} Target: {target_mask.shape}")
                             yield mask, target_mask
 
 
