@@ -175,12 +175,13 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.pixel_coords = create_pixel_coord_layers(
             self.output_shape, self.output_shape, with_r=config.get("add_polar_coords", False)
         )
-        self.pixel_coords = np.repeat(
-            self.pixel_coords, repeats=self.num_timesteps + 1, axis=0
-        )  # (timesteps, H, W, Ch)
         if self.time_as_channels:
-            self.pixel_coords = np.squeeze(self.pixel_coords, axis=-1)
+            # Only want one copy, so don't have extra ones
+            self.pixel_coords = np.squeeze(self.pixel_coords)
         else:
+            self.pixel_coords = np.repeat(
+                self.pixel_coords, repeats=self.num_timesteps + 1, axis=0
+            )  # (timesteps, H, W, Ch)
             self.pixel_coords = self.pixel_coords.squeeze(axis=4)
 
         self.topo = None
