@@ -42,9 +42,10 @@ def test_satflow_large():
     config = load_config("satflow/tests/configs/satflow_large.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
-    x, y = data
+    x, image, y = data
     assert x.shape == (13, 12, 256, 256)
     assert y.shape == (24, 1, 256, 256)
+    assert image.shape == (24, 12, 256, 256)
 
 
 def test_satflow_crop():
@@ -54,9 +55,10 @@ def test_satflow_crop():
     config = load_config("satflow/tests/configs/satflow_crop.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
-    x, y = data
+    x, image, y = data
     assert x.shape == (13, 12, 256, 256)
     assert y.shape == (24, 1, 64, 64)
+    assert image.shape == (24, 12, 64, 64)
 
 
 def test_cloudflow():
