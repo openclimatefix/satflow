@@ -117,6 +117,7 @@ def create_pixel_coord_layers(x_dim: int, y_dim: int, with_r: bool = False) -> n
     if with_r:
         rr = np.sqrt(np.square(xx_channel - 0.5) + np.square(yy_channel - 0.5))
         ret = np.concatenate([ret, np.expand_dims(rr, axis=0)], axis=0)
+    ret = np.moveaxis(ret, [1], [0])
     return ret
 
 
@@ -168,7 +169,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.use_mask = config.get("use_mask", True)
         self.use_image = config.get("use_image", False)
         self.return_target_stack = config.get("stack_targets", False)
-        self.time_as_chennels = config.get("time_as_channels", False)
+        self.time_as_channels = config.get("time_as_channels", False)
         self.add_pixel_coords = config.get("add_pixel_coords", False)
 
         self.pixel_coords = create_pixel_coord_layers(
@@ -177,10 +178,10 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.pixel_coords = np.repeat(
             self.pixel_coords, repeats=self.num_timesteps + 1, axis=0
         )  # (timesteps, H, W, Ch)
-        if self.time_as_chennels:
+        if self.time_as_channels:
             self.pixel_coords = np.squeeze(self.pixel_coords, axis=-1)
         else:
-            self.pixel_coords = np.moveaxis(self.pixel_coords, [3], [1])
+            self.pixel_coords = self.pixel_coords.squeeze(axis=4)
 
         self.topo = None
         self.location = None
@@ -419,7 +420,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if target_image is not None:
                                 target_image = np.moveaxis(target_image, [3], [1])
                                 target_image = target_image.astype(np.float32)
-                            if self.time_as_chennels:
+                            if self.time_as_channels:
                                 images = image[0]
                                 for m in image[1:]:
                                     images = np.concatenate([images, m], axis=0)
@@ -438,7 +439,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 )
                             if self.add_pixel_coords:
                                 # Add channels for pixel_coords, once per channel, or once per stack, dependent
-                                if self.time_as_chennels:
+                                if self.time_as_channels:
                                     image = np.concatenate([image, self.pixel_coords], axis=0)
                                 else:
                                     image = np.concatenate([image, self.pixel_coords], axis=1)
