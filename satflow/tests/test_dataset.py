@@ -14,7 +14,7 @@ def test_satflow_cloudmask():
     dataset = wds.WebDataset("../../datasets/satflow-test.tar").decode()
     # d = next(iter(dataset))
     # print(d["time.pyd"])
-    config = load_config("configs/satflow.yaml")
+    config = load_config("satflow/tests/configs/satflow.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, y = data
@@ -26,7 +26,7 @@ def test_satflow_all():
     dataset = wds.WebDataset("../../datasets/satflow-test.tar").decode()
     # d = next(iter(dataset))
     # print(d["time.pyd"])
-    config = load_config("configs/satflow_all.yaml")
+    config = load_config("satflow/tests/configs/satflow_all.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, image, y = data
@@ -39,7 +39,7 @@ def test_satflow_large():
     dataset = wds.WebDataset("../../datasets/satflow-test.tar").decode()
     # d = next(iter(dataset))
     # print(d["time.pyd"])
-    config = load_config("configs/satflow_large.yaml")
+    config = load_config("satflow/tests/configs/satflow_large.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, y = data
@@ -51,7 +51,7 @@ def test_satflow_crop():
     dataset = wds.WebDataset("../../datasets/satflow-test.tar").decode()
     # d = next(iter(dataset))
     # print(d["time.pyd"])
-    config = load_config("configs/satflow_crop.yaml")
+    config = load_config("satflow/tests/configs/satflow_crop.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, y = data
@@ -63,7 +63,7 @@ def test_cloudflow():
     dataset = wds.WebDataset("../../datasets/satflow-test.tar").decode()
     # d = next(iter(dataset))
     # print(d["time.pyd"])
-    config = load_config("configs/satflow.yaml")
+    config = load_config("satflow/tests/configs/satflow.yaml")
     cloudflow = CloudFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, y = data
