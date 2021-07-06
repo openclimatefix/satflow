@@ -351,11 +351,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     self.location = load_np(sample["location.npy"])
                 for idx in idxs:
                     if not self.return_target_stack:
-                        target_timesteps = (
-                            np.random.randint(
-                                idx + 1, idx + self.forecast_times, size=self.num_times
-                            )
-                            - idx
+                        target_timesteps = np.random.randint(
+                            idx + 1, idx + self.forecast_times, size=self.num_times
                         )
                     else:
                         # Same for all the crops TODO Change this to work for all setups/split to differnt datasets
@@ -389,7 +386,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if np.isclose(np.min(target_mask), np.max(target_mask)):
                                 continue  # Ignore if target timestep has no clouds, or only clouds
                             # Now create stack here
-                            for i in range(idx + 1, idx + self.forecast_times):
+                            for i in range(idx + 1, target_timestep):
                                 t_image, t_mask = self.get_timestep(
                                     sample,
                                     i,
