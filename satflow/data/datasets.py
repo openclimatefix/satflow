@@ -1,13 +1,8 @@
 import datetime
-import io
-import pickle
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Type, Union
 
 import albumentations as A
-import braceexpand
 import numpy as np
-import numpy.lib.format
-import torch
 import torch.utils.data as thd
 import webdataset as wds
 from torch.utils.data.dataset import T_co
@@ -484,7 +479,6 @@ class CloudFlowDataset(SatFlowDataset):
                     sample = next(source)
                 except StopIteration:
                     continue
-                print(sample)
                 timesteps = sample["time.pyd"]
                 available_steps = len(timesteps)  # number of available timesteps
                 # Check to make sure all timesteps exist
