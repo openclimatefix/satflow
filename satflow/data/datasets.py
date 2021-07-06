@@ -359,7 +359,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                         target_timesteps = np.full(self.num_crops, self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         for target_timestep in target_timesteps:
-                            time_cube = self.create_target_time_cube(target_timestep)
+                            time_cube = self.create_target_time_cube(
+                                target_timestep - idx
+                            )  # Want relative tiemstep forward
                             image, _ = self.get_timestep(
                                 sample, idx - (self.num_timesteps * self.skip_timesteps)
                             )  # First timestep considered
@@ -443,7 +445,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if self.vis:
                                 self.visualize(image, target_image, target_mask)
                             if self.use_time and self.time_aux:
-                                time_layer = create_time_layer(target_timestep, self.output_shape)
+                                time_layer = create_time_layer(
+                                    target_timestep - idx, self.output_shape
+                                )
                                 yield image, time_layer, target_image, target_mask
                             if not self.use_image:
                                 yield image, target_mask
