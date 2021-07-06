@@ -11,7 +11,7 @@ config:
   use_time: False
   time_aux: False
   use_mask: False
-  use_image: True
+  use_image: False
   add_pixel_coords: False
   time_as_channels: True
   bands:
