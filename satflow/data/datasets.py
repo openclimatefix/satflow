@@ -85,10 +85,6 @@ TOPO_MEAN = 224.3065682349895
 TOPO_STD = 441.7514422990341
 
 
-def load_np(data):
-    return numpy.lib.format.read_array(io.BytesIO(data))
-
-
 def create_pixel_coord_layers(x_dim: int, y_dim: int, with_r: bool = False) -> np.ndarray:
     """
     Creates Coord layer for CoordConv model
@@ -265,16 +261,14 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         :param return_target:
         :return:
         """
-        target = load_np(sample[f"{self.target_type}.{idx:03d}.npy"])
+        target = sample[f"{self.target_type}.{idx:03d}.npy"]
         if "mask" in self.target_type:
             target = binarize_mask(target)  # Not actual target, but for now, should be good
 
         if return_target and not return_image:
             return None, target
 
-        image = np.stack(
-            [load_np(sample[f"{b.lower()}.{idx:03d}.npy"]) for b in self.bands], axis=-1
-        )
+        image = np.stack([sample[f"{b.lower()}.{idx:03d}.npy"] for b in self.bands], axis=-1)
 
         # Regularize here
         image = (image - self.mean) / self.std
@@ -288,7 +282,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             image = np.concatenate([image, self.location], axis=-1)
         if self.use_time and not self.time_aux:
             t = create_time_layer(
-                pickle.loads(sample["time.pyd"])[idx],
+                sample["time.pyd"][idx],
                 shape=(image.shape[0], image.shape[1]),
             )
             image = np.concatenate(
@@ -303,7 +297,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 [
                     image,
                     np.expand_dims(
-                        binarize_mask(load_np(sample[f"cloudmask.{idx:03d}.npy"]).astype(np.int8)),
+                        binarize_mask(sample[f"cloudmask.{idx:03d}.npy"].astype(np.int8)),
                         axis=-1,
                     ),
                 ],
@@ -326,7 +320,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     sample = next(source)
                 except StopIteration:
                     continue
-                timesteps = pickle.loads(sample["time.pyd"])
+                timesteps = sample["time.pyd"]
                 available_steps = len(timesteps)  # number of available timesteps
                 # Check to make sure all timesteps exist
                 sample_keys = [key for key in sample.keys() if self.bands[0].lower() in key]
@@ -348,14 +342,14 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     size=self.num_times,
                 )
                 if self.use_topo:
-                    topo = load_np(sample["topo.npy"])
+                    topo = sample["topo.npy"]
                     topo[
                         topo < 100
                     ] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
                     self.topo = (topo - TOPO_MEAN) / TOPO_STD
                     self.topo = np.expand_dims(self.topo, axis=-1)
                 if self.use_latlon:
-                    self.location = load_np(sample["location.npy"])
+                    self.location = sample["location.npy"]
                 for idx in idxs:
                     target_timesteps = np.full(self.num_crops, idx + self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
@@ -490,7 +484,7 @@ class CloudFlowDataset(SatFlowDataset):
                     sample = next(source)
                 except StopIteration:
                     continue
-                timesteps = pickle.loads(sample["time.pyd"])
+                timesteps = sample["time.pyd"]
                 available_steps = len(timesteps)  # number of available timesteps
                 # Check to make sure all timesteps exist
                 sample_keys = [key for key in sample.keys() if self.bands[0].lower() in key]
@@ -512,14 +506,14 @@ class CloudFlowDataset(SatFlowDataset):
                     size=self.num_times,
                 )
                 if self.use_topo:
-                    topo = load_np(sample["topo.npy"])
+                    topo = sample["topo.npy"]
                     topo[
                         topo < 100
                     ] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
                     self.topo = (topo - TOPO_MEAN) / TOPO_STD
                     self.topo = np.expand_dims(self.topo, axis=-1)
                 if self.use_latlon:
-                    self.location = load_np(sample["location.npy"])
+                    self.location = sample["location.npy"]
                 for idx in idxs:
                     target_timesteps = np.full(self.num_crops, idx + self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
