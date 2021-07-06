@@ -1,0 +1,32 @@
+config:
+  visualize: False
+  num_timesteps: 12
+  skip_timesteps: 1
+  forecast_times: 24
+  output_shape: 128
+  target_type: "cloudmask"
+  num_crops: 10
+  use_topo: True
+  use_latlon: True
+  use_time: True
+  time_aux: False
+  use_mask: True
+  use_image: True
+  add_pixel_coords: True
+  time_as_channels: True
+  bands:
+    [
+      "HRV",
+      "IR016",
+      "IR039",
+      "IR087",
+      "IR097",
+      "IR108",
+      "IR120",
+      "IR134",
+      "VIS006",
+      "VIS008",
+      "WV062",
+      "WV073",
+    ]
+  transforms: {}
