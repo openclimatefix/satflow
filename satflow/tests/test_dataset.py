@@ -74,6 +74,19 @@ def test_satflow_channels():
     assert image.shape == (24, 5, 64, 64)
 
 
+def test_satflow_time_channels():
+    dataset = wds.WebDataset("datasets/satflow-test.tar").decode()
+    # d = next(iter(dataset))
+    # print(d["time.pyd"])
+    config = load_config("satflow/tests/configs/satflow_time_channels.yaml")
+    cloudflow = SatFlowDataset([dataset], config)
+    data = next(iter(cloudflow))
+    x, image, y = data
+    assert x.shape == (144, 128, 128)
+    assert y.shape == (24, 128, 128)
+    assert image.shape == (288, 128, 128)
+
+
 def test_cloudflow():
     dataset = wds.WebDataset("datasets/satflow-test.tar").decode()
     # d = next(iter(dataset))
