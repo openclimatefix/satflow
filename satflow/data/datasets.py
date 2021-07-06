@@ -174,6 +174,13 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.pixel_coords = create_pixel_coord_layers(
             self.output_shape, self.output_shape, with_r=config.get("add_polar_coords", False)
         )
+        self.pixel_coords = np.repeat(
+            self.pixel_coords, repeats=self.num_timesteps + 1, axis=0
+        )  # (timesteps, H, W, Ch)
+        if self.time_as_chennels:
+            self.pixel_coords = np.squeeze(self.pixel_coords, axis=-1)
+        else:
+            self.pixel_coords = np.moveaxis(self.pixel_coords, [3], [1])
 
         self.topo = None
         self.location = None
@@ -408,9 +415,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             image = image.astype(np.float32)
                             # Move channel to Time x Channel x W x H
                             image = np.moveaxis(image, [3], [1])
-                            if self.add_pixel_coords:
-                                # Add channels for pixel_coords
-                                image = np.concatenate([image, self.pixel_coords], axis=1)
                             target_mask = np.moveaxis(target_mask, [1], [0])
                             if target_image is not None:
                                 target_image = np.moveaxis(target_image, [3], [1])
@@ -432,6 +436,12 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 target_mask = crop_center(
                                     target_mask, self.output_target, self.output_target
                                 )
+                            if self.add_pixel_coords:
+                                # Add channels for pixel_coords, once per channel, or once per stack, dependent
+                                if self.time_as_chennels:
+                                    image = np.concatenate([image, self.pixel_coords], axis=0)
+                                else:
+                                    image = np.concatenate([image, self.pixel_coords], axis=1)
                             # Ensure there is no NaN here
                             image = np.nan_to_num(image, posinf=0.0, neginf=0.0)
                             target_mask = np.nan_to_num(target_mask, posinf=0, neginf=0)

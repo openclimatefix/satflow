@@ -2,7 +2,7 @@ affine~=2.3.0
 numpy~=1.20.3
 satpy~=0.29.0
 pyresample~=1.20.0
-webdataset~=0.1.68
+git+git://github.com/webdataset/webdataset@master
 albumentations~=1.0.0
 rasterio~=1.2.4
 cartopy~=0.19.0.post1
