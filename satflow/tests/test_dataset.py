@@ -68,10 +68,9 @@ def test_satflow_channels():
     config = load_config("satflow/tests/configs/satflow_channels.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
-    x, image, y = data
+    x, y = data
     assert x.shape == (13, 5, 256, 256)
     assert y.shape == (24, 1, 64, 64)
-    assert image.shape == (24, 5, 64, 64)
 
 
 def test_satflow_time_channels():
@@ -82,9 +81,9 @@ def test_satflow_time_channels():
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, image, y = data
-    assert x.shape == (144, 128, 128)
+    assert x.shape == (156, 128, 128)
     assert y.shape == (24, 128, 128)
-    assert image.shape == (288, 128, 128)
+    assert image.shape == (312, 128, 128)
 
 
 def test_cloudflow():
