@@ -351,18 +351,17 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     self.location = load_np(sample["location.npy"])
                 for idx in idxs:
                     if not self.return_target_stack:
-                        target_timesteps = (
-                            np.random.randint(
-                                idx + 1, idx + self.forecast_times, size=self.num_times
-                            )
-                            - idx
+                        target_timesteps = np.random.randint(
+                            idx + 1, idx + self.forecast_times, size=self.num_times
                         )
                     else:
                         # Same for all the crops TODO Change this to work for all setups/split to differnt datasets
                         target_timesteps = np.full(self.num_crops, self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         for target_timestep in target_timesteps:
-                            time_cube = self.create_target_time_cube(target_timestep)
+                            time_cube = self.create_target_time_cube(
+                                target_timestep - idx
+                            )  # Want relative tiemstep forward
                             image, _ = self.get_timestep(
                                 sample, idx - (self.num_timesteps * self.skip_timesteps)
                             )  # First timestep considered
@@ -389,7 +388,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if np.isclose(np.min(target_mask), np.max(target_mask)):
                                 continue  # Ignore if target timestep has no clouds, or only clouds
                             # Now create stack here
-                            for i in range(idx + 1, idx + self.forecast_times):
+                            for i in range(idx + 1, target_timestep):
                                 t_image, t_mask = self.get_timestep(
                                     sample,
                                     i,
@@ -451,7 +450,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if self.vis:
                                 self.visualize(image, target_image, target_mask)
                             if self.use_time and self.time_aux:
-                                time_layer = create_time_layer(target_timestep, self.output_shape)
+                                time_layer = create_time_layer(
+                                    target_timestep - idx, self.output_shape
+                                )
                                 yield image, time_layer, target_image, target_mask
                             if not self.use_image:
                                 yield image, target_mask
