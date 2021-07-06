@@ -122,8 +122,7 @@ def create_pixel_coord_layers(x_dim: int, y_dim: int, with_r: bool = False) -> n
 
     xx_channel = xx_channel * 2 - 1
     yy_channel = yy_channel * 2 - 1
-    ret = np.stack([xx_channel, yy_channel], axis=0)
-
+    ret = np.concatenate((xx_channel, yy_channel), axis=-1)
     if with_r:
         rr = np.sqrt(np.square(xx_channel - 0.5) + np.square(yy_channel - 0.5))
         ret = np.concatenate([ret, np.expand_dims(rr, axis=0)], axis=0)
@@ -582,10 +581,13 @@ class OpticalFlowDataset(SatFlowDataset):
         # but could be interpolated between the previous step and next one by weighting by time difference
         # Topographic is same of course, just need to resize to 1km x 1km?
         # grid by taking the mean value of the interior ones
-        sources = [iter(ds) for ds in self.datasets]
         while True:
+            sources = [iter(ds) for ds in self.datasets]
             for source in sources:
-                sample = next(source)
+                try:
+                    sample = next(source)
+                except StopIteration:
+                    continue
                 timesteps = pickle.loads(sample["time.pyd"])
                 available_steps = len(timesteps)  # number of available timesteps
                 # Check to make sure all timesteps exist
