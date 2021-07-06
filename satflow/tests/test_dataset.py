@@ -20,6 +20,6 @@ def test_cloudflow():
     # d = next(iter(dataset))
     # print(d["time.pyd"])
     config = load_config("configs/satflow.yaml")
-    cloudflow = CloudFlowDataset(dataset, config)
+    cloudflow = CloudFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     pass

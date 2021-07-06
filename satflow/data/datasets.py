@@ -127,7 +127,7 @@ def create_pixel_coord_layers(x_dim: int, y_dim: int, with_r: bool = False) -> n
 
 @register_dataset
 class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
-    def __init__(self, datasets, config, train=True):
+    def __init__(self, datasets: List[wds.WebDataset], config: dict, train: bool = True):
         super().__init__()
         self.config = config
         self.datasets = datasets
@@ -484,6 +484,7 @@ class CloudFlowDataset(SatFlowDataset):
                     sample = next(source)
                 except StopIteration:
                     continue
+                print(sample)
                 timesteps = sample["time.pyd"]
                 available_steps = len(timesteps)  # number of available timesteps
                 # Check to make sure all timesteps exist
