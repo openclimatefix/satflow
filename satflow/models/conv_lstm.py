@@ -157,7 +157,8 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         # the logger you used (in this case tensorboard)
         if self.make_vis:
-            self.visualize(x, y, y_hat, batch_idx)
+            if np.random.random() < 0.01:
+                self.visualize(x, y, y_hat, batch_idx)
         loss = self.criterion(y_hat, y)
         self.log("train/loss", loss, on_step=True)
         return loss

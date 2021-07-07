@@ -76,7 +76,7 @@ def extras(config: DictConfig) -> None:
         config.model.input_channels = channels * (config.datamodule.config.num_timesteps + 1)
     else:
         config.model.input_channels = channels
-
+    config.model.input_channels = 3  # TODO Remove soon
     # disable python warnings if <config.ignore_warnings=True>
     if config.get("ignore_warnings"):
         log.info("Disabling python warnings! <config.ignore_warnings=True>")
