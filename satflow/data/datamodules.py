@@ -35,8 +35,10 @@ class SatFlowDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            train_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["train"]))
-            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"]))
+            train_dset = wds.WebDataset(
+                os.path.join(self.data_dir, self.sources["train"])
+            ).decode()
+            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"])).decode()
             if self.shuffle > 0:
                 # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
                 train_dset = train_dset.shuffle(self.shuffle)
@@ -45,7 +47,7 @@ class SatFlowDataModule(pl.LightningDataModule):
 
         # Assign test dataset for use in dataloader(s)
         if stage == "test" or stage is None:
-            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"]))
+            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"])).decode()
             self.test_dataset = SatFlowDataset([test_dset], config=self.config, train=False)
 
     def train_dataloader(self):
@@ -108,8 +110,10 @@ class MaskFlowDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            train_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["train"]))
-            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"]))
+            train_dset = wds.WebDataset(
+                os.path.join(self.data_dir, self.sources["train"])
+            ).decode()
+            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"])).decode()
             if self.shuffle > 0:
                 # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
                 train_dset = train_dset.shuffle(self.shuffle)
@@ -118,7 +122,7 @@ class MaskFlowDataModule(pl.LightningDataModule):
 
         # Assign test dataset for use in dataloader(s)
         if stage == "test" or stage is None:
-            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"]))
+            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"])).decode()
             self.test_dataset = CloudFlowDataset([test_dset], config=self.config, train=False)
 
     def train_dataloader(self):
@@ -181,8 +185,10 @@ class SegFlowDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            train_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["train"]))
-            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"]))
+            train_dset = wds.WebDataset(
+                os.path.join(self.data_dir, self.sources["train"])
+            ).decode()
+            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"])).decode()
             if self.shuffle > 0:
                 # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
                 train_dset = train_dset.shuffle(self.shuffle)
@@ -191,7 +197,7 @@ class SegFlowDataModule(pl.LightningDataModule):
 
         # Assign test dataset for use in dataloader(s)
         if stage == "test" or stage is None:
-            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"]))
+            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"])).decode()
             self.test_dataset = SegFlowDataset([test_dset], config=self.config, train=False)
 
     def train_dataloader(self):

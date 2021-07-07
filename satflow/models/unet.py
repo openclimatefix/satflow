@@ -34,6 +34,7 @@ class Unet(pl.LightningModule):
         else:
             raise ValueError(f"loss {loss} not recognized")
         self.make_vis = make_vis
+        self.input_channels = input_channels
         self.model = UNet(forecast_steps, input_channels, num_layers, hidden_dim, bilinear)
         self.save_hyperparameters()
 
@@ -61,7 +62,7 @@ class Unet(pl.LightningModule):
         y_hat = self(x)
 
         if self.make_vis:
-            if np.random.random() < 0.01:
+            if np.random.random() < 0.001:
                 self.visualize(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
@@ -95,7 +96,7 @@ class Unet(pl.LightningModule):
 
     def visualize(self, x, y, y_hat, batch_idx):
         # the logger you used (in this case tensorboard)
-        tensorboard = self.logger.experiment
+        tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
         in_image = (
             x[0].cpu().detach().numpy()
@@ -105,15 +106,17 @@ class Unet(pl.LightningModule):
             if i % self.input_channels == 0:  # First one
                 j += 1
                 tensorboard.add_image(
-                    f"Input_Image_{j}_Channel_{i}", in_slice, global_step=batch_idx
+                    f"Input_Image_{j}_Channel_{i}",
+                    np.expand_dims(in_slice, axis=0),
+                    global_step=batch_idx,
                 )  # Each Channel
         out_image = y_hat[0].cpu().detach().numpy()
         for i, out_slice in enumerate(out_image):
             tensorboard.add_image(
-                f"Output_Image_{i}", out_slice, global_step=batch_idx
+                f"Output_Image_{i}", np.expand_dims(out_slice, axis=0), global_step=batch_idx
             )  # Each Channel
         out_image = y[0].cpu().detach().numpy()
         for i, out_slice in enumerate(out_image):
             tensorboard.add_image(
-                f"Target_Image_{i}", out_slice, global_step=batch_idx
+                f"Target_Image_{i}", np.expand_dims(out_slice, axis=0), global_step=batch_idx
             )  # Each Channel
