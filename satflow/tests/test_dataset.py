@@ -11,7 +11,7 @@ def load_config(config_file):
 
 
 def test_satflow_cloudmask():
-    dataset = wds.WebDataset("datasets/satflow-test.tar").decode()
+    dataset = wds.WebDataset("datasets/satflow-test.tar")
     # d = next(iter(dataset))
     # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow.yaml")
@@ -23,7 +23,7 @@ def test_satflow_cloudmask():
 
 
 def test_satflow_all():
-    dataset = wds.WebDataset("datasets/satflow-test.tar").decode()
+    dataset = wds.WebDataset("datasets/satflow-test.tar")
     # d = next(iter(dataset))
     # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_all.yaml")
@@ -36,7 +36,7 @@ def test_satflow_all():
 
 
 def test_satflow_large():
-    dataset = wds.WebDataset("datasets/satflow-test.tar").decode()
+    dataset = wds.WebDataset("datasets/satflow-test.tar")
     # d = next(iter(dataset))
     # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_large.yaml")
@@ -49,7 +49,7 @@ def test_satflow_large():
 
 
 def test_satflow_crop():
-    dataset = wds.WebDataset("datasets/satflow-test.tar").decode()
+    dataset = wds.WebDataset("datasets/satflow-test.tar")
     # d = next(iter(dataset))
     # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_crop.yaml")
@@ -62,7 +62,7 @@ def test_satflow_crop():
 
 
 def test_satflow_channels():
-    dataset = wds.WebDataset("datasets/satflow-test.tar").decode()
+    dataset = wds.WebDataset("datasets/satflow-test.tar")
     # d = next(iter(dataset))
     # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_channels.yaml")
@@ -74,7 +74,7 @@ def test_satflow_channels():
 
 
 def test_satflow_time_channels():
-    dataset = wds.WebDataset("datasets/satflow-test.tar").decode()
+    dataset = wds.WebDataset("datasets/satflow-test.tar")
     # d = next(iter(dataset))
     # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_time_channels.yaml")
@@ -86,7 +86,7 @@ def test_satflow_time_channels():
 
 
 def test_cloudflow():
-    dataset = wds.WebDataset("datasets/satflow-test.tar").decode()
+    dataset = wds.WebDataset("datasets/satflow-test.tar")
     # d = next(iter(dataset))
     # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow.yaml")
