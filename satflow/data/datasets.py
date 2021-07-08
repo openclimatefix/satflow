@@ -659,7 +659,7 @@ class OpticalFlowDataset(SatFlowDataset):
                     <= self.num_timesteps * self.skip_timesteps + self.forecast_times
                 ):
                     continue  # Skip this sample as it is missing timesteps, or has none
-                idxs = list(range(20, available_steps - 1))
+                idxs = list(range(2, available_steps - 1))
                 for idx in idxs:
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         logger.debug(f"IDX: {idx}")

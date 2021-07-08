@@ -19,6 +19,7 @@ dset = wds.WebDataset("/run/media/jacob/data/satflow-flow-144-tiled-{00001..0014
 dataset = OpticalFlowDataset([dset], config=config)
 
 import matplotlib.pyplot as plt
+import torch
 
 
 def warp_flow(img, flow):
@@ -30,43 +31,30 @@ def warp_flow(img, flow):
     return res
 
 
+debug = False
+total_losses = np.array([0.0 for _ in range(48)])  # Want to break down loss by future timestep
+count = 0
 for data in dataset:
+    count += 1
     prev_frame, curr_frame, next_frames, image, prev_image = data
     prev_frame = np.moveaxis(prev_frame, [0], [2])
     curr_frame = np.moveaxis(curr_frame, [0], [2])
     flow = cv2.calcOpticalFlowFarneback(prev_image, image, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-    plt.imshow(prev_frame)
-    plt.imshow(image)
-    plt.title("Image")
-    plt.show()
-    plt.imshow(prev_image)
-    plt.title("Prev Image")
-    plt.show()
-    plt.imshow(image - prev_image)
-    plt.title("Image Diff")
-    plt.show()
-    plt.imshow(curr_frame - prev_frame)
-    plt.title("Difference")
-    plt.show()
     warped_frame = warp_flow(curr_frame.astype(np.float32), flow)
     warped_frame = np.expand_dims(warped_frame, axis=-1)
-    plt.imshow(curr_frame - warped_frame)
-    plt.title("Curr - Warped After 1")
-    plt.show()
-    diff = curr_frame - warped_frame
-    for i in range(47):
-        warped_frame = warp_flow(warped_frame.astype(np.float32), flow)
-    warped_frame = np.expand_dims(warped_frame, axis=-1)
-    plt.imshow(curr_frame - warped_frame)
-    plt.title("Curr - Warped after 48")
-    plt.show()
-    diff2 = curr_frame - warped_frame
-    plt.imshow(diff - diff2)
-    plt.title("Warped 1 minus Warped 2")
-    plt.show()
-    plt.imshow(
-        prev_frame - np.expand_dims(warp_flow(prev_frame.astype(np.float32), flow), axis=-1)
+    loss = F.mse_loss(
+        torch.from_numpy(warped_frame), torch.from_numpy(np.expand_dims(next_frames[0], axis=-1))
     )
-    plt.title("Prev - Warped")
-    plt.show()
-    exit()
+    total_losses[0] += loss.item()
+    for i in range(1, 48):
+        warped_frame = warp_flow(warped_frame.astype(np.float32), flow)
+        warped_frame = np.expand_dims(warped_frame, axis=-1)
+        loss = F.mse_loss(
+            torch.from_numpy(warped_frame),
+            torch.from_numpy(np.expand_dims(next_frames[0], axis=-1)),
+        )
+        total_losses[i] += loss.item()
+    print(
+        f"Avg Total Loss: {np.mean(total_losses) / count} Avg Loss per Timestep: {total_losses / count}"
+    )
+np.save("optical_flow_mse_loss.npy", total_losses / count)
