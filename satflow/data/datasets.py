@@ -659,26 +659,28 @@ class OpticalFlowDataset(SatFlowDataset):
                     <= self.num_timesteps * self.skip_timesteps + self.forecast_times
                 ):
                     continue  # Skip this sample as it is missing timesteps, or has none
-                idxs = list(range(2, available_steps - 1))
+                idxs = list(range(20, available_steps - 1))
                 for idx in idxs:
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         logger.debug(f"IDX: {idx}")
-                        _, mask = self.get_timestep(
+                        image, mask = self.get_timestep(
                             sample,
                             idx,
                             return_target=True,
-                            return_image=False,
+                            return_image=True,
                         )  # First timestep considered
                         data = self.aug(image=mask)
                         replay = data["replay"]
                         mask = data["image"]
-                        _, prev_mask = self.get_timestep(
+                        image = self.aug.replay(replay, image=image)["image"]
+                        prev_image, prev_mask = self.get_timestep(
                             sample,
                             idx - 1,
                             return_target=True,
-                            return_image=False,
+                            return_image=True,
                         )  # First timestep considered
-                        prev_mask = self.aug.replay(replay, image=mask)["image"]
+                        prev_mask = self.aug.replay(replay, image=prev_mask)["image"]
+                        prev_image = self.aug.replay(replay, image=prev_image)["image"]
                         # Now in a Time x W x H x Channel order
                         _, target_mask = self.get_timestep(
                             sample,
@@ -703,10 +705,10 @@ class OpticalFlowDataset(SatFlowDataset):
                             target_mask = np.concatenate(
                                 [np.expand_dims(t_mask, axis=0), target_mask]
                             )
-                        target_mask = target_mask.astype(np.int8)
+                        target_mask = np.round(target_mask).astype(np.int8)
                         # Convert to float/half-precision
-                        mask = mask.astype(np.int8)
-                        prev_mask = prev_mask.astype(np.int8)
+                        mask = np.round(mask).astype(np.int8)
+                        prev_mask = np.round(prev_mask).astype(np.int8)
                         # Move channel to Time x Channel x W x H
                         mask = np.expand_dims(mask, axis=0)
                         prev_mask = np.expand_dims(prev_mask, axis=0)
@@ -714,7 +716,7 @@ class OpticalFlowDataset(SatFlowDataset):
                         prev_mask = np.nan_to_num(prev_mask, posinf=0.0, neginf=0.0)
                         target_mask = np.nan_to_num(target_mask, posinf=0, neginf=0)
                         logger.debug(f"Mask: {mask.shape} Target: {target_mask.shape}")
-                        yield prev_mask, mask, target_mask
+                        yield prev_mask, mask, target_mask, image, prev_image
 
 
 def crop_center(img, cropx, cropy):
