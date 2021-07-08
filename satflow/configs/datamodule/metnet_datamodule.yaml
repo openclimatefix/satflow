@@ -25,6 +25,7 @@ config:
   time_aux: False
   use_mask: True
   use_image: False
+  add_pixel_coords: False
   time_as_channels: False
   bands:
     [

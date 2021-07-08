@@ -10,8 +10,9 @@ from pytorch_lightning import (
     seed_everything,
 )
 from pytorch_lightning.loggers import LightningLoggerBase
-
+from pytorch_lightning.profiler import AdvancedProfiler, PyTorchProfiler
 from satflow.core import utils
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 log = utils.get_logger(__name__)
 
@@ -43,7 +44,8 @@ def train(config: DictConfig) -> Optional[float]:
     model: LightningModule = hydra.utils.instantiate(config.model)
 
     # Init Lightning callbacks
-    callbacks: List[Callback] = []
+    lr_monitor = LearningRateMonitor(logging_interval="step")
+    callbacks: List[Callback] = [lr_monitor]
     if "callbacks" in config:
         for _, cb_conf in config["callbacks"].items():
             if "_target_" in cb_conf:
