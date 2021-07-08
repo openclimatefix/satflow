@@ -51,7 +51,7 @@ for data in dataset:
         warped_frame = np.expand_dims(warped_frame, axis=-1)
         loss = F.mse_loss(
             torch.from_numpy(warped_frame),
-            torch.from_numpy(np.expand_dims(next_frames[0], axis=-1)),
+            torch.from_numpy(np.expand_dims(next_frames[i], axis=-1)),
         )
         total_losses[i] += loss.item()
     print(
