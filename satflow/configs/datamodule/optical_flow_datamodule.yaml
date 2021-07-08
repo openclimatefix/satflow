@@ -1,6 +1,5 @@
 # @package _group_
 _target_: satflow.data.datamodules.MaskFlowDataModule
-
 batch_size: 1
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 shuffle: 0
@@ -15,9 +14,9 @@ config:
   num_timesteps: 1
   skip_timesteps: 1
   forecast_times: 48
-  output_shape: 128
+  output_shape: 400
   target_type: "cloudmask"
-  num_crops: 10
+  num_crops: 1
   use_topo: False
   use_latlon: False
   use_time: False
@@ -26,5 +25,11 @@ config:
   use_image: False
   add_pixel_coords: False
   time_as_channels: False
-  bands: ["IR016"]
+  # NIR1.6, VIS0.8 and VIS0.6 RGB for near normal view
+  bands: [
+      "HRV",
+      #"IR016",
+      #"VIS006",
+      #"VIS008",
+    ]
   transforms: {}
