@@ -634,6 +634,89 @@ class CloudFlowDataset(SatFlowDataset):
                             yield mask, target_mask
 
 
+class OpticalFlowDataset(SatFlowDataset):
+    def __iter__(self) -> Iterator[T_co]:
+        # Need to make sure same time step for all of them.
+        # As its all from rapid scan, should be fairly easy.
+        # Main missing one is the regional and rapid weather ones, which are every 15 minutes,
+        # but could be interpolated between the previous step and next one by weighting by time difference
+        # Topographic is same of course, just need to resize to 1km x 1km?
+        # grid by taking the mean value of the interior ones
+        sources = [iter(ds) for ds in self.datasets]
+        while True:
+            for source in sources:
+                sample = next(source)
+                timesteps = pickle.loads(sample["time.pyd"])
+                available_steps = len(timesteps)  # number of available timesteps
+                # Check to make sure all timesteps exist
+                sample_keys = [key for key in sample.keys() if self.bands[0].lower() in key]
+                key_checker = [
+                    f"{self.bands[0].lower()}.{idx:03d}.npy" for idx in range(1, available_steps)
+                ]
+                if (
+                    not all(e in sample_keys for e in key_checker)
+                    or len(sample_keys)
+                    <= self.num_timesteps * self.skip_timesteps + self.forecast_times
+                ):
+                    continue  # Skip this sample as it is missing timesteps, or has none
+                idxs = list(range(2, available_steps - 1))
+                for idx in idxs:
+                    for _ in range(self.num_crops):  # Do random crops as well for training
+                        logger.debug(f"IDX: {idx}")
+                        _, mask = self.get_timestep(
+                            sample,
+                            idx,
+                            return_target=True,
+                            return_image=False,
+                        )  # First timestep considered
+                        data = self.aug(image=mask)
+                        replay = data["replay"]
+                        mask = data["image"]
+                        _, prev_mask = self.get_timestep(
+                            sample,
+                            idx - 1,
+                            return_target=True,
+                            return_image=False,
+                        )  # First timestep considered
+                        prev_mask = self.aug.replay(replay, image=mask)["image"]
+                        # Now in a Time x W x H x Channel order
+                        _, target_mask = self.get_timestep(
+                            sample,
+                            idx + self.forecast_times,
+                            return_target=True,
+                            return_image=False,
+                        )
+                        target_mask = self.aug.replay(replay, image=target_mask)["image"]
+                        target_mask = np.expand_dims(target_mask, axis=0)
+
+                        if np.isclose(np.min(target_mask), np.max(target_mask)):
+                            continue  # Ignore if target timestep has no clouds, or only clouds
+                        # Now create stack here
+                        for i in range(idx + 1, idx + self.forecast_times):
+                            _, t_mask = self.get_timestep(
+                                sample,
+                                i,
+                                return_target=True,
+                                return_image=False,
+                            )
+                            t_mask = self.aug.replay(replay, image=t_mask)["image"]
+                            target_mask = np.concatenate(
+                                [np.expand_dims(t_mask, axis=0), target_mask]
+                            )
+                        target_mask = target_mask.astype(np.int8)
+                        # Convert to float/half-precision
+                        mask = mask.astype(np.int8)
+                        prev_mask = prev_mask.astype(np.int8)
+                        # Move channel to Time x Channel x W x H
+                        mask = np.expand_dims(mask, axis=0)
+                        prev_mask = np.expand_dims(prev_mask, axis=0)
+                        mask = np.nan_to_num(mask, posinf=0.0, neginf=0.0)
+                        prev_mask = np.nan_to_num(prev_mask, posinf=0.0, neginf=0.0)
+                        target_mask = np.nan_to_num(target_mask, posinf=0, neginf=0)
+                        logger.debug(f"Mask: {mask.shape} Target: {target_mask.shape}")
+                        yield prev_mask, mask, target_mask
+
+
 def crop_center(img, cropx, cropy):
     """Crops center of image through timestack, fails if all the images are concatenated as channels"""
     t, c, y, x = img.shape
