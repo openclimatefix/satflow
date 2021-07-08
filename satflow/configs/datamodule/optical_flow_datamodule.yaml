@@ -1,0 +1,30 @@
+# @package _group_
+_target_: satflow.data.datamodules.MaskFlowDataModule
+
+batch_size: 1
+data_dir: ${data_dir} # data_dir is specified in config.yaml
+shuffle: 0
+sources:
+  train: "satflow-flow-144-tiled-{00001..00105}.tar"
+  val: "satflow-flow-144-tiled-{00106..00129}.tar"
+  test: "satflow-flow-144-tiled-{00130..00149}.tar"
+num_workers: 1
+pin_memory: False
+config:
+  visualize: False
+  num_timesteps: 1
+  skip_timesteps: 1
+  forecast_times: 48
+  output_shape: 128
+  target_type: "cloudmask"
+  num_crops: 10
+  use_topo: False
+  use_latlon: False
+  use_time: False
+  time_aux: False
+  use_mask: True
+  use_image: False
+  add_pixel_coords: False
+  time_as_channels: False
+  bands: ["IR016"]
+  transforms: {}
