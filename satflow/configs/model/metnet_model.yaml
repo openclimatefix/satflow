@@ -2,8 +2,8 @@
 _target_: satflow.models.metnet.MetNet
 input_channels: 17
 hidden_dim: 32
-forecast_steps: 48
-lr: 0.0001
+forecast_steps: 24
+lr: 0.001
 kernel_size: 3
 num_layers: 1
 num_att_layers: 1
