@@ -82,5 +82,8 @@ for data in dataset:
     print(
         f"Avg Total Loss: {np.mean(total_losses) / count} Avg Baseline Loss: {np.mean(baseline_losses) / count} \n Overall Loss: {overall_loss / count} Baseline: {overall_baseline / count}"
     )
+    if count % 100 == 0:
+        np.save("optical_flow_mse_loss.npy", total_losses / count)
+        np.save("baseline_current_image_mse_loss.npy", baseline_losses / count)
 np.save("optical_flow_mse_loss.npy", total_losses / count)
 np.save("baseline_current_image_mse_loss.npy", baseline_losses / count)
