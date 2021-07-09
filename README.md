@@ -21,5 +21,3 @@ The data used here is a combination of the UK Met Office's rainfall radar data, 
 satellite data (12 channels), derived data from the MSG satellites (cloud masks, etc.), and
 numerical weather prediction data. Currently, some example transformed EUMETSAT data can be downloaded
 from the tagged release, as well as included under ```datasets/```.
-
-##
