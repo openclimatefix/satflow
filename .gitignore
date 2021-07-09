@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 .idea/
-
+satflow/logs/
 # C extensions
 *.so
 
