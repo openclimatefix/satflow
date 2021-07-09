@@ -98,3 +98,63 @@ class FocalLoss(nn.Module):
         else:
             loss = loss.sum()
         return loss
+
+
+def _unbind_images(x, dim=1):
+    "only unstack images"
+    if isinstance(x, torch.Tensor):
+        if len(x.shape) >= 4:
+            return x.unbind(dim=dim)
+    return x
+
+
+class StackUnstack(nn.Module):
+    "Stack together inputs, apply module, unstack output"
+
+    def __init__(self, module, dim=1):
+        super().__init__()
+        self.dim = dim
+        self.module = module
+
+    @staticmethod
+    def unbind_images(x, dim=1):
+        return _unbind_images(x, dim)
+
+    def forward(self, *args):
+        inputs = [torch.stack(x, dim=self.dim) for x in args]
+        outputs = self.module(*inputs)
+        if isinstance(outputs, (tuple, list)):
+            return [self.unbind_images(output, dim=self.dim) for output in outputs]
+        else:
+            return outputs.unbind(dim=self.dim)
+
+
+def StackLoss(loss_func=F.mse_loss, axis=-1):
+    def _inner_loss(x, y):
+        x = torch.cat(x, axis)
+        y = torch.cat(y, axis)
+        return loss_func(x, y)
+
+    return _inner_loss
+
+
+class MultiImageDice:
+    "Dice coefficient metric for binary target in segmentation"
+
+    def __init__(self, axis=1):
+        self.axis = axis
+
+    def reset(self):
+        self.inter, self.union = 0, 0
+
+    def accumulate(self, pred, y):
+        x = torch.cat(pred, -1)
+        y = torch.cat(y, -1)
+        pred = x.argmax(dim=self.axis).flatten()
+        targ = np.flatten(y)
+        self.inter += (pred * targ).float().sum().item()
+        self.union += (pred + targ).float().sum().item()
+
+    @property
+    def value(self):
+        return 2.0 * self.inter / self.union if self.union > 0 else None
