@@ -17,6 +17,6 @@ so optical flow beats out the naive baseline by about 1.6%.
 
 We tried obtaining the optical flow of consecutive, or even very temporally separated the cloud masks,
 but the optical flow usually ended up not actually changing anything. Instead, we used the
-MSG HSV satellite channel to compute the optical flow. This was chosen as that is the highest
+MSG HRV satellite channel to compute the optical flow. This was chosen as that is the highest
 resolution satellite channel available, and it resulted in optical flow actually computing some movement.
 This flow field was then applied to the cloud masks directly to obtain the flow results.
