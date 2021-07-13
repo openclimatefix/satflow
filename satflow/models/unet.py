@@ -74,6 +74,12 @@ class Unet(pl.LightningModule):
         y_hat = self(x)
         val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss, on_step=True, on_epoch=True)
+        # Save out loss per frame as well
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict, on_step=True, on_epoch=True)
         return val_loss
 
     def test_step(self, batch, batch_idx):
