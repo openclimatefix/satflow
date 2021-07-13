@@ -20,3 +20,6 @@ but the optical flow usually ended up not actually changing anything. Instead, w
 MSG HRV satellite channel to compute the optical flow. This was chosen as that is the highest
 resolution satellite channel available, and it resulted in optical flow actually computing some movement.
 This flow field was then applied to the cloud masks directly to obtain the flow results.
+
+Avg Total Loss: 0.15720261434381796 Avg Baseline Loss: 0.1598897848692671
+Overall Loss: 0.15720261434381738 Baseline: 0.1598897848692671

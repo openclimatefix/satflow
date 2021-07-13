@@ -384,7 +384,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             # Now in a Time x W x H x Channel order
                             target_image, target_mask = self.get_timestep(
                                 sample,
-                                target_timestep,
+                                idx + 1,
                                 return_target=True,
                                 return_image=self.use_image,
                             )
@@ -398,7 +398,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if np.isclose(np.min(target_mask), np.max(target_mask)):
                                 continue  # Ignore if target timestep has no clouds, or only clouds
                             # Now create stack here
-                            for i in range(idx + 1, target_timestep):
+                            for i in range(idx + 2, target_timestep + 1):
                                 t_image, t_mask = self.get_timestep(
                                     sample,
                                     i,
@@ -407,12 +407,12 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 )
                                 t_mask = self.aug.replay(replay, image=t_mask)["image"]
                                 target_mask = np.concatenate(
-                                    [np.expand_dims(t_mask, axis=0), target_mask]
+                                    [target_mask, np.expand_dims(t_mask, axis=0)]
                                 )
                                 if self.use_image:
                                     t_image = self.aug.replay(replay, image=t_image)["image"]
                                     target_image = np.concatenate(
-                                        [np.expand_dims(t_image, axis=0), target_image]
+                                        [target_image, np.expand_dims(t_image, axis=0)]
                                     )
                             # Ensure last target mask is also different than previous ones -> only want ones where things change
                             if np.allclose(target_mask[0], target_mask[-1]):
@@ -566,7 +566,7 @@ class CloudFlowDataset(SatFlowDataset):
                             # Now in a Time x W x H x Channel order
                             _, target_mask = self.get_timestep(
                                 sample,
-                                target_timestep,
+                                idx + 1,
                                 return_target=True,
                                 return_image=False,
                             )
@@ -576,7 +576,7 @@ class CloudFlowDataset(SatFlowDataset):
                             if np.isclose(np.min(target_mask), np.max(target_mask)):
                                 continue  # Ignore if target timestep has no clouds, or only clouds
                             # Now create stack here
-                            for i in range(idx + 1, target_timestep):
+                            for i in range(idx + 2, target_timestep + 1):
                                 _, t_mask = self.get_timestep(
                                     sample,
                                     i,
@@ -585,7 +585,7 @@ class CloudFlowDataset(SatFlowDataset):
                                 )
                                 t_mask = self.aug.replay(replay, image=t_mask)["image"]
                                 target_mask = np.concatenate(
-                                    [np.expand_dims(t_mask, axis=0), target_mask]
+                                    [target_mask, np.expand_dims(t_mask, axis=0)]
                                 )
                             # Ensure last target mask is also different than previous ones -> only want ones where things change
                             if np.allclose(target_mask[0], target_mask[-1]):
@@ -663,6 +663,10 @@ class OpticalFlowDataset(SatFlowDataset):
                 for idx in idxs:
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         logger.debug(f"IDX: {idx}")
+                        print(
+                            f"Timesteps: Current: {timesteps[idx]} Prev: {timesteps[idx - 1]} Next: {timesteps[idx + 1]} Final: {timesteps[idx + self.forecast_times - 1]} "
+                            f"Timedelta: Next - Curr: {timesteps[idx + 1] - timesteps[idx] } End - Curr: {timesteps[idx + self.forecast_times - 1] - timesteps[idx]}"
+                        )
                         image, mask = self.get_timestep(
                             sample,
                             idx,
@@ -684,7 +688,7 @@ class OpticalFlowDataset(SatFlowDataset):
                         # Now in a Time x W x H x Channel order
                         _, target_mask = self.get_timestep(
                             sample,
-                            idx + self.forecast_times,
+                            idx + 1,
                             return_target=True,
                             return_image=False,
                         )
@@ -694,7 +698,7 @@ class OpticalFlowDataset(SatFlowDataset):
                         if np.isclose(np.min(target_mask), np.max(target_mask)):
                             continue  # Ignore if target timestep has no clouds, or only clouds
                         # Now create stack here
-                        for i in range(idx + 1, idx + self.forecast_times):
+                        for i in range(idx + 2, idx + self.forecast_times + 1):
                             _, t_mask = self.get_timestep(
                                 sample,
                                 i,
@@ -703,7 +707,7 @@ class OpticalFlowDataset(SatFlowDataset):
                             )
                             t_mask = self.aug.replay(replay, image=t_mask)["image"]
                             target_mask = np.concatenate(
-                                [np.expand_dims(t_mask, axis=0), target_mask]
+                                [target_mask, np.expand_dims(t_mask, axis=0)]
                             )
                         target_mask = np.round(target_mask).astype(np.int8)
                         # Convert to float/half-precision
