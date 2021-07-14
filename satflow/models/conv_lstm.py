@@ -169,6 +169,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         val_loss = self.criterion(y_hat, y)
         # Save out loss per frame as well
         frame_loss_dict = {}
+        y_hat = torch.moveaxis(y_hat, 2, 1)
         for f in range(self.forecast_steps):
             frame_loss = self.criterion(y_hat[:, f, :, :, :], y[:, f, :, :, :]).item()
             frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
