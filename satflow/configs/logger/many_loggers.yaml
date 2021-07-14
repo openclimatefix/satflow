@@ -2,5 +2,5 @@
 # train with many loggers at once
 
 defaults:
-  - csv.yaml
   - tensorboard.yaml
+  - csv.yaml
