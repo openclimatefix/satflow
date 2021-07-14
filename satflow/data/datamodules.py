@@ -26,6 +26,8 @@ class SatFlowDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
 
+        self.training_dataloader_ref = None
+
     def prepare_data(self):
         # download
         pass
@@ -47,12 +49,18 @@ class SatFlowDataModule(pl.LightningDataModule):
             self.test_dataset = SatFlowDataset([test_dset], config=self.config, train=False)
 
     def train_dataloader(self):
-        return DataLoader(
+        if self.training_dataloader_ref:
+            return self.training_dataloader_ref
+
+        training_dataloader = DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
         )
+        self.training_dataloader_ref = training_dataloader
+
+        return self.training_dataloader_ref
 
     def val_dataloader(self):
         return DataLoader(
