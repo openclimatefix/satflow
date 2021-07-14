@@ -380,9 +380,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     target_timesteps = np.full(self.num_crops, idx + self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         for target_timestep in target_timesteps:
-                            time_cube = self.create_target_time_cube(
-                                target_timestep - idx - 1
-                            )  # Want relative tiemstep forward
+
                             idxs = list(
                                 range(
                                     idx - (self.num_timesteps * self.skip_timesteps),
@@ -475,22 +473,33 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             image = np.nan_to_num(image, posinf=0, neginf=0)
         return image, mask
 
-    def add_aux_layers(self, inputs):
-        if self.time_as_channels:
+    def add_aux_layers(self, inputs, target_offset: int = 0):
+        if self.time_as_channels:  # 3D Tensor of C x W x H
             if self.use_topo:
-                inputs = np.concatenate([inputs, self.topo], axis=-1)
+                inputs = np.concatenate([inputs, self.topo], axis=0)
             if self.use_latlon:
-                inputs = np.concatenate([inputs, self.location], axis=-1)
+                inputs = np.concatenate([inputs, self.location], axis=0)
             if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=0)
+            if self.use_time:
+                time_cube = self.create_target_time_cube(
+                    target_offset
+                )  # Want relative tiemstep forward
+                inputs = np.concatenate([inputs, time_cube], axis=0)
 
-        else:  # In timeseries, so 5D tensor
+        else:  # In timeseries, so 4D tensor of T x C x W x H
             if self.use_topo:
-                inputs = np.concatenate([inputs, self.topo], axis=-1)
+                inputs = np.concatenate([inputs, self.topo], axis=1)
             if self.use_latlon:
-                inputs = np.concatenate([inputs, self.location], axis=-1)
+                inputs = np.concatenate([inputs, self.location], axis=1)
             if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=1)
+            if self.use_time:
+                time_cube = self.create_target_time_cube(
+                    target_offset
+                )  # Want relative tiemstep forward
+                time_cube = np.repeat(time_cube, repeats=self.num_timesteps + 1, axis=0)
+                inputs = np.concatenate([inputs, time_cube], axis=1)
         return inputs
 
     def time_changes(self, inputs, targets):
