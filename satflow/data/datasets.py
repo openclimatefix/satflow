@@ -380,8 +380,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     target_timesteps = np.full(self.num_crops, idx + self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         for target_timestep in target_timesteps:
-
-                            idxs = list(
+                            input_idxs = list(
                                 range(
                                     idx - (self.num_timesteps * self.skip_timesteps),
                                     idx + self.skip_timesteps,
@@ -389,7 +388,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 )
                             )
                             image, masks, replay = self.create_stack(
-                                idxs, sample, is_input=self.image_input
+                                input_idxs, sample, is_input=self.image_input
                             )
                             # Now in a Time x W x H x Channel order
                             target_idxs = list(range(idx + 1, target_timestep + 1))
