@@ -209,7 +209,10 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
             ]
-        transforms.append(A.RandomCrop(self.output_shape, self.output_shape))
+        if self.train:
+            transforms.append(A.RandomCrop(self.output_shape, self.output_shape))
+        else:
+            transforms.append(A.CenterCrop(self.output_shape, self.output_shape))
         self.aug = A.ReplayCompose(
             transforms,
         )
@@ -350,7 +353,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     continue  # Skip this sample as it is missing timesteps, or has none
                 # Times that have enough previous timesteps and post timesteps for training
                 # pick one at random
-
+                if not self.train:  # Same for validation each time for each source
+                    np.random.seed(42)
                 idxs = np.random.randint(
                     self.num_timesteps * self.skip_timesteps + 1,
                     available_steps - self.forecast_times,
