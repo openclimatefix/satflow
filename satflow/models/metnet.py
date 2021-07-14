@@ -46,7 +46,8 @@ class MetNet(pl.LightningModule):
     ):
         super().__init__()
 
-        self.horizon = forecast_steps
+        self.forecast_steps = forecast_steps
+        self.criterion = F.mse_loss
         self.lr = lr
         self.drop = nn.Dropout(temporal_dropout)
         if image_encoder in ["downsampler", "default"]:
@@ -92,7 +93,7 @@ class MetNet(pl.LightningModule):
         # imgs = torch.cat([imgs, feats], dim=2)
         # Compute all timesteps, probably can be parallelized
         res = []
-        for i in range(self.horizon):
+        for i in range(self.forecast_steps):
             x_i = self.encode_timestep(imgs, i)
             out = self.head(x_i)
             res.append(out)
@@ -114,16 +115,26 @@ class MetNet(pl.LightningModule):
         #        self.visualize(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
-        loss = F.mse_loss(y_hat, y)
+        loss = self.criterion(y_hat, y)
         self.log("train/loss", loss, on_step=True)
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat, y).item()
+            frame_loss_dict[f"train/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
         y = torch.squeeze(y)
-        val_loss = F.mse_loss(y_hat, y)
+        val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss, on_step=True, on_epoch=True)
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat, y).item()
+            frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict)
         return val_loss
 
     def test_step(self, batch, batch_idx):
