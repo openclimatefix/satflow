@@ -294,10 +294,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         if return_target and return_image:
             return image, target
 
-        if self.use_topo:
-            image = np.concatenate([image, self.topo], axis=-1)
-        if self.use_latlon:
-            image = np.concatenate([image, self.location], axis=-1)
         if self.use_time and not self.time_aux:
             t = create_time_layer(
                 pickle.loads(sample["time.pyd"])[idx],
@@ -366,9 +362,18 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                         topo < 100
                     ] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
                     self.topo = (topo - TOPO_MEAN) / TOPO_STD
-                    self.topo = np.expand_dims(self.topo, axis=-1)
+                    if self.time_as_channels:
+                        self.topo = np.expand_dims(self.topo, axis=-1)
+                    else:
+                        self.topo = np.repeat(
+                            self.topo, repeats=self.num_timesteps + 1, axis=0
+                        )  # (timesteps, H, W, Ch)
                 if self.use_latlon:
                     self.location = load_np(sample["location.npy"])
+                    if not self.time_as_channels:
+                        self.location = np.repeat(
+                            self.location, repeats=self.num_timesteps + 1, axis=0
+                        )  # (timesteps, H, W, Ch)
                 for idx in idxs:
                     target_timesteps = np.full(self.num_crops, idx + self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
@@ -402,8 +407,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                     target_mask, self.output_target, self.output_target
                                 )
                             image = self.add_aux_layers(image)
-                            if self.use_image:
-                                target_image = np.nan_to_num(target_image, posinf=0.0, neginf=0.0)
                             if self.vis:
                                 self.visualize(image, target_image, target_mask)
                             if self.use_time and self.time_aux:
@@ -483,12 +486,20 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         return target_image, target_mask
 
     def add_aux_layers(self, inputs):
-
-        if self.add_pixel_coords:
-            # Add channels for pixel_coords, once per channel, or once per stack, dependent
-            if self.time_as_channels:
+        if self.time_as_channels:
+            if self.use_topo:
+                inputs = np.concatenate([inputs, self.topo], axis=-1)
+            if self.use_latlon:
+                inputs = np.concatenate([inputs, self.location], axis=-1)
+            if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=0)
-            else:
+
+        else:  # In timeseries, so 5D tensor
+            if self.use_topo:
+                inputs = np.concatenate([inputs, self.topo], axis=-1)
+            if self.use_latlon:
+                inputs = np.concatenate([inputs, self.location], axis=-1)
+            if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=1)
         return inputs
 
