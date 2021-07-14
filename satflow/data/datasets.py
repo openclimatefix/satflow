@@ -430,7 +430,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             return_target=True,
             return_image=self.use_image or is_input,
         )
-        if self.replay is not None:
+        if self.replay is None:
             data = self.aug(image=mask)
             self.replay = data["replay"]
         # Only keep is target also
