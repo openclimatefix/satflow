@@ -181,6 +181,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.time_as_channels = config.get("time_as_channels", False)
         self.add_pixel_coords = config.get("add_pixel_coords", False)
 
+        self.image_input = True
         self.pixel_coords = create_pixel_coord_layers(
             self.output_shape, self.output_shape, with_r=config.get("add_polar_coords", False)
         )
@@ -389,7 +390,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                     self.skip_timesteps,
                                 )
                             )
-                            image, masks, replay = self.create_stack(idxs, sample)
+                            image, masks, replay = self.create_stack(
+                                idxs, sample, is_input=self.image_input
+                            )
                             # Now in a Time x W x H x Channel order
                             target_idxs = list(range(idx + 1, target_timestep + 1))
                             target_image, target_mask = self.create_stack(
@@ -423,15 +426,15 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             else:
                                 yield image, target_image, target_mask
 
-    def create_stack(self, idxs: list, sample: dict):
+    def create_stack(self, idxs: list, sample: dict, is_input: bool = False):
         image, mask = self.get_timestep(
             sample,
             idxs[0],
             return_target=True,
-            return_image=self.use_image,
+            return_image=self.use_image or is_input,
         )
         if self.replay is not None:
-            data = self.aug(image=image)
+            data = self.aug(image=mask)
             self.replay = data["replay"]
         # Only keep is target also
         if image is not None:
@@ -448,11 +451,11 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 sample,
                 i,
                 return_target=True,
-                return_image=self.use_image,
+                return_image=self.use_image or is_input,
             )
             t_mask = self.aug.replay(self.replay, image=t_mask)["image"]
             mask = np.concatenate([mask, np.expand_dims(t_mask, axis=0)])
-            if self.use_image:
+            if self.use_image or is_input:
                 t_image = self.aug.replay(self.replay, image=t_image)["image"]
                 image = np.concatenate([image, np.expand_dims(t_image, axis=0)])
         # Ensure last target mask is also different than previous ones -> only want ones where things change
@@ -501,6 +504,12 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 ts = np.concatenate([ts, t], axis=0)
             targets = ts
         return inputs, targets
+
+
+class CloudFlowDataset(SatFlowDataset):
+    def __init__(self, datasets: List[wds.WebDataset], config: dict, train: bool = True):
+        super(CloudFlowDataset, self).__init__(datasets, config, train)
+        self.image_input = False  # Only want Mask -> Mask training
 
 
 class OpticalFlowDataset(SatFlowDataset):
