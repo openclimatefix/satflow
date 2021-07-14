@@ -216,6 +216,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.aug = A.ReplayCompose(
             transforms,
         )
+        self.replay = None
 
     def visualize(self, image, target_image, mask):
         import matplotlib.pyplot as plt
@@ -329,6 +330,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         # grid by taking the mean value of the interior ones
         while True:
             sources = [iter(ds) for ds in self.datasets]
+            if not self.train:  # Same for validation each time for each source
+                np.random.seed(42)
             for source in sources:
                 try:
                     sample = next(source)
@@ -349,8 +352,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     continue  # Skip this sample as it is missing timesteps, or has none
                 # Times that have enough previous timesteps and post timesteps for training
                 # pick one at random
-                if not self.train:  # Same for validation each time for each source
-                    np.random.seed(42)
                 idxs = np.random.randint(
                     self.num_timesteps * self.skip_timesteps + 1,
                     available_steps - self.forecast_times,
@@ -381,18 +382,19 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             time_cube = self.create_target_time_cube(
                                 target_timestep - idx - 1
                             )  # Want relative tiemstep forward
-                            image, _ = self.get_timestep(
-                                sample, idx - (self.num_timesteps * self.skip_timesteps)
-                            )  # First timestep considered
-                            data = self.aug(image=image)
-                            replay = data["replay"]
-                            image = data["image"]
-                            if self.use_time and not self.time_aux:
-                                image = np.concatenate([image, time_cube], axis=-1)
-                            image = self.create_input_stack(idx, image, replay, sample, time_cube)
+                            idxs = list(
+                                range(
+                                    idx - (self.num_timesteps * self.skip_timesteps),
+                                    idx,
+                                    self.skip_timesteps,
+                                )
+                            )
+                            image, masks, replay = self.create_stack(idxs, sample)
                             # Now in a Time x W x H x Channel order
-                            target_image, target_mask = self.create_target_stack(
-                                idx, target_timestep, replay, sample, time_cube=time_cube
+                            target_idxs = list(range(idx + 1, target_timestep + 1))
+                            target_image, target_mask = self.create_stack(
+                                target_idxs,
+                                sample,
                             )
                             if target_image is None and target_mask is None:
                                 continue
@@ -407,6 +409,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                     target_mask, self.output_target, self.output_target
                                 )
                             image = self.add_aux_layers(image)
+                            # Reset the replay
+                            self.replay = None
                             if self.vis:
                                 self.visualize(image, target_image, target_mask)
                             if self.use_time and self.time_aux:
@@ -419,71 +423,54 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             else:
                                 yield image, target_image, target_mask
 
-    def create_input_stack(self, idx, image, replay, sample, time_cube):
-        image = np.expand_dims(image, axis=0)
-        for i in range(
-            idx - (self.num_timesteps * self.skip_timesteps) + self.skip_timesteps,
-            idx + 1,
-            self.skip_timesteps,
-        ):
-            t_image, _ = self.get_timestep(sample, i)
-            t_image = self.aug.replay(replay, image=t_image)["image"]
-            if self.use_time and not self.time_aux:
-                t_image = np.concatenate([t_image, time_cube], axis=-1)
-            image = np.concatenate([image, np.expand_dims(t_image, axis=0)])
-
-        # Convert to float/half-precision
-        image = image.astype(np.float32)
-        # Move channel to Time x Channel x W x H
-        image = np.moveaxis(image, [3], [1])
-        image = np.nan_to_num(image, posinf=0.0, neginf=0.0)
-        return image
-
-    def create_target_stack(self, idx, target_timestep, replay, sample, time_cube=None):
-        target_image, target_mask = self.get_timestep(
+    def create_stack(self, idxs: list, sample: dict):
+        image, mask = self.get_timestep(
             sample,
-            idx + 1,
+            idxs[0],
             return_target=True,
             return_image=self.use_image,
         )
+        if self.replay is not None:
+            data = self.aug(image=image)
+            self.replay = data["replay"]
         # Only keep is target also
-        if target_image is not None:
-            target_image = self.aug.replay(replay, image=target_image)["image"]
-            target_image = np.expand_dims(target_image, axis=0)
-        target_mask = self.aug.replay(replay, image=target_mask)["image"]
-        target_mask = np.expand_dims(target_mask, axis=0)
+        if image is not None:
+            image = self.aug.replay(self.replay, image=image)["image"]
+            image = np.expand_dims(image, axis=0)
+        mask = self.aug.replay(self.replay, image=mask)["image"]
+        mask = np.expand_dims(mask, axis=0)
 
-        if np.isclose(np.min(target_mask), np.max(target_mask)):
+        if np.isclose(np.min(mask), np.max(mask)):
             return None, None
         # Now create stack here
-        for i in range(idx + 2, target_timestep + 1):
+        for i in idxs[1:]:
             t_image, t_mask = self.get_timestep(
                 sample,
                 i,
                 return_target=True,
                 return_image=self.use_image,
             )
-            t_mask = self.aug.replay(replay, image=t_mask)["image"]
-            target_mask = np.concatenate([target_mask, np.expand_dims(t_mask, axis=0)])
+            t_mask = self.aug.replay(self.replay, image=t_mask)["image"]
+            mask = np.concatenate([mask, np.expand_dims(t_mask, axis=0)])
             if self.use_image:
-                t_image = self.aug.replay(replay, image=t_image)["image"]
-                target_image = np.concatenate([target_image, np.expand_dims(t_image, axis=0)])
+                t_image = self.aug.replay(self.replay, image=t_image)["image"]
+                image = np.concatenate([image, np.expand_dims(t_image, axis=0)])
         # Ensure last target mask is also different than previous ones -> only want ones where things change
-        if np.allclose(target_mask[0], target_mask[-1]):
+        if np.allclose(mask[0], mask[-1]):
             return None, None
         # Convert to Time x Channel x W x H
         # target_mask = np.expand_dims(target_mask, axis=1)
         # One timestep as well
         if not self.return_target_stack:
-            target_mask = np.expand_dims(target_mask, axis=0)
-        target_mask = target_mask.astype(np.float32)
-        target_mask = np.moveaxis(target_mask, [1], [0])
-        target_mask = np.nan_to_num(target_mask, posinf=0, neginf=0)
-        if target_image is not None:
-            target_image = np.moveaxis(target_image, [3], [1])
-            target_image = target_image.astype(np.float32)
-            target_image = np.nan_to_num(target_image, posinf=0, neginf=0)
-        return target_image, target_mask
+            mask = np.expand_dims(mask, axis=0)
+        mask = mask.astype(np.float32)
+        mask = np.moveaxis(mask, [1], [0])
+        mask = np.nan_to_num(mask, posinf=0, neginf=0)
+        if image is not None:
+            image = np.moveaxis(image, [3], [1])
+            image = image.astype(np.float32)
+            image = np.nan_to_num(image, posinf=0, neginf=0)
+        return image, mask
 
     def add_aux_layers(self, inputs):
         if self.time_as_channels:
@@ -514,154 +501,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 ts = np.concatenate([ts, t], axis=0)
             targets = ts
         return inputs, targets
-
-
-class CloudFlowDataset(SatFlowDataset):
-    def __iter__(self) -> Iterator[T_co]:
-        # Need to make sure same time step for all of them.
-        # As its all from rapid scan, should be fairly easy.
-        # Main missing one is the regional and rapid weather ones, which are every 15 minutes,
-        # but could be interpolated between the previous step and next one by weighting by time difference
-        # Topographic is same of course, just need to resize to 1km x 1km?
-        # grid by taking the mean value of the interior ones
-        sources = [iter(ds) for ds in self.datasets]
-        while True:
-            for source in sources:
-                sample = next(source)
-                timesteps = pickle.loads(sample["time.pyd"])
-                available_steps = len(timesteps)  # number of available timesteps
-                # Check to make sure all timesteps exist
-                sample_keys = [key for key in sample.keys() if self.bands[0].lower() in key]
-                key_checker = [
-                    f"{self.bands[0].lower()}.{idx:03d}.npy" for idx in range(1, available_steps)
-                ]
-                if (
-                    not all(e in sample_keys for e in key_checker)
-                    or len(sample_keys)
-                    <= self.num_timesteps * self.skip_timesteps + self.forecast_times
-                ):
-                    continue  # Skip this sample as it is missing timesteps, or has none
-                # Times that have enough previous timesteps and post timesteps for training
-                # pick one at random
-                if not self.train:  # Same for validation each time for each source
-                    np.random.seed(42)
-                idxs = np.random.randint(
-                    self.num_timesteps * self.skip_timesteps + 1,
-                    available_steps - self.forecast_times,
-                    size=self.num_times,
-                )
-                if self.use_topo:
-                    topo = load_np(sample["topo.npy"])
-                    topo[
-                        topo < 100
-                    ] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
-                    self.topo = (topo - TOPO_MEAN) / TOPO_STD
-                    self.topo = np.expand_dims(self.topo, axis=-1)
-                if self.use_latlon:
-                    self.location = load_np(sample["location.npy"])
-                for idx in idxs:
-                    target_timesteps = np.full(self.num_crops, idx + self.forecast_times)
-                    for _ in range(self.num_crops):  # Do random crops as well for training
-                        for target_timestep in target_timesteps:
-                            logger.debug(
-                                f"Timestep: {target_timestep} IDX: {idx} Timecube idx: {target_timestep - idx} Future Timesteps: {self.forecast_times}"
-                            )
-                            time_cube = self.create_target_time_cube(target_timestep - idx - 1)
-                            _, mask = self.get_timestep(
-                                sample,
-                                idx - (self.num_timesteps * self.skip_timesteps),
-                                return_target=True,
-                                return_image=False,
-                            )  # First timestep considered
-                            data = self.aug(image=mask)
-                            replay = data["replay"]
-                            mask = data["image"]
-                            if self.use_time and not self.time_aux:
-                                mask = np.concatenate([mask, time_cube], axis=-1)
-                            mask = np.expand_dims(mask, axis=0)
-                            for i in range(
-                                idx
-                                - (self.num_timesteps * self.skip_timesteps)
-                                + self.skip_timesteps,
-                                idx + 1,
-                                self.skip_timesteps,
-                            ):
-                                _, t_mask = self.get_timestep(
-                                    sample, i, return_target=True, return_image=False
-                                )
-                                t_mask = self.aug.replay(replay, image=t_mask)["image"]
-                                if self.use_time and not self.time_aux:
-                                    t_mask = np.concatenate([t_mask, time_cube], axis=-1)
-                                mask = np.concatenate([mask, np.expand_dims(t_mask, axis=0)])
-                            # Now in a Time x W x H x Channel order
-                            _, target_mask = self.get_timestep(
-                                sample,
-                                idx + 1,
-                                return_target=True,
-                                return_image=False,
-                            )
-                            target_mask = self.aug.replay(replay, image=target_mask)["image"]
-                            target_mask = np.expand_dims(target_mask, axis=0)
-
-                            if np.isclose(np.min(target_mask), np.max(target_mask)):
-                                continue  # Ignore if target timestep has no clouds, or only clouds
-                            # Now create stack here
-                            for i in range(idx + 2, target_timestep + 1):
-                                _, t_mask = self.get_timestep(
-                                    sample,
-                                    i,
-                                    return_target=True,
-                                    return_image=False,
-                                )
-                                t_mask = self.aug.replay(replay, image=t_mask)["image"]
-                                target_mask = np.concatenate(
-                                    [target_mask, np.expand_dims(t_mask, axis=0)]
-                                )
-                            # Ensure last target mask is also different than previous ones -> only want ones where things change
-                            if np.allclose(target_mask[0], target_mask[-1]):
-                                continue
-                            # Convert to Time x Channel x W x H
-                            # target_mask = np.expand_dims(target_mask, axis=1)
-                            # One timestep as well
-                            if not self.return_target_stack:
-                                target_mask = np.expand_dims(target_mask, axis=0)
-                            target_mask = target_mask.astype(np.float32)
-
-                            # Convert to float/half-precision
-                            mask = mask.astype(np.float32)
-                            # Move channel to Time x Channel x W x H
-                            # mask = np.moveaxis(mask, [2], [1])
-                            mask = np.expand_dims(mask, axis=1)
-                            target_mask = np.moveaxis(target_mask, [1], [0])
-                            if self.time_as_channels:
-                                images = mask[0]
-                                for m in mask[1:]:
-                                    images = np.concatenate([images, m], axis=0)
-                                mask = images
-                                ts = target_mask[0]
-                                for t in target_mask[1:]:
-                                    ts = np.concatenate([ts, t], axis=0)
-                                target_mask = ts
-                            if self.output_target != self.output_shape:
-                                target_mask = crop_center(
-                                    target_mask, self.output_target, self.output_target
-                                )
-                            # Ensure there is no NaN here
-                            mask = np.nan_to_num(mask, posinf=0.0, neginf=0.0)
-                            target_mask = np.nan_to_num(target_mask, posinf=0, neginf=0)
-                            if self.use_time and self.time_aux:
-                                time_layer = create_time_layer(
-                                    target_timestep - idx - 1, self.output_shape
-                                )
-                                yield mask, time_layer, target_mask
-                            if self.add_pixel_coords:
-                                # Add channels for pixel_coords, once per channel, or once per stack, dependent
-                                if self.time_as_channels:
-                                    mask = np.concatenate([mask, self.pixel_coords], axis=0)
-                                else:
-                                    mask = np.concatenate([mask, self.pixel_coords], axis=1)
-                            logger.debug(f"Mask: {mask.shape} Target: {target_mask.shape}")
-                            yield mask, target_mask
 
 
 class OpticalFlowDataset(SatFlowDataset):
