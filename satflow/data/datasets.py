@@ -387,7 +387,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                     self.skip_timesteps,
                                 )
                             )
-                            image, masks, replay = self.create_stack(
+                            image, masks = self.create_stack(
                                 input_idxs, sample, is_input=self.image_input
                             )
                             # Now in a Time x W x H x Channel order
