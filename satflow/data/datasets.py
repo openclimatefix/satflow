@@ -385,7 +385,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             idxs = list(
                                 range(
                                     idx - (self.num_timesteps * self.skip_timesteps),
-                                    idx,
+                                    idx + self.skip_timesteps,
                                     self.skip_timesteps,
                                 )
                             )
