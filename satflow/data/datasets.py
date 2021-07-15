@@ -253,9 +253,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
     def create_target_time_cube(self, target_timestep: int) -> np.ndarray:
         """Create target time layer"""
         time_cube = np.zeros(
-            (self.output_shape, self.output_shape, self.forecast_times), dtype=np.int8
+            (1, self.forecast_times, self.output_shape, self.output_shape), dtype=np.int8
         )
-        time_cube[:, :, target_timestep] = 1
+        time_cube[:, target_timestep, :, :] = 1
         return time_cube
 
     def create_target_time_layer(self, target_timestep: int) -> np.ndarray:
@@ -320,7 +320,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 ],
                 axis=-1,
             )
-
         return image, target
 
     def __iter__(self):
@@ -396,9 +395,10 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 self.replay = None
                                 continue
                             logger.debug(f"Target Masks Shape: {target_mask.shape}")
-                            image, target_mask = self.time_changes(
-                                image if self.image_input else masks, target_mask
-                            )
+                            image = self.time_changes(image if self.image_input else masks)
+                            target_mask = self.time_changes(target_mask)
+                            if target_image is not None:
+                                target_image = self.time_changes(target_image)
                             logger.debug(
                                 f"After Time Changes Image/Masks Shape: {image.shape} {masks.shape}"
                             )
@@ -414,7 +414,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 image, target_offset=target_timestep - idx - 1
                             )
                             logger.debug(
-                                f"After Aux Layers Image/Masks Shape: {image.shape} {masks.shape}"
+                                f"After Aux Layers Image/Masks Shape: {image.shape} {target_mask.shape}"
                             )
                             # Reset the replay
                             self.replay = None
@@ -466,11 +466,16 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             logger.debug(self.replay)
         # Only keep is target also
         if image is not None:
+            if not is_input:
+                remove_last_channels = 3 if self.use_time else 0
+                remove_last_channels = (
+                    remove_last_channels + 1 if self.use_mask else remove_last_channels
+                )
+                image = image[:, :, :-remove_last_channels]
             image = self.aug.replay(self.replay, image=image)["image"]
             image = np.expand_dims(image, axis=0)
         mask = self.aug.replay(self.replay, image=mask)["image"]
         mask = np.expand_dims(mask, axis=0)
-
         # Now create stack here
         for i in idxs[1:]:
             t_image, t_mask = self.get_timestep(
@@ -482,6 +487,12 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             t_mask = self.aug.replay(self.replay, image=t_mask)["image"]
             mask = np.concatenate([mask, np.expand_dims(t_mask, axis=0)])
             if self.use_image or is_input:
+                if not is_input:
+                    remove_last_channels = 3 if self.use_time else 0
+                    remove_last_channels = (
+                        remove_last_channels + 1 if self.use_mask else remove_last_channels
+                    )
+                    t_image = t_image[:, :, :-remove_last_channels]
                 t_image = self.aug.replay(self.replay, image=t_image)["image"]
                 image = np.concatenate([image, np.expand_dims(t_image, axis=0)])
         # Ensure last target mask is also different than previous ones -> only want ones where things change
@@ -503,30 +514,30 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
     def add_aux_layers(self, inputs: np.ndarray, target_offset: int = 0) -> np.ndarray:
         if self.use_topo:
-            inputs = self.apply_aug_to_time(inputs, self.topo)
+            inputs = self.apply_aug_to_time(inputs, self.topo, axis=0)
         if self.use_latlon:
-            inputs = self.apply_aug_to_time(inputs, self.location)
+            inputs = self.apply_aug_to_time(inputs, self.location, axis=0)
         if self.time_as_channels:  # 3D Tensor of C x W x H
             if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=0)
-            if self.use_time and not self.time_aux:
-                time_cube = self.create_target_time_cube(
-                    target_offset
-                )  # Want relative tiemstep forward
-                inputs = np.concatenate([inputs, time_cube], axis=0)
+            # if self.use_time and not self.time_aux:
+            #    time_cube = self.create_target_time_cube(
+            #        target_offset
+            #    )  # Want relative tiemstep forward
+            #    inputs = np.concatenate([inputs, time_cube], axis=0)
 
         else:  # In timeseries, so 4D tensor of T x C x W x H
             if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=1)
-            if self.use_time and not self.time_aux:
-                time_cube = self.create_target_time_cube(
-                    target_offset
-                )  # Want relative tiemstep forward
-                time_cube = np.repeat(time_cube, repeats=self.num_timesteps + 1, axis=0)
-                inputs = np.concatenate([inputs, time_cube], axis=1)
+            # if self.use_time and not self.time_aux:
+            #    time_cube = self.create_target_time_cube(
+            #        target_offset
+            #    )  # Want relative tiemstep forward
+            #    time_cube = np.repeat(time_cube, repeats=self.num_timesteps + 1, axis=0)
+            #    inputs = np.concatenate([inputs, time_cube], axis=1)
         return inputs
 
-    def apply_aug_to_time(self, inputs: np.ndarray, data: np.ndarray) -> np.ndarray:
+    def apply_aug_to_time(self, inputs: np.ndarray, data: np.ndarray, axis: int = 1) -> np.ndarray:
         data = np.moveaxis(
             data,
             [0] if self.time_as_channels else [0, 1],
@@ -538,22 +549,16 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             [2] if self.time_as_channels else [2, 3],
             [0] if self.time_as_channels else [0, 1],
         )
-        inputs = np.concatenate([inputs, data], axis=1)
+        inputs = np.concatenate([inputs, data], axis=axis)
         return inputs
 
-    def time_changes(
-        self, inputs: np.ndarray, targets: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def time_changes(self, inputs: np.ndarray) -> np.ndarray:
         if self.time_as_channels:
             images = inputs[0]
             for m in inputs[1:]:
                 images = np.concatenate([images, m], axis=0)
             inputs = images
-            ts = targets[0]
-            for t in targets[1:]:
-                ts = np.concatenate([ts, t], axis=0)
-            targets = ts
-        return inputs, targets
+        return inputs
 
 
 class CloudFlowDataset(SatFlowDataset):

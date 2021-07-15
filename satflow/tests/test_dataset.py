@@ -10,15 +10,42 @@ def load_config(config_file):
         return yaml.load(cfg, Loader=yaml.FullLoader)["config"]
 
 
+def check_channels(config):
+    channels = len(config.get("bands", []))
+    print(f"Channels: (Bands) {channels}")
+    channels = channels + 1 if config.get("use_mask", False) else channels
+    print(f"Channels: (Use Mask) {channels}")
+    channels = (
+        channels + 3
+        if config.get("use_time", False) and not config.get("time_aux", False)
+        else channels
+    )
+    print(f"Channels: (Use Time) {channels}")
+    if config.get("time_as_channels", False):
+        # Calc number of channels + inital ones
+        channels = channels * (config["num_timesteps"] + 1)
+    print(f"Channels: (Time as Channels) {channels}")
+    channels = channels + 1 if config.get("use_topo", False) else channels
+    print(f"Channels: (Use Topo) {channels}")
+    channels = channels + 3 if config.get("use_latlon", False) else channels
+    print(f"Channels: (Use Latlon) {channels}")
+    channels = channels + 2 if config.get("add_pixel_coords", False) else channels
+    print(f"Channels: (Add Pixel Coordinates) {channels}")
+    channels = channels + 1 if config.get("add_polar_coords", False) else channels
+    print(f"Channels: (Add Polar Coordinates) {channels}")
+    return channels
+
+
 def test_satflow_cloudmask():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
     # d = next(iter(dataset))
     # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow.yaml")
+    channels = check_channels(config)
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, y = data
-    assert x.shape == (13, 12, 128, 128)
+    assert x.shape == (13, channels, 128, 128)
     assert y.shape == (24, 1, 128, 128)
 
 
@@ -30,7 +57,8 @@ def test_satflow_all():
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, image, y = data
-    assert x.shape == (13, 46, 128, 128)
+    channels = check_channels(config)
+    assert x.shape == (13, channels, 128, 128)
     assert y.shape == (24, 1, 128, 128)
     assert image.shape == (24, 12, 128, 128)
 
@@ -43,7 +71,8 @@ def test_satflow_large():
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, image, y = data
-    assert x.shape == (13, 46, 256, 256)
+    channels = check_channels(config)
+    assert x.shape == (13, channels, 256, 256)
     assert y.shape == (24, 1, 256, 256)
     assert image.shape == (24, 12, 256, 256)
 
@@ -56,7 +85,8 @@ def test_satflow_crop():
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, image, y = data
-    assert x.shape == (13, 46, 256, 256)
+    channels = check_channels(config)
+    assert x.shape == (13, channels, 256, 256)
     assert y.shape == (24, 1, 64, 64)
     assert image.shape == (24, 12, 64, 64)
 
@@ -69,7 +99,8 @@ def test_satflow_channels():
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, y = data
-    assert x.shape == (13, 5, 128, 128)
+    channels = check_channels(config)
+    assert x.shape == (13, channels, 128, 128)
     assert y.shape == (24, 1, 128, 128)
 
 
@@ -81,8 +112,24 @@ def test_satflow_time_channels():
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
     x, y = data
+    channels = check_channels(config)
+    assert x.shape[0] == channels
     assert x.shape == (156, 128, 128)
     assert y.shape == (24, 128, 128)
+
+
+def test_satflow_time_channels_all():
+    dataset = wds.WebDataset("datasets/satflow-test.tar")
+    # d = next(iter(dataset))
+    # print(d["time.pyd"])
+    config = load_config("satflow/tests/configs/satflow_time_channels_all.yaml")
+    cloudflow = SatFlowDataset([dataset], config)
+    data = next(iter(cloudflow))
+    x, image, y = data
+    channels = check_channels(config)
+    assert x.shape == (channels, 128, 128)
+    assert y.shape == (24, 128, 128)
+    assert image.shape == (12 * 24, 128, 128)
 
 
 def test_cloudflow():
