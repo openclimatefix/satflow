@@ -142,3 +142,34 @@ def test_cloudflow():
     x, y = data
     assert x.shape == (13, 1, 128, 128)
     assert y.shape == (24, 1, 128, 128)
+
+
+def test_satflow_all_deterministic_validation():
+    dataset = wds.WebDataset("datasets/satflow-test.tar")
+    # d = next(iter(dataset))
+    # print(d["time.pyd"])
+    config = load_config("satflow/tests/configs/satflow_all.yaml")
+    cloudflow = SatFlowDataset([dataset], config, train=False)
+    data = next(iter(cloudflow))
+    x, image, y = data
+    cloudflow2 = SatFlowDataset([dataset], config, train=False)
+    data = next(iter(cloudflow2))
+    x2, image2, y2 = data
+    np.testing.assert_almost_equal(x, x2)
+    np.testing.assert_almost_equal(image, image2)
+    np.testing.assert_almost_equal(y, y2)
+
+
+def test_satflow_all_deterministic_validation_restart():
+    dataset = wds.WebDataset("datasets/satflow-test.tar")
+    # d = next(iter(dataset))
+    # print(d["time.pyd"])
+    config = load_config("satflow/tests/configs/satflow_all.yaml")
+    cloudflow = SatFlowDataset([dataset], config, train=False)
+    data = next(iter(cloudflow))
+    x, image, y = data
+    data = next(iter(cloudflow))
+    x2, image2, y2 = data
+    np.testing.assert_almost_equal(x, x2)
+    np.testing.assert_almost_equal(image, image2)
+    np.testing.assert_almost_equal(y, y2)
