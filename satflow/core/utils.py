@@ -63,32 +63,32 @@ def extras(config: DictConfig) -> None:
     # Ensure that model and dataloader are doing the same thing
     config.datamodule.config.forecast_times = config.model.forecast_steps
     channels = len(config.datamodule.config.bands)
-    print(f"Channels: (Bands) {channels}")
+    log.info(f"Channels: (Bands) {channels}")
     channels = channels + 1 if config.datamodule.config.get("use_mask", False) else channels
-    print(f"Channels: (Use Mask) {channels}")
+    log.info(f"Channels: (Use Mask) {channels}")
     if config.datamodule.config.get("time_as_channels", False):
         # Calc number of channels + inital ones
         channels = channels * (config.datamodule.config.num_timesteps + 1)
-    print(f"Channels: (Time as Channels) {channels}")
+    log.info(f"Channels: (Time as Channels) {channels}")
     channels = channels + 1 if config.datamodule.config.get("use_topo", False) else channels
-    print(f"Channels: (Use Topo) {channels}")
+    log.info(f"Channels: (Use Topo) {channels}")
     channels = channels + 3 if config.datamodule.config.get("use_latlon", False) else channels
-    print(f"Channels: (Use Latlon) {channels}")
+    log.info(f"Channels: (Use Latlon) {channels}")
     channels = (
         channels + 3
         if config.datamodule.config.get("use_time", False)
         and not config.datamodule.config.get("time_aux", False)
         else channels
     )
-    print(f"Channels: (Use Time) {channels}")
+    log.info(f"Channels: (Use Time) {channels}")
     channels = (
         channels + 2 if config.datamodule.config.get("add_pixel_coords", False) else channels
     )
-    print(f"Channels: (Add Pixel Coordinates) {channels}")
+    log.info(f"Channels: (Add Pixel Coordinates) {channels}")
     channels = (
         channels + 1 if config.datamodule.config.get("add_polar_coords", False) else channels
     )
-    print(f"Channels: (Add Polar Coordinates) {channels}")
+    log.info(f"Channels: (Add Polar Coordinates) {channels}")
     config.model.input_channels = channels
     # disable python warnings if <config.ignore_warnings=True>
     if config.get("ignore_warnings"):
