@@ -514,9 +514,13 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
     def add_aux_layers(self, inputs: np.ndarray, target_offset: int = 0) -> np.ndarray:
         if self.use_topo:
-            inputs = self.apply_aug_to_time(inputs, self.topo, axis=0)
+            inputs = self.apply_aug_to_time(
+                inputs, self.topo, axis=0 if self.time_as_channels else 1
+            )
         if self.use_latlon:
-            inputs = self.apply_aug_to_time(inputs, self.location, axis=0)
+            inputs = self.apply_aug_to_time(
+                inputs, self.location, axis=0 if self.time_as_channels else 1
+            )
         if self.time_as_channels:  # 3D Tensor of C x W x H
             if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=0)
