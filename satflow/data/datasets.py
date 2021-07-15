@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Type, Union
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Type, Union, Tuple
 
 import albumentations as A
 import numpy as np
@@ -219,7 +219,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         )
         self.replay = None
 
-    def visualize(self, image, target_image, mask):
+    def visualize(self, image: np.ndarray, target_image: np.ndarray, mask: np.ndarray):
         import matplotlib.pyplot as plt
 
         fig, axs = plt.subplots(
@@ -248,7 +248,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         plt.show()
         plt.close()
 
-    def create_target_time_cube(self, target_timestep):
+    def create_target_time_cube(self, target_timestep: int) -> np.ndarray:
         """Create target time layer"""
         time_cube = np.zeros(
             (self.output_shape, self.output_shape, self.forecast_times), dtype=np.int8
@@ -256,7 +256,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         time_cube[:, :, target_timestep] = 1
         return time_cube
 
-    def create_target_time_layer(self, target_timestep):
+    def create_target_time_layer(self, target_timestep: int) -> np.ndarray:
         """
         Creates a one-hot encoded layer, a lot more space efficient than timecube, but needs to be an aux layer
         Args:
@@ -270,7 +270,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         time_layer[target_timestep] = 1
         return time_layer
 
-    def get_timestep(self, sample, idx, return_target=False, return_image=True):
+    def get_timestep(
+        self, sample: dict, idx: int, return_target=False, return_image=True
+    ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[None, np.ndarray]]:
         """
         Gets the image stack of the given timestep, if return_target is true, only returns teh mask and satellite channels
         as the model does not need to predict the time, topogrpahic data, etc.
@@ -292,9 +294,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
         # Regularize here
         image = (image - self.mean) / self.std
-
-        if return_target and return_image:
-            return image, target
 
         if self.use_time and not self.time_aux:
             t = create_time_layer(
@@ -322,7 +321,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
         return image, target
 
-    def __iter__(self) -> Iterator[T_co]:
+    def __iter__(self):
         # Need to make sure same time step for all of them.
         # As its all from rapid scan, should be fairly easy.
         # Main missing one is the regional and rapid weather ones, which are every 15 minutes,
@@ -416,7 +415,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             else:
                                 yield image, target_image, target_mask
 
-    def get_topo_latlon(self, sample):
+    def get_topo_latlon(self, sample: dict) -> None:
         if self.use_topo:
             topo = load_np(sample["topo.npy"])
             topo[topo < 100] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
@@ -437,7 +436,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     self.location, repeats=self.num_timesteps + 1, axis=0
                 )  # (timesteps, Ch, H, W)
 
-    def create_stack(self, idxs: list, sample: dict, is_input: bool = False):
+    def create_stack(
+        self, idxs: list, sample: dict, is_input: bool = False
+    ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]:
         image, mask = self.get_timestep(
             sample,
             idxs[0],
@@ -486,7 +487,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             image = np.nan_to_num(image, posinf=0, neginf=0)
         return image, mask
 
-    def add_aux_layers(self, inputs, target_offset: int = 0):
+    def add_aux_layers(self, inputs: np.ndarray, target_offset: int = 0) -> np.ndarray:
         if self.use_topo:
             inputs = self.apply_aug_to_time(inputs, self.topo)
         if self.use_latlon:
@@ -511,7 +512,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 inputs = np.concatenate([inputs, time_cube], axis=1)
         return inputs
 
-    def apply_aug_to_time(self, inputs, data):
+    def apply_aug_to_time(self, inputs: np.ndarray, data: np.ndarray) -> np.ndarray:
         data = np.moveaxis(
             data,
             [0] if self.time_as_channels else [0, 1],
@@ -526,7 +527,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         inputs = np.concatenate([inputs, data], axis=1)
         return inputs
 
-    def time_changes(self, inputs, targets):
+    def time_changes(
+        self, inputs: np.ndarray, targets: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         if self.time_as_channels:
             images = inputs[0]
             for m in inputs[1:]:
@@ -634,7 +637,7 @@ class OpticalFlowDataset(SatFlowDataset):
                         yield prev_mask, mask, target_mask, image, prev_image
 
 
-def crop_center(img, cropx, cropy):
+def crop_center(img: np.ndarray, cropx: int, cropy: int) -> np.ndarray:
     """Crops center of image through timestack, fails if all the images are concatenated as channels"""
     t, c, y, x = img.shape
     startx = x // 2 - (cropx // 2)
