@@ -12,7 +12,7 @@ num_workers: 12
 pin_memory: True
 config:
   visualize: False
-  num_timesteps: 12
+  num_timesteps: 6
   skip_timesteps: 1
   forecast_times: 48
   output_shape: 128
