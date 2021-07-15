@@ -213,7 +213,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         if self.train:
             transforms.append(A.RandomCrop(self.output_shape, self.output_shape))
         else:
-            transforms.append(A.CenterCrop(self.output_shape, self.output_shape))
+            transforms.append(
+                A.RandomCrop(self.output_shape, self.output_shape)
+            )  # TODO Make sure is reproducible
         self.aug = A.ReplayCompose(
             transforms,
         )
@@ -338,7 +340,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 except StopIteration:
                     continue
                 timesteps = pickle.loads(sample["time.pyd"])
+                logger.debug(f"Timesteps: {timesteps}")
                 available_steps = len(timesteps)  # number of available timesteps
+                logger.debug(f"Available Timesteps: {available_steps}")
                 # Check to make sure all timesteps exist
                 sample_keys = [key for key in sample.keys() if self.bands[0].lower() in key]
                 key_checker = [
@@ -369,27 +373,35 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                     self.skip_timesteps,
                                 )
                             )
+                            logger.debug(f"Input IDXs: {input_idxs}")
                             image, masks = self.create_stack(
                                 input_idxs, sample, is_input=self.image_input
                             )
                             if image is None and masks is None:
+                                self.replay = None
                                 continue
                             # Now in a Time x W x H x Channel order
                             target_idxs = list(range(idx + 1, target_timestep + 1))
+                            logger.debug(f"Target IDXs: {target_idxs}")
                             target_image, target_mask = self.create_stack(
                                 target_idxs,
                                 sample,
                             )
+
                             logger.debug(
                                 f"Timesteps: Current: {timesteps[input_idxs[-1]]} Prev: {timesteps[input_idxs[0]]} Next: {timesteps[target_idxs[0]]} Final: {timesteps[target_idxs[-1]]} "
                                 f"Timedelta: Next - Curr: {timesteps[target_idxs[0]] - timesteps[input_idxs[-1]] } End - Curr: {timesteps[target_idxs[-1]] - timesteps[input_idxs[-1]]}"
                             )
                             if target_image is None and target_mask is None:
+                                self.replay = None
                                 continue
+                            logger.debug(f"Target Masks Shape: {target_mask.shape}")
                             image, target_mask = self.time_changes(
                                 image if self.image_input else masks, target_mask
                             )
-
+                            logger.debug(
+                                f"After Time Changes Image/Masks Shape: {image.shape} {masks.shape}"
+                            )
                             if self.output_target != self.output_shape:
                                 if self.use_image:
                                     target_image = crop_center(
@@ -400,6 +412,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 )
                             image = self.add_aux_layers(
                                 image, target_offset=target_timestep - idx - 1
+                            )
+                            logger.debug(
+                                f"After Aux Layers Image/Masks Shape: {image.shape} {masks.shape}"
                             )
                             # Reset the replay
                             self.replay = None
@@ -448,6 +463,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         if self.replay is None:
             data = self.aug(image=mask)
             self.replay = data["replay"]
+            logger.debug(self.replay)
         # Only keep is target also
         if image is not None:
             image = self.aug.replay(self.replay, image=image)["image"]
@@ -455,8 +471,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         mask = self.aug.replay(self.replay, image=mask)["image"]
         mask = np.expand_dims(mask, axis=0)
 
-        if np.isclose(np.min(mask), np.max(mask)):
-            return None, None
         # Now create stack here
         for i in idxs[1:]:
             t_image, t_mask = self.get_timestep(
@@ -471,7 +485,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 t_image = self.aug.replay(self.replay, image=t_image)["image"]
                 image = np.concatenate([image, np.expand_dims(t_image, axis=0)])
         # Ensure last target mask is also different than previous ones -> only want ones where things change
-        if np.allclose(mask[0], mask[-1]):
+        if np.allclose(mask[0], mask[-1]) and not is_input:
             return None, None
         # Convert to Time x Channel x W x H
         # target_mask = np.expand_dims(target_mask, axis=1)
