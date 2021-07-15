@@ -59,6 +59,7 @@ class Unet(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
+        x = x.float()
         y_hat = self(x)
 
         if self.make_vis:
@@ -77,6 +78,7 @@ class Unet(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        x = x.float()
         y_hat = self(x)
         val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss)
@@ -90,6 +92,7 @@ class Unet(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch
+        x = x.float()
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
         return loss
