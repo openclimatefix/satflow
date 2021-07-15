@@ -9,6 +9,7 @@ from torch.utils.data.dataset import T_co
 import logging
 import pickle
 import io
+import random
 
 logger = logging.getLogger("satflow.dataset")
 logger.setLevel(logging.INFO)
@@ -333,6 +334,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             sources = [iter(ds) for ds in self.datasets]
             if not self.train:  # Same for validation each time for each source
                 np.random.seed(42)
+                # Have to set Python random seed for Albumentations
+                random.seed(a=42)
             for source in sources:
                 try:
                     sample = next(source)

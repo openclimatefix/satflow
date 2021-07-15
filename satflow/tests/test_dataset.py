@@ -38,8 +38,6 @@ def check_channels(config):
 
 def test_satflow_cloudmask():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
-    # d = next(iter(dataset))
-    # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow.yaml")
     channels = check_channels(config)
     cloudflow = SatFlowDataset([dataset], config)
@@ -51,8 +49,6 @@ def test_satflow_cloudmask():
 
 def test_satflow_all():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
-    # d = next(iter(dataset))
-    # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_all.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
@@ -65,8 +61,6 @@ def test_satflow_all():
 
 def test_satflow_large():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
-    # d = next(iter(dataset))
-    # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_large.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
@@ -79,8 +73,6 @@ def test_satflow_large():
 
 def test_satflow_crop():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
-    # d = next(iter(dataset))
-    # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_crop.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
@@ -93,8 +85,6 @@ def test_satflow_crop():
 
 def test_satflow_channels():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
-    # d = next(iter(dataset))
-    # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_channels.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
@@ -106,8 +96,6 @@ def test_satflow_channels():
 
 def test_satflow_time_channels():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
-    # d = next(iter(dataset))
-    # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_time_channels.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
@@ -120,8 +108,6 @@ def test_satflow_time_channels():
 
 def test_satflow_time_channels_all():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
-    # d = next(iter(dataset))
-    # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_time_channels_all.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     data = next(iter(cloudflow))
@@ -134,8 +120,6 @@ def test_satflow_time_channels_all():
 
 def test_cloudflow():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
-    # d = next(iter(dataset))
-    # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow.yaml")
     cloudflow = CloudFlowDataset([dataset], config)
     data = next(iter(cloudflow))
@@ -146,13 +130,12 @@ def test_cloudflow():
 
 def test_satflow_all_deterministic_validation():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
-    # d = next(iter(dataset))
-    # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_all.yaml")
     cloudflow = SatFlowDataset([dataset], config, train=False)
     data = next(iter(cloudflow))
     x, image, y = data
-    cloudflow2 = SatFlowDataset([dataset], config, train=False)
+    dataset2 = wds.WebDataset("datasets/satflow-test.tar")
+    cloudflow2 = SatFlowDataset([dataset2], config, train=False)
     data = next(iter(cloudflow2))
     x2, image2, y2 = data
     np.testing.assert_almost_equal(x, x2)
@@ -162,8 +145,6 @@ def test_satflow_all_deterministic_validation():
 
 def test_satflow_all_deterministic_validation_restart():
     dataset = wds.WebDataset("datasets/satflow-test.tar")
-    # d = next(iter(dataset))
-    # print(d["time.pyd"])
     config = load_config("satflow/tests/configs/satflow_all.yaml")
     cloudflow = SatFlowDataset([dataset], config, train=False)
     data = next(iter(cloudflow))
