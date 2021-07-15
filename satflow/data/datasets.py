@@ -603,7 +603,7 @@ class OpticalFlowDataset(SatFlowDataset):
                 for idx in idxs:
                     for _ in range(self.num_crops):  # Do random crops as well for training
                         logger.debug(f"IDX: {idx}")
-                        print(
+                        logger.debug(
                             f"Timesteps: Current: {timesteps[idx]} Prev: {timesteps[idx - 1]} Next: {timesteps[idx + 1]} Final: {timesteps[idx + self.forecast_times - 1]} "
                             f"Timedelta: Next - Curr: {timesteps[idx + 1] - timesteps[idx] } End - Curr: {timesteps[idx + self.forecast_times - 1] - timesteps[idx]}"
                         )
