@@ -358,25 +358,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     available_steps - self.forecast_times,
                     size=self.num_times,
                 )
-                if self.use_topo:
-                    topo = load_np(sample["topo.npy"])
-                    topo[
-                        topo < 100
-                    ] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
-                    self.topo = (topo - TOPO_MEAN) / TOPO_STD
-                    if self.time_as_channels:
-                        self.topo = np.expand_dims(self.topo, axis=-1)
-                    else:
-                        self.topo = np.expand_dims(self.topo, axis=(0, 1))
-                        self.topo = np.repeat(
-                            self.topo, repeats=self.num_timesteps + 1, axis=0
-                        )  # (timesteps, H, W, Ch)
-                if self.use_latlon:
-                    self.location = load_np(sample["location.npy"])
-                    if not self.time_as_channels:
-                        self.location = np.repeat(
-                            self.location, repeats=self.num_timesteps + 1, axis=0
-                        )  # (timesteps, H, W, Ch)
+                self.get_topo_latlon(sample)
                 for idx in idxs:
                     target_timesteps = np.full(self.num_crops, idx + self.forecast_times)
                     for _ in range(self.num_crops):  # Do random crops as well for training
@@ -433,6 +415,27 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 yield image, target_mask
                             else:
                                 yield image, target_image, target_mask
+
+    def get_topo_latlon(self, sample):
+        if self.use_topo:
+            topo = load_np(sample["topo.npy"])
+            topo[topo < 100] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
+            self.topo = (topo - TOPO_MEAN) / TOPO_STD
+            if self.time_as_channels:
+                self.topo = np.expand_dims(self.topo, axis=0)
+            else:
+                self.topo = np.expand_dims(self.topo, axis=(0, 1))
+                self.topo = np.repeat(
+                    self.topo, repeats=self.num_timesteps + 1, axis=0
+                )  # (timesteps, Ch, H, W)
+        if self.use_latlon:
+            self.location = load_np(sample["location.npy"])
+            self.location = np.moveaxis(self.location, [2], [0])
+            if not self.time_as_channels:
+                self.location = np.expand_dims(self.location, axis=0)
+                self.location = np.repeat(
+                    self.location, repeats=self.num_timesteps + 1, axis=0
+                )  # (timesteps, Ch, H, W)
 
     def create_stack(self, idxs: list, sample: dict, is_input: bool = False):
         image, mask = self.get_timestep(
