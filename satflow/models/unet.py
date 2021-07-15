@@ -24,6 +24,7 @@ class Unet(pl.LightningModule):
     ):
         super(Unet, self).__init__()
         self.lr = lr
+        self.forecast_steps = forecast_steps
         assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
         if loss == "mse":
             self.criterion = F.mse_loss
@@ -95,7 +96,7 @@ class Unet(pl.LightningModule):
 
     def visualize(self, x, y, y_hat, batch_idx):
         # the logger you used (in this case tensorboard)
-        tensorboard = self.logger.experiment
+        tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
         in_image = (
             x[0].cpu().detach().numpy()
