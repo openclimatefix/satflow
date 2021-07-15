@@ -417,7 +417,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 target_mask = crop_center(
                                     target_mask, self.output_target, self.output_target
                                 )
-                            image = self.add_aux_layers(image)
+                            image = self.add_aux_layers(
+                                image, target_offset=target_timestep - idx - 1
+                            )
                             # Reset the replay
                             self.replay = None
                             if self.vis:
@@ -489,7 +491,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         if self.time_as_channels:  # 3D Tensor of C x W x H
             if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=0)
-            if self.use_time:
+            if self.use_time and not self.time_aux:
                 time_cube = self.create_target_time_cube(
                     target_offset
                 )  # Want relative tiemstep forward
@@ -498,7 +500,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         else:  # In timeseries, so 4D tensor of T x C x W x H
             if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=1)
-            if self.use_time:
+            if self.use_time and not self.time_aux:
                 time_cube = self.create_target_time_cube(
                     target_offset
                 )  # Want relative tiemstep forward
