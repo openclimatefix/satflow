@@ -367,6 +367,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     if self.time_as_channels:
                         self.topo = np.expand_dims(self.topo, axis=-1)
                     else:
+                        self.topo = np.expand_dims(self.topo, axis=(0, 1))
                         self.topo = np.repeat(
                             self.topo, repeats=self.num_timesteps + 1, axis=0
                         )  # (timesteps, H, W, Ch)
@@ -390,15 +391,23 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             image, masks = self.create_stack(
                                 input_idxs, sample, is_input=self.image_input
                             )
+                            if image is None and masks is None:
+                                continue
                             # Now in a Time x W x H x Channel order
                             target_idxs = list(range(idx + 1, target_timestep + 1))
                             target_image, target_mask = self.create_stack(
                                 target_idxs,
                                 sample,
                             )
+                            logger.debug(
+                                f"Timesteps: Current: {timesteps[input_idxs[-1]]} Prev: {timesteps[input_idxs[0]]} Next: {timesteps[target_idxs[0]]} Final: {timesteps[target_idxs[-1]]} "
+                                f"Timedelta: Next - Curr: {timesteps[target_idxs[0]] - timesteps[input_idxs[-1]] } End - Curr: {timesteps[target_idxs[-1]] - timesteps[input_idxs[-1]]}"
+                            )
                             if target_image is None and target_mask is None:
                                 continue
-                            image, target_mask = self.time_changes(image, target_mask)
+                            image, target_mask = self.time_changes(
+                                image if self.image_input else masks, target_mask
+                            )
 
                             if self.output_target != self.output_shape:
                                 if self.use_image:
@@ -473,11 +482,11 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         return image, mask
 
     def add_aux_layers(self, inputs, target_offset: int = 0):
+        if self.use_topo:
+            inputs = self.apply_aug_to_time(inputs, self.topo)
+        if self.use_latlon:
+            inputs = self.apply_aug_to_time(inputs, self.location)
         if self.time_as_channels:  # 3D Tensor of C x W x H
-            if self.use_topo:
-                inputs = np.concatenate([inputs, self.topo], axis=0)
-            if self.use_latlon:
-                inputs = np.concatenate([inputs, self.location], axis=0)
             if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=0)
             if self.use_time:
@@ -487,10 +496,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 inputs = np.concatenate([inputs, time_cube], axis=0)
 
         else:  # In timeseries, so 4D tensor of T x C x W x H
-            if self.use_topo:
-                inputs = np.concatenate([inputs, self.topo], axis=1)
-            if self.use_latlon:
-                inputs = np.concatenate([inputs, self.location], axis=1)
             if self.add_pixel_coords:
                 inputs = np.concatenate([inputs, self.pixel_coords], axis=1)
             if self.use_time:
@@ -499,6 +504,21 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 )  # Want relative tiemstep forward
                 time_cube = np.repeat(time_cube, repeats=self.num_timesteps + 1, axis=0)
                 inputs = np.concatenate([inputs, time_cube], axis=1)
+        return inputs
+
+    def apply_aug_to_time(self, inputs, data):
+        data = np.moveaxis(
+            data,
+            [0] if self.time_as_channels else [0, 1],
+            [2] if self.time_as_channels else [2, 3],
+        )
+        data = self.aug.replay(self.replay, image=data)["image"]
+        data = np.moveaxis(
+            data,
+            [2] if self.time_as_channels else [2, 3],
+            [0] if self.time_as_channels else [0, 1],
+        )
+        inputs = np.concatenate([inputs, data], axis=1)
         return inputs
 
     def time_changes(self, inputs, targets):
