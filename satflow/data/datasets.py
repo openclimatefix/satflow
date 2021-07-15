@@ -294,7 +294,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
         # Regularize here
         image = (image - self.mean) / self.std
-
+        # TODO if use image as target, exclude these
         if self.use_time and not self.time_aux:
             t = create_time_layer(
                 pickle.loads(sample["time.pyd"])[idx],
