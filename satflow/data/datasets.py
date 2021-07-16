@@ -49,10 +49,9 @@ def load_np(data):
 
 def binarize_mask(mask):
     """Binarize mask, taking max value as the data, and setting everything else to 0"""
-    mask[mask == 255] = 0  # hardcoded incase missing any of the cloud mask background problem
-    mask[mask < 2] = 0  # 2 is cloud, others are clear over land (1) and clear over water (0)
-    mask[mask > 0] = 1
-    return mask
+    tmp_mask = np.zeros_like(mask)
+    tmp_mask[mask == 2] = 1
+    return tmp_mask
 
 
 # Taken from training set
@@ -457,6 +456,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
     def create_stack(
         self, idxs: list, sample: dict, is_input: bool = False
     ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]:
+        total_image = []
+        total_mask = []
         image, mask = self.get_timestep(
             sample,
             idxs[0],
@@ -476,9 +477,10 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 )
                 image = image[:, :, :-remove_last_channels]
             image = self.aug.replay(self.replay, image=image)["image"]
-            image = np.expand_dims(image, axis=0)
+            total_image.append(image)
         mask = self.aug.replay(self.replay, image=mask)["image"]
         mask = np.expand_dims(mask, axis=0)
+        total_mask.append(mask)
         # Now create stack here
         for i in idxs[1:]:
             t_image, t_mask = self.get_timestep(
@@ -488,7 +490,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 return_image=self.use_image or is_input,
             )
             t_mask = self.aug.replay(self.replay, image=t_mask)["image"]
-            mask = np.concatenate([mask, np.expand_dims(t_mask, axis=0)])
+            total_mask.append(np.expand_dims(t_mask, axis=0))
+            # mask = np.concatenate([mask, np.expand_dims(t_mask, axis=0)])
             if self.use_image or is_input:
                 if not is_input:
                     remove_last_channels = 3 if self.use_time else 0
@@ -497,21 +500,21 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     )
                     t_image = t_image[:, :, :-remove_last_channels]
                 t_image = self.aug.replay(self.replay, image=t_image)["image"]
-                image = np.concatenate([image, np.expand_dims(t_image, axis=0)])
-        # Ensure last target mask is also different than previous ones -> only want ones where things change
-        if np.allclose(mask[0], mask[-1]) and not is_input:
-            return None, None
+                total_image.append(t_image)
         # Convert to Time x Channel x W x H
         # target_mask = np.expand_dims(target_mask, axis=1)
         # One timestep as well
         if not self.return_target_stack:
             mask = np.expand_dims(mask, axis=0)
-        mask = mask.astype(np.float32)
-        mask = np.moveaxis(mask, [1], [0])
+        mask = np.array(total_mask, dtype=np.float32)
+        # Ensure last target mask is also different than previous ones -> only want ones where things change
+        if np.allclose(mask[0], mask[-1]) and not is_input:
+            return None, None
         mask = np.nan_to_num(mask, posinf=0, neginf=0)
         if image is not None:
+            image = np.array(total_image, dtype=np.float32)
             image = np.moveaxis(image, [3], [1])
-            image = image.astype(np.float32)
+            # image = image.astype(np.float32)
             image = np.nan_to_num(image, posinf=0, neginf=0)
         return image, mask
 
