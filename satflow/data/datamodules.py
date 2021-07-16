@@ -26,6 +26,8 @@ class SatFlowDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
 
+        self.training_dataloader_ref = None
+
     def prepare_data(self):
         # download
         pass
@@ -33,10 +35,8 @@ class SatFlowDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            train_dset = wds.WebDataset(
-                os.path.join(self.data_dir, self.sources["train"])
-            ).decode()
-            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"])).decode()
+            train_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["train"]))
+            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"]))
             if self.shuffle > 0:
                 # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
                 train_dset = train_dset.shuffle(self.shuffle)
@@ -45,16 +45,22 @@ class SatFlowDataModule(pl.LightningDataModule):
 
         # Assign test dataset for use in dataloader(s)
         if stage == "test" or stage is None:
-            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"])).decode()
+            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"]))
             self.test_dataset = SatFlowDataset([test_dset], config=self.config, train=False)
 
     def train_dataloader(self):
-        return DataLoader(
+        if self.training_dataloader_ref:
+            return self.training_dataloader_ref
+
+        training_dataloader = DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
         )
+        self.training_dataloader_ref = training_dataloader
+
+        return self.training_dataloader_ref
 
     def val_dataloader(self):
         return DataLoader(
@@ -93,6 +99,8 @@ class MaskFlowDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
 
+        self.training_dataloader_ref = None
+
     def prepare_data(self):
         # download
         pass
@@ -100,10 +108,8 @@ class MaskFlowDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            train_dset = wds.WebDataset(
-                os.path.join(self.data_dir, self.sources["train"])
-            ).decode()
-            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"])).decode()
+            train_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["train"]))
+            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"]))
             if self.shuffle > 0:
                 # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
                 train_dset = train_dset.shuffle(self.shuffle)
@@ -112,16 +118,24 @@ class MaskFlowDataModule(pl.LightningDataModule):
 
         # Assign test dataset for use in dataloader(s)
         if stage == "test" or stage is None:
-            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"])).decode()
+            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"]))
             self.test_dataset = CloudFlowDataset([test_dset], config=self.config, train=False)
 
     def train_dataloader(self):
-        return DataLoader(
+        # Stores reference and returns it for the reload_dataloaders_every_n_epochs so that the training dataloader keeps
+        # iterating through all the data, but the validation dataloader is reset and helps with keeping the same examples
+        if self.training_dataloader_ref:
+            return self.training_dataloader_ref
+
+        training_dataloader = DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
         )
+        self.training_dataloader_ref = training_dataloader
+
+        return self.training_dataloader_ref
 
     def val_dataloader(self):
         return DataLoader(

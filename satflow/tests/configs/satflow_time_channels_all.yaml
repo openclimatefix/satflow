@@ -14,7 +14,7 @@ config:
   use_image: True
   add_pixel_coords: True
   add_polar_coords: True
-  time_as_channels: False
+  time_as_channels: True
   bands:
     [
       "HRV",

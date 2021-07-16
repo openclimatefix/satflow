@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from satflow.models.base import register_model
 from satflow.models.layers import ConvGRU, TimeDistributed
 from axial_attention import AxialAttention
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+import numpy as np
 
 
 class DownSampler(nn.Module):
@@ -43,12 +45,15 @@ class MetNet(pl.LightningModule):
         temporal_dropout: float = 0.2,
         lr: float = 0.001,
         pretrained: bool = False,
+        make_vis: bool = False,
     ):
         super().__init__()
 
         self.forecast_steps = forecast_steps
         self.criterion = F.mse_loss
         self.lr = lr
+        self.criterion = F.mse_loss
+        self.make_vis = make_vis
         self.drop = nn.Dropout(temporal_dropout)
         if image_encoder in ["downsampler", "default"]:
             image_encoder = DownSampler(input_channels + forecast_steps)
@@ -103,36 +108,57 @@ class MetNet(pl.LightningModule):
     def configure_optimizers(self):
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
         # optimizer = torch.optim.adam()
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        scheduler = LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=10, max_epochs=100)
+        lr_dict = {
+            # REQUIRED: The scheduler instance
+            "scheduler": scheduler,
+            # The unit of the scheduler's step size, could also be 'step'.
+            # 'epoch' updates the scheduler on epoch end whereas 'step'
+            # updates it after a optimizer update.
+            "interval": "step",
+            # How many epochs/steps should pass between calls to
+            # `scheduler.step()`. 1 corresponds to updating the learning
+            # rate after every epoch/step.
+            "frequency": 1,
+            # If using the `LearningRateMonitor` callback to monitor the
+            # learning rate progress, this keyword can be used to specify
+            # a custom logged name
+            "name": None,
+        }
+        return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
     def training_step(self, batch, batch_idx):
         x, y = batch
+        x = x.float()
         y_hat = self(x)
         y = torch.squeeze(y)
 
-        # if self.make_vis:
-        #    if np.random.random() < 0.01:
-        #        self.visualize(x, y, y_hat, batch_idx)
+        if self.make_vis:
+            if np.random.random() < 0.01:
+                self.visualize(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         loss = self.criterion(y_hat, y)
-        self.log("train/loss", loss, on_step=True)
+        self.log("train/loss", loss)
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat, y).item()
+            frame_loss = self.criterion(y_hat[f, :, :], y[f, :, :]).item()
             frame_loss_dict[f"train/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        x = x.float()
         y_hat = self(x)
         y = torch.squeeze(y)
         val_loss = self.criterion(y_hat, y)
-        self.log("val/loss", val_loss, on_step=True, on_epoch=True)
+        self.log("val/loss", val_loss)
+        # Save out loss per frame as well
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat, y).item()
+            frame_loss = self.criterion(y_hat[f, :, :], y[f, :, :]).item()
             frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
         return val_loss
@@ -143,6 +169,35 @@ class MetNet(pl.LightningModule):
         y = torch.squeeze(y)
         loss = F.mse_loss(y_hat, y)
         return loss
+
+    def visualize(self, x, y, y_hat, batch_idx):
+        tensorboard = self.logger.experiment[0]
+        # print(tensorboard)
+        # Add all the different timesteps for a single prediction, 0.1% of the time
+        in_image = x[0].cpu().detach().numpy()  # Input image stack
+        for i, in_slice in enumerate(in_image):
+            for j, in_channel in enumerate(in_slice):
+                tensorboard.add_image(
+                    f"Input_Image_{i}_Channel_{j}",
+                    np.expand_dims(in_channel, axis=0),
+                    global_step=batch_idx,
+                )  # Each Channel
+        out_image = y_hat[0].cpu().detach().numpy()
+        for i, out_slice in enumerate(out_image):
+            for j, out_channel in enumerate(out_slice):
+                tensorboard.add_image(
+                    f"Output_Image_{i}_Channel_{j}",
+                    np.expand_dims(out_channel, axis=0),
+                    global_step=batch_idx,
+                )  # Each Channel
+        out_image = y[0].cpu().detach().numpy()
+        for i, out_slice in enumerate(out_image):
+            for j, out_channel in enumerate(out_slice):
+                tensorboard.add_image(
+                    f"Target_{i}_Channel_{j}",
+                    np.expand_dims(out_channel, axis=0),
+                    global_step=batch_idx,
+                )  # Each Channel
 
 
 class TemporalEncoder(nn.Module):

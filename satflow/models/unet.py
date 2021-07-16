@@ -24,6 +24,7 @@ class Unet(pl.LightningModule):
     ):
         super(Unet, self).__init__()
         self.lr = lr
+        self.forecast_steps = forecast_steps
         assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
         if loss == "mse":
             self.criterion = F.mse_loss
@@ -58,6 +59,7 @@ class Unet(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
+        x = x.float()
         y_hat = self(x)
 
         if self.make_vis:
@@ -67,24 +69,37 @@ class Unet(pl.LightningModule):
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         loss = self.criterion(y_hat, y)
         self.log("train/loss", loss, on_step=True)
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss_dict[f"train/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        x = x.float()
         y_hat = self(x)
         val_loss = self.criterion(y_hat, y)
-        self.log("val/loss", val_loss, on_step=True, on_epoch=True)
+        self.log("val/loss", val_loss)
+        # Save out loss per frame as well
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict)
         return val_loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self(x, self.forecast_steps)
+        x = x.float()
+        y_hat = self(x)
         loss = self.criterion(y_hat, y)
         return loss
 
     def visualize(self, x, y, y_hat, batch_idx):
         # the logger you used (in this case tensorboard)
-        tensorboard = self.logger.experiment
+        tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
         in_image = (
             x[0].cpu().detach().numpy()
