@@ -11,6 +11,11 @@ import pickle
 import io
 import random
 
+try:
+    from line_profiler_pycharm import profile
+except:
+    pass
+
 logger = logging.getLogger("satflow.dataset")
 logger.setLevel(logging.INFO)
 
@@ -31,6 +36,7 @@ def get_dataset(name: str) -> Type[thd.IterableDataset]:
     return REGISTERED_DATASET_CLASSES[name]
 
 
+@profile
 def create_time_layer(dt: datetime.datetime, shape):
     """Create 3 layer for current time of observation"""
     month = dt.month / 12
@@ -130,6 +136,34 @@ def create_pixel_coord_layers(x_dim: int, y_dim: int, with_r: bool = False) -> n
     return ret
 
 
+def check_channels(config: dict) -> int:
+    """
+    Checks the number of channels needed per timestep, to use for preallocating the numpy array
+    Is not the same as the one for training, as that includes the number of channels after the array is partly
+    flattened
+    Args:
+        config:
+
+    Returns:
+
+    """
+    channels = len(config.get("bands", []))
+    channels = channels + 1 if config.get("use_mask", False) else channels
+    channels = (
+        channels + 3
+        if config.get("use_time", False) and not config.get("time_aux", False)
+        else channels
+    )
+    # if config.get("time_as_channels", False):
+    # Calc number of channels + inital ones
+    #    channels = channels * (config["num_timesteps"] + 1)
+    channels = channels + 1 if config.get("use_topo", False) else channels
+    channels = channels + 3 if config.get("use_latlon", False) else channels
+    channels = channels + 2 if config.get("add_pixel_coords", False) else channels
+    channels = channels + 1 if config.get("add_polar_coords", False) else channels
+    return channels
+
+
 @register_dataset
 class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
     def __init__(self, datasets: List[wds.WebDataset], config: dict, train: bool = True):
@@ -153,7 +187,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.bands = config.get(
             "bands",
             (
-                "HRV",
+                "HRV",  # mask[mask == 255] = 0  # hardcoded incase missing any of the cloud mask background problem
+                # mask[mask < 2] = 0  # 2 is cloud, others are clear over land (1) and clear over water (0)
+                # mask[mask > 0] = 1
                 "IR016",
                 "IR039",
                 "IR087",
@@ -181,18 +217,21 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.time_as_channels = config.get("time_as_channels", False)
         self.add_pixel_coords = config.get("add_pixel_coords", False)
 
+        # Number of channels in final one
+        self.num_channels = check_channels(config)
+        self.num_bands = len(self.bands)
+        self.input_cube = np.empty(
+            (self.num_timesteps + 1, self.num_channels, self.output_shape, self.output_shape)
+        )
+        self.target_cube = np.empty((self.forecast_times, 1, self.output_shape, self.output_shape))
+        self.target_image_cube = np.empty(
+            (self.forecast_times, self.num_bands, self.output_shape, self.output_shape)
+        )
         self.image_input = True
         self.pixel_coords = create_pixel_coord_layers(
             self.output_shape, self.output_shape, with_r=config.get("add_polar_coords", False)
         )
-        if self.time_as_channels:
-            # Only want one copy, so don't have extra ones
-            self.pixel_coords = np.squeeze(self.pixel_coords)
-        else:
-            self.pixel_coords = np.repeat(
-                self.pixel_coords, repeats=self.num_timesteps + 1, axis=0
-            )  # (timesteps, H, W, Ch)
-            self.pixel_coords = self.pixel_coords.squeeze(axis=4)
+        self.pixel_coords = np.squeeze(self.pixel_coords)
 
         self.topo = None
         self.location = None
@@ -272,11 +311,12 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         time_layer[target_timestep] = 1
         return time_layer
 
+    @profile
     def get_timestep(
         self, sample: dict, idx: int, return_target=False, return_image=True
     ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[None, np.ndarray]]:
         """
-        Gets the image stack of the given timestep, if return_target is true, only returns teh mask and satellite channels
+        Gets the image stack of the given timestep, if return_target is true, only returns the mask and satellite channels
         as the model does not need to predict the time, topogrpahic data, etc.
         :param sample:
         :param idx:
@@ -289,39 +329,29 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
         if return_target and not return_image:
             return None, target
-
-        image = np.stack(
-            [load_np(sample[f"{b.lower()}.{idx:03d}.npy"]) for b in self.bands], axis=-1
+        used_channels = (
+            self.num_bands + 3 if self.use_time and not self.time_aux else self.num_bands
         )
+        used_channels = used_channels + 1 if self.use_mask else used_channels
+        img_cube = np.empty(shape=(target.shape[0], target.shape[1], used_channels))
+        bands = np.array([load_np(sample[f"{b.lower()}.{idx:03d}.npy"]) for b in self.bands])
+        img_cube[:, :, : self.num_bands] = bands.transpose((1, 2, 0))
 
         # Regularize here
-        image = (image - self.mean) / self.std
+        # img_cube[:,:,:self.num_bands] = (img_cube[:,:,:self.num_bands] - self.mean) / self.std
         # TODO if use image as target, exclude these
         if self.use_time and not self.time_aux:
             t = create_time_layer(
                 pickle.loads(sample["time.pyd"])[idx],
-                shape=(image.shape[0], image.shape[1]),
+                shape=(img_cube.shape[0], img_cube.shape[1]),
             )
-            image = np.concatenate(
-                [
-                    image,
-                    t,
-                ],
-                axis=-1,
-            )
+            img_cube[:, :, self.num_bands : self.num_bands + 3] = t
         if self.use_mask:
-            image = np.concatenate(
-                [
-                    image,
-                    np.expand_dims(
-                        binarize_mask(load_np(sample[f"cloudmask.{idx:03d}.npy"]).astype(np.int8)),
-                        axis=-1,
-                    ),
-                ],
-                axis=-1,
-            )
-        return image, target
+            mask = binarize_mask(load_np(sample[f"cloudmask.{idx:03d}.npy"]))
+            img_cube[:, :, -1] = mask
+        return img_cube, target
 
+    @profile
     def __iter__(self):
         # Need to make sure same time step for all of them.
         # As its all from rapid scan, should be fairly easy.
@@ -375,53 +405,71 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 )
                             )
                             logger.debug(f"Input IDXs: {input_idxs}")
-                            image, masks = self.create_stack(
+                            if not self.create_stack(
                                 input_idxs, sample, is_input=self.image_input
-                            )
-                            if image is None and masks is None:
+                            ):
                                 self.replay = None
                                 continue
                             # Now in a Time x W x H x Channel order
                             target_idxs = list(range(idx + 1, target_timestep + 1))
                             logger.debug(f"Target IDXs: {target_idxs}")
-                            target_image, target_mask = self.create_stack(
-                                target_idxs,
-                                sample,
-                            )
-
                             logger.debug(
                                 f"Timesteps: Current: {timesteps[input_idxs[-1]]} Prev: {timesteps[input_idxs[0]]} Next: {timesteps[target_idxs[0]]} Final: {timesteps[target_idxs[-1]]} "
                                 f"Timedelta: Next - Curr: {timesteps[target_idxs[0]] - timesteps[input_idxs[-1]] } End - Curr: {timesteps[target_idxs[-1]] - timesteps[input_idxs[-1]]}"
                             )
-                            if target_image is None and target_mask is None:
+                            if not self.create_stack(
+                                target_idxs,
+                                sample,
+                            ):
                                 self.replay = None
                                 continue
-                            logger.debug(f"Target Masks Shape: {target_mask.shape}")
-                            image = self.time_changes(image if self.image_input else masks)
-                            target_mask = self.time_changes(target_mask)
-                            if target_image is not None:
-                                target_image = self.time_changes(target_image)
+                            logger.debug(f"Target Masks Shape: {self.target_cube.shape}")
                             logger.debug(
-                                f"After Time Changes Image/Masks Shape: {image.shape} {masks.shape}"
+                                f"After Time Changes Image/Masks Shape: {self.input_cube.shape} {self.target_cube.shape}"
                             )
-                            if self.output_target != self.output_shape:
-                                if self.use_image:
-                                    target_image = crop_center(
-                                        target_image, self.output_target, self.output_target
-                                    )
-                                target_mask = crop_center(
-                                    target_mask, self.output_target, self.output_target
-                                )
-                            image = self.add_aux_layers(
-                                image, target_offset=target_timestep - idx - 1
-                            )
+                            start_channel = self.num_bands + 3 if self.use_time else self.num_bands
+                            start_channel = start_channel + 1 if self.use_mask else start_channel
+                            logger.info(f"Start Channel: {start_channel}")
+                            self.add_aux_layers(start_channel=start_channel)
                             logger.debug(
-                                f"After Aux Layers Image/Masks Shape: {image.shape} {target_mask.shape}"
+                                f"After Aux Layers Image/Masks Shape: {self.input_cube.shape} {self.target_cube.shape}"
                             )
                             # Reset the replay
                             self.replay = None
+                            if self.output_target != self.output_shape:
+                                if self.use_image:
+                                    target_image = crop_center(
+                                        self.target_image_cube,
+                                        self.output_target,
+                                        self.output_target,
+                                    )
+                                target_mask = crop_center(
+                                    self.target_cube, self.output_target, self.output_target
+                                )
+                            else:
+                                if self.use_image:
+                                    target_image = self.target_image_cube
+                                target_mask = self.target_cube
+                            # Now convert to channels if time_as_channels
+                            if self.time_as_channels:
+                                image, target_mask, target_image = self.time_changes(
+                                    self.target_cube, self.target_image_cube
+                                )
+                            else:
+                                image = self.input_cube
+                            # Need to make sure no NaNs and change dtype
+                            image = np.nan_to_num(
+                                image, copy=False, neginf=0.0, posinf=0.0
+                            ).astype(np.float)
+                            target_mask = np.nan_to_num(
+                                target_mask, copy=False, neginf=0.0, posinf=0.0
+                            ).astype(np.float)
+                            if self.use_image:
+                                target_image = np.nan_to_num(
+                                    target_image, copy=False, neginf=0.0, posinf=0.0
+                                ).astype(np.float)
                             if self.vis:
-                                self.visualize(image, target_image, target_mask)
+                                self.visualize(self.input_cube, target_image, target_mask)
                             if self.use_time and self.time_aux:
                                 time_layer = create_time_layer(
                                     target_timestep - idx - 1, self.output_shape
@@ -432,65 +480,34 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             else:
                                 yield image, target_image, target_mask
 
+    @profile
     def get_topo_latlon(self, sample: dict) -> None:
         if self.use_topo:
             topo = load_np(sample["topo.npy"])
             topo[topo < 100] = 0  # Elevation shouldn't really be below 0 here (ocean mostly)
             self.topo = (topo - TOPO_MEAN) / TOPO_STD
-            if self.time_as_channels:
-                self.topo = np.expand_dims(self.topo, axis=0)
-            else:
-                self.topo = np.expand_dims(self.topo, axis=(0, 1))
-                self.topo = np.repeat(
-                    self.topo, repeats=self.num_timesteps + 1, axis=0
-                )  # (timesteps, Ch, H, W)
+            self.topo = np.expand_dims(self.topo, axis=0)
         if self.use_latlon:
             self.location = load_np(sample["location.npy"])
             self.location = np.moveaxis(self.location, [2], [0])
-            if not self.time_as_channels:
-                self.location = np.expand_dims(self.location, axis=0)
-                self.location = np.repeat(
-                    self.location, repeats=self.num_timesteps + 1, axis=0
-                )  # (timesteps, Ch, H, W)
 
-    def create_stack(
-        self, idxs: list, sample: dict, is_input: bool = False
-    ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]:
-        total_image = []
-        total_mask = []
-        image, mask = self.get_timestep(
-            sample,
-            idxs[0],
-            return_target=True,
-            return_image=self.use_image or is_input,
-        )
-        if self.replay is None:
-            data = self.aug(image=mask)
-            self.replay = data["replay"]
-            logger.debug(self.replay)
-        # Only keep is target also
-        if image is not None:
-            if not is_input:
-                remove_last_channels = 3 if self.use_time else 0
-                remove_last_channels = (
-                    remove_last_channels + 1 if self.use_mask else remove_last_channels
-                )
-                image = image[:, :, :-remove_last_channels]
-            image = self.aug.replay(self.replay, image=image)["image"]
-            total_image.append(image)
-        mask = self.aug.replay(self.replay, image=mask)["image"]
-        mask = np.expand_dims(mask, axis=0)
-        total_mask.append(mask)
+    @profile
+    def create_stack(self, idxs: list, sample: dict, is_input: bool = False) -> bool:
         # Now create stack here
-        for i in idxs[1:]:
+        time_idx = 0
+        for i in idxs:
             t_image, t_mask = self.get_timestep(
                 sample,
                 i,
                 return_target=True,
                 return_image=self.use_image or is_input,
             )
+            if self.replay is None:
+                data = self.aug(image=t_mask)
+                self.replay = data["replay"]
+                logger.debug(self.replay)
             t_mask = self.aug.replay(self.replay, image=t_mask)["image"]
-            total_mask.append(np.expand_dims(t_mask, axis=0))
+            self.target_cube[time_idx, :, :, :] = t_mask
             # mask = np.concatenate([mask, np.expand_dims(t_mask, axis=0)])
             if self.use_image or is_input:
                 if not is_input:
@@ -500,75 +517,59 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     )
                     t_image = t_image[:, :, :-remove_last_channels]
                 t_image = self.aug.replay(self.replay, image=t_image)["image"]
-                total_image.append(t_image)
+                if is_input:
+                    self.input_cube[time_idx, : t_image.shape[2], :, :] = t_image.transpose(
+                        (2, 1, 0)
+                    )
+                else:
+                    self.target_image_cube[time_idx, : t_image.shape[2], :, :] = t_image.transpose(
+                        (2, 1, 0)
+                    )
+            time_idx += 1
         # Convert to Time x Channel x W x H
         # target_mask = np.expand_dims(target_mask, axis=1)
         # One timestep as well
-        if not self.return_target_stack:
-            mask = np.expand_dims(mask, axis=0)
-        mask = np.array(total_mask, dtype=np.float32)
         # Ensure last target mask is also different than previous ones -> only want ones where things change
-        if np.allclose(mask[0], mask[-1]) and not is_input:
-            return None, None
-        mask = np.nan_to_num(mask, posinf=0, neginf=0)
-        if image is not None:
-            image = np.array(total_image, dtype=np.float32)
-            image = np.moveaxis(image, [3], [1])
-            # image = image.astype(np.float32)
-            image = np.nan_to_num(image, posinf=0, neginf=0)
-        return image, mask
+        if np.allclose(self.target_image_cube[0], self.target_image_cube[-1]) and not is_input:
+            return False
+        return True
 
-    def add_aux_layers(self, inputs: np.ndarray, target_offset: int = 0) -> np.ndarray:
+    @profile
+    def add_aux_layers(self, start_channel: int) -> None:
         if self.use_topo:
-            inputs = self.apply_aug_to_time(
-                inputs, self.topo, axis=0 if self.time_as_channels else 1
-            )
+            self.apply_aug_to_time(self.topo, start_channel=start_channel)
+            start_channel += 1  # Topo is single channel
         if self.use_latlon:
-            inputs = self.apply_aug_to_time(
-                inputs, self.location, axis=0 if self.time_as_channels else 1
-            )
-        if self.time_as_channels:  # 3D Tensor of C x W x H
-            if self.add_pixel_coords:
-                inputs = np.concatenate([inputs, self.pixel_coords], axis=0)
-            # if self.use_time and not self.time_aux:
-            #    time_cube = self.create_target_time_cube(
-            #        target_offset
-            #    )  # Want relative tiemstep forward
-            #    inputs = np.concatenate([inputs, time_cube], axis=0)
+            self.apply_aug_to_time(self.location, start_channel=start_channel)
+            start_channel += 3  # Location is triple channel
+        if self.add_pixel_coords:
+            self.input_cube[
+                :, start_channel : start_channel + self.pixel_coords.shape[0], :, :
+            ] = self.pixel_coords
 
-        else:  # In timeseries, so 4D tensor of T x C x W x H
-            if self.add_pixel_coords:
-                inputs = np.concatenate([inputs, self.pixel_coords], axis=1)
-            # if self.use_time and not self.time_aux:
-            #    time_cube = self.create_target_time_cube(
-            #        target_offset
-            #    )  # Want relative tiemstep forward
-            #    time_cube = np.repeat(time_cube, repeats=self.num_timesteps + 1, axis=0)
-            #    inputs = np.concatenate([inputs, time_cube], axis=1)
-        return inputs
-
-    def apply_aug_to_time(self, inputs: np.ndarray, data: np.ndarray, axis: int = 1) -> np.ndarray:
+    @profile
+    def apply_aug_to_time(self, data: np.ndarray, start_channel: int = 1) -> None:
         data = np.moveaxis(
             data,
-            [0] if self.time_as_channels else [0, 1],
-            [2] if self.time_as_channels else [2, 3],
+            [0],
+            [2],
         )
         data = self.aug.replay(self.replay, image=data)["image"]
         data = np.moveaxis(
             data,
-            [2] if self.time_as_channels else [2, 3],
-            [0] if self.time_as_channels else [0, 1],
+            [2],
+            [0],
         )
-        inputs = np.concatenate([inputs, data], axis=axis)
-        return inputs
+        self.input_cube[:, start_channel : start_channel + data.shape[0], :, :] = data
 
-    def time_changes(self, inputs: np.ndarray) -> np.ndarray:
-        if self.time_as_channels:
-            images = inputs[0]
-            for m in inputs[1:]:
-                images = np.concatenate([images, m], axis=0)
-            inputs = images
-        return inputs
+    @profile
+    def time_changes(
+        self, target: np.ndarray, target_image: np.ndarray
+    ) -> Union[Tuple[np.ndarray, np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, None]]:
+        inputs = self.input_cube.reshape((-1, self.input_cube.shape[2], self.input_cube.shape[3]))
+        targets = target.reshape((-1, target.shape[2], target.shape[3]))
+        target_image = target_image.reshape((-1, target_image.shape[2], target_image.shape[3]))
+        return inputs, targets, target_image
 
 
 class CloudFlowDataset(SatFlowDataset):
@@ -672,3 +673,32 @@ def crop_center(img: np.ndarray, cropx: int, cropy: int) -> np.ndarray:
     startx = x // 2 - (cropx // 2)
     starty = y // 2 - (cropy // 2)
     return img[:, :, starty : starty + cropy, startx : startx + cropx]
+
+
+if __name__ == "__main__":
+    # NIR1.6, VIS0.8 and VIS0.6 RGB for near normal view
+    import numpy as np
+    import webdataset as wds
+    import yaml
+
+    def load_config(config_file):
+        with open(config_file, "r") as cfg:
+            return yaml.load(cfg, Loader=yaml.FullLoader)["config"]
+
+    dataset = wds.WebDataset("../../datasets/satflow-test.tar")
+    config = load_config("../tests/configs/satflow_time_channels_all.yaml")
+    cloudflow = SatFlowDataset([dataset], config)
+    datas = iter(cloudflow)
+    i = 0
+    for data in datas:
+        i += 1
+        if i + 1 > 50:
+            break
+    config = load_config("../tests/configs/satflow_all.yaml")
+    cloudflow = SatFlowDataset([dataset], config)
+    datas = iter(cloudflow)
+    i = 0
+    for data in datas:
+        i += 1
+        if i + 1 > 50:
+            exit()
