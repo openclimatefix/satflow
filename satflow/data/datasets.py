@@ -12,7 +12,7 @@ import io
 import random
 
 logger = logging.getLogger("satflow.dataset")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARN)
 
 REGISTERED_DATASET_CLASSES = {}
 
@@ -472,14 +472,14 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             # Need to make sure no NaNs and change dtype
                             image = np.nan_to_num(
                                 image, copy=False, neginf=0.0, posinf=0.0
-                            ).astype(np.float)
+                            ).astype(np.float32)
                             target_mask = np.nan_to_num(
                                 target_mask, copy=False, neginf=0.0, posinf=0.0
-                            ).astype(np.float)
+                            ).astype(np.float32)
                             if self.use_image:
                                 target_image = np.nan_to_num(
                                     target_image, copy=False, neginf=0.0, posinf=0.0
-                                ).astype(np.float)
+                                ).astype(np.float32)
                             if self.vis:
                                 self.visualize(self.input_cube, target_image, target_mask)
                             if self.use_time and self.time_aux:
