@@ -11,11 +11,6 @@ import pickle
 import io
 import random
 
-try:
-    from line_profiler_pycharm import profile
-except:
-    pass
-
 logger = logging.getLogger("satflow.dataset")
 logger.setLevel(logging.INFO)
 
@@ -36,7 +31,6 @@ def get_dataset(name: str) -> Type[thd.IterableDataset]:
     return REGISTERED_DATASET_CLASSES[name]
 
 
-@profile
 def create_time_layer(dt: datetime.datetime, shape):
     """Create 3 layer for current time of observation"""
     month = dt.month / 12
@@ -311,7 +305,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         time_layer[target_timestep] = 1
         return time_layer
 
-    @profile
     def get_timestep(
         self, sample: dict, idx: int, return_target=False, return_image=True
     ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[None, np.ndarray]]:
@@ -351,7 +344,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             img_cube[:, :, -1] = mask
         return img_cube, target
 
-    @profile
     def __iter__(self):
         # Need to make sure same time step for all of them.
         # As its all from rapid scan, should be fairly easy.
@@ -480,7 +472,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             else:
                                 yield image, target_image, target_mask
 
-    @profile
     def get_topo_latlon(self, sample: dict) -> None:
         if self.use_topo:
             topo = load_np(sample["topo.npy"])
@@ -491,7 +482,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             self.location = load_np(sample["location.npy"])
             self.location = np.moveaxis(self.location, [2], [0])
 
-    @profile
     def create_stack(self, idxs: list, sample: dict, is_input: bool = False) -> bool:
         # Now create stack here
         time_idx = 0
@@ -534,7 +524,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             return False
         return True
 
-    @profile
     def add_aux_layers(self, start_channel: int) -> None:
         if self.use_topo:
             self.apply_aug_to_time(self.topo, start_channel=start_channel)
@@ -547,7 +536,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 :, start_channel : start_channel + self.pixel_coords.shape[0], :, :
             ] = self.pixel_coords
 
-    @profile
     def apply_aug_to_time(self, data: np.ndarray, start_channel: int = 1) -> None:
         data = np.moveaxis(
             data,
@@ -562,7 +550,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         )
         self.input_cube[:, start_channel : start_channel + data.shape[0], :, :] = data
 
-    @profile
     def time_changes(
         self, target: np.ndarray, target_image: np.ndarray
     ) -> Union[Tuple[np.ndarray, np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, None]]:
@@ -690,6 +677,7 @@ if __name__ == "__main__":
     cloudflow = SatFlowDataset([dataset], config)
     datas = iter(cloudflow)
     i = 0
+    print("Starting Data")
     for data in datas:
         i += 1
         if i + 1 > 50:
