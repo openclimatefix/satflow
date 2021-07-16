@@ -217,6 +217,14 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         # Number of channels in final one
         self.num_channels = check_channels(config)
         self.num_bands = len(self.bands)
+        self.total_per_timestep_channels = (
+            self.num_bands + 3 if self.use_time and not self.time_aux else self.num_bands
+        )
+        self.total_per_timestep_channels = (
+            self.total_per_timestep_channels + 1
+            if self.use_mask
+            else self.total_per_timestep_channels
+        )
         self.input_cube = np.empty(
             (self.num_timesteps + 1, self.num_channels, self.output_shape, self.output_shape)
         )
@@ -328,11 +336,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
         if return_target and not return_image:
             return None, target
-        used_channels = (
-            self.num_bands + 3 if self.use_time and not self.time_aux else self.num_bands
+        img_cube = np.empty(
+            shape=(target.shape[0], target.shape[1], self.total_per_timestep_channels)
         )
-        used_channels = used_channels + 1 if self.use_mask else used_channels
-        img_cube = np.empty(shape=(target.shape[0], target.shape[1], used_channels))
         bands = np.array([load_np(sample[f"{b.lower()}.{idx:03d}.npy"]) for b in self.bands])
         img_cube[:, :, : self.num_bands] = bands.transpose((1, 2, 0))
 
@@ -570,9 +576,27 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
     def time_changes(
         self, inputs: np.ndarray, target: np.ndarray, target_image: np.ndarray
     ) -> Union[Tuple[np.ndarray, np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, None]]:
-        inputs = inputs.reshape(
-            (-1, inputs.shape[2], inputs.shape[3])
-        )  # Issue: Too many channels in output
+        # Time changes has to be different make new array and copy into that one
+        if self.image_input:
+            time_flattened_input = np.empty(
+                (
+                    self.total_per_timestep_channels * inputs.shape[0]
+                    + (self.num_channels - self.total_per_timestep_channels),
+                    inputs.shape[2],
+                    inputs.shape[3],
+                )
+            )
+            time_flattened_input[
+                : -(self.num_channels - self.total_per_timestep_channels), :, :
+            ] = inputs[:, : self.total_per_timestep_channels, :, :].reshape(
+                -1, inputs.shape[2], inputs.shape[3]
+            )
+            time_flattened_input[
+                -(self.num_channels - self.total_per_timestep_channels) :, :, :
+            ] = inputs[0, self.total_per_timestep_channels :, :, :]
+            inputs = time_flattened_input
+        else:
+            inputs = inputs.reshape((-1, inputs.shape[2], inputs.shape[3]))
         targets = target.reshape((-1, target.shape[2], target.shape[3]))
         target_image = target_image.reshape((-1, target_image.shape[2], target_image.shape[3]))
         return inputs, targets, target_image
