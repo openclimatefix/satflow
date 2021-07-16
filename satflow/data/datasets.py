@@ -12,7 +12,7 @@ import io
 import random
 
 logger = logging.getLogger("satflow.dataset")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 REGISTERED_DATASET_CLASSES = {}
 
@@ -200,6 +200,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
 
         self.mean = np.array([MSG_MEAN[b] for b in self.bands])
         self.std = np.array([MSG_STD[b] for b in self.bands])
+        # Make it match the dimensions of the output so that it can be broadcasted
+        self.mean = np.expand_dims(self.mean, (0, 2, 3))
+        self.std = np.expand_dims(self.std, (0, 2, 3))
 
         self.use_topo = config.get("use_topo", False)
         self.use_latlon = config.get("use_latlon", False)
@@ -216,6 +219,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.num_bands = len(self.bands)
         self.input_cube = np.empty(
             (self.num_timesteps + 1, self.num_channels, self.output_shape, self.output_shape)
+        )
+        self.input_mask_cube = np.empty(
+            (self.num_timesteps + 1, 1, self.output_shape, self.output_shape)
         )
         self.target_cube = np.empty((self.forecast_times, 1, self.output_shape, self.output_shape))
         self.target_image_cube = np.empty(
@@ -330,9 +336,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         bands = np.array([load_np(sample[f"{b.lower()}.{idx:03d}.npy"]) for b in self.bands])
         img_cube[:, :, : self.num_bands] = bands.transpose((1, 2, 0))
 
-        # Regularize here
-        # img_cube[:,:,:self.num_bands] = (img_cube[:,:,:self.num_bands] - self.mean) / self.std
-        # TODO if use image as target, exclude these
         if self.use_time and not self.time_aux:
             t = create_time_layer(
                 pickle.loads(sample["time.pyd"])[idx],
@@ -419,6 +422,13 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             logger.debug(
                                 f"After Time Changes Image/Masks Shape: {self.input_cube.shape} {self.target_cube.shape}"
                             )
+                            self.input_cube[:, : self.num_bands, :, :] = (
+                                self.input_cube[:, : self.num_bands, :, :] - self.mean
+                            ) / self.std
+                            if self.use_image:
+                                self.target_image_cube[:, : self.num_bands, :, :] = (
+                                    self.target_image_cube[:, : self.num_bands, :, :] - self.mean
+                                ) / self.std
                             start_channel = self.num_bands + 3 if self.use_time else self.num_bands
                             start_channel = start_channel + 1 if self.use_mask else start_channel
                             logger.info(f"Start Channel: {start_channel}")
@@ -445,10 +455,14 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             # Now convert to channels if time_as_channels
                             if self.time_as_channels:
                                 image, target_mask, target_image = self.time_changes(
-                                    self.target_cube, self.target_image_cube
+                                    self.input_cube if self.image_input else self.input_mask_cube,
+                                    self.target_cube,
+                                    self.target_image_cube,
                                 )
                             else:
-                                image = self.input_cube
+                                image = (
+                                    self.input_cube if self.image_input else self.input_mask_cube
+                                )
                             # Need to make sure no NaNs and change dtype
                             image = np.nan_to_num(
                                 image, copy=False, neginf=0.0, posinf=0.0
@@ -497,7 +511,10 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 self.replay = data["replay"]
                 logger.debug(self.replay)
             t_mask = self.aug.replay(self.replay, image=t_mask)["image"]
-            self.target_cube[time_idx, :, :, :] = t_mask
+            if is_input:
+                self.input_mask_cube[time_idx, :, :, :] = t_mask
+            else:
+                self.target_cube[time_idx, :, :, :] = t_mask
             # mask = np.concatenate([mask, np.expand_dims(t_mask, axis=0)])
             if self.use_image or is_input:
                 if not is_input:
@@ -520,7 +537,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         # target_mask = np.expand_dims(target_mask, axis=1)
         # One timestep as well
         # Ensure last target mask is also different than previous ones -> only want ones where things change
-        if np.allclose(self.target_image_cube[0], self.target_image_cube[-1]) and not is_input:
+        if np.allclose(self.target_cube[0], self.target_cube[-1]) and not is_input:
             return False
         return True
 
@@ -551,9 +568,11 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.input_cube[:, start_channel : start_channel + data.shape[0], :, :] = data
 
     def time_changes(
-        self, target: np.ndarray, target_image: np.ndarray
+        self, inputs: np.ndarray, target: np.ndarray, target_image: np.ndarray
     ) -> Union[Tuple[np.ndarray, np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, None]]:
-        inputs = self.input_cube.reshape((-1, self.input_cube.shape[2], self.input_cube.shape[3]))
+        inputs = inputs.reshape(
+            (-1, inputs.shape[2], inputs.shape[3])
+        )  # Issue: Too many channels in output
         targets = target.reshape((-1, target.shape[2], target.shape[3]))
         target_image = target_image.reshape((-1, target_image.shape[2], target_image.shape[3]))
         return inputs, targets, target_image
@@ -673,12 +692,13 @@ if __name__ == "__main__":
             return yaml.load(cfg, Loader=yaml.FullLoader)["config"]
 
     dataset = wds.WebDataset("../../datasets/satflow-test.tar")
-    config = load_config("../tests/configs/satflow_time_channels_all.yaml")
+    config = load_config("../tests/configs/satflow.yaml")
     cloudflow = SatFlowDataset([dataset], config)
     datas = iter(cloudflow)
     i = 0
     print("Starting Data")
     for data in datas:
+        print(f"Data {i}")
         i += 1
         if i + 1 > 50:
             break
