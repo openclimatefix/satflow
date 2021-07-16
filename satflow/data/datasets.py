@@ -577,7 +577,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self, inputs: np.ndarray, target: np.ndarray, target_image: np.ndarray
     ) -> Union[Tuple[np.ndarray, np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, None]]:
         # Time changes has to be different make new array and copy into that one
-        if self.image_input:
+        if self.image_input and self.num_channels - self.total_per_timestep_channels != 0:
             time_flattened_input = np.empty(
                 (
                     self.total_per_timestep_channels * inputs.shape[0]
@@ -587,7 +587,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 )
             )
             time_flattened_input[
-                : -(self.num_channels - self.total_per_timestep_channels), :, :
+                : self.total_per_timestep_channels * inputs.shape[0], :, :
             ] = inputs[:, : self.total_per_timestep_channels, :, :].reshape(
                 -1, inputs.shape[2], inputs.shape[3]
             )
