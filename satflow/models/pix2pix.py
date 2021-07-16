@@ -16,10 +16,10 @@ class Pix2Pix(pl.LightningModule):
         forecast_steps: int = 48,
         input_channels: int = 12,
         lr: float = 0.0002,
-        beta1: float = 0.9,
+        beta1: float = 0.5,
         beta2: float = 0.999,
         num_filters: int = 64,
-        generator_model: str = "unet128",
+        generator_model: str = "unet_128",
         norm: str = "batch",
         use_dropout: bool = False,
         discriminator_model: str = "basic",
@@ -27,6 +27,7 @@ class Pix2Pix(pl.LightningModule):
         loss: str = "vanilla",
         scheduler: str = "plateau",
         lr_epochs: int = 10,
+        lambda_l1: float = 100.0,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -34,18 +35,20 @@ class Pix2Pix(pl.LightningModule):
         self.b1 = beta1
         self.b2 = beta2
         self.loss = loss
+        self.lambda_l1 = lambda_l1
         self.lr_epochs = lr_epochs
         self.lr_method = scheduler
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
+        self.output_channels = forecast_steps * 12
 
         # define networks (both generator and discriminator)
         self.generator = define_G(
-            input_channels, forecast_steps, num_filters, generator_model, norm, use_dropout
+            input_channels, self.output_channels, num_filters, generator_model, norm, use_dropout
         )
 
         self.discriminator = define_D(
-            input_channels + forecast_steps,
+            input_channels + self.output_channels,
             num_filters,
             discriminator_model,
             discriminator_layers,
@@ -61,24 +64,16 @@ class Pix2Pix(pl.LightningModule):
         return self.generator(x)
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        images, future_images = batch
+        images, future_images, future_masks = batch
         # train generator
         if optimizer_idx == 0:
             # generate images
             generated_images = self(images)
             fake = torch.cat((images, generated_images), 1)
             # log sampled images
-            sample_imgs = self.generated_imgs[:6]
-            grid = torchvision.utils.make_grid(sample_imgs)
-            self.logger.experiment.add_image("generated_images", grid, 0)
-
-            # ground truth result (ie: all fake)
-            # put on GPU because we created this tensor inside training_loop
-            valid = torch.ones(images.size(0), 1)
-            valid = valid.type_as(images)
 
             # adversarial loss is binary cross-entropy
-            gan_loss = self.criterionGAN(self.discriminator(fake), valid)
+            gan_loss = self.criterionGAN(self.discriminator(fake), True)
             l1_loss = self.criterionL1(generated_images, future_images) * self.lambda_l1
             g_loss = gan_loss + l1_loss
             tqdm_dict = {"g_loss": g_loss}
@@ -90,17 +85,13 @@ class Pix2Pix(pl.LightningModule):
             # Measure discriminator's ability to classify real from generated samples
 
             # how well can it label as real?
-            valid = torch.ones(images.size(0), 1)
-            valid = valid.type_as(images)
             real = torch.cat((images, future_images), 1)
-            real_loss = self.criterionGAN(self.discriminator(real), valid)
+            real_loss = self.criterionGAN(self.discriminator(real), True)
 
             # how well can it label as fake?
-            fake_tensor = torch.zeros(images.size(0), 1)
-            fake_tensor = fake_tensor.type_as(images)
             gen_output = self(images)
             fake = torch.cat((images, gen_output), 1)
-            fake_loss = self.criterionGAN(self.discriminator(fake), fake_tensor)
+            fake_loss = self.criterionGAN(self.discriminator(fake), True)
 
             # discriminator loss is the average of these
             d_loss = (real_loss + fake_loss) / 2
@@ -372,7 +363,7 @@ class GANLoss(nn.Module):
             target_tensor = self.fake_label
         return target_tensor.expand_as(prediction)
 
-    def __call__(self, prediction, target_tensor):
+    def __call__(self, prediction, target_is_real):
         """Calculate loss given Discriminator's output and grount truth labels.
 
         Parameters:
@@ -383,9 +374,10 @@ class GANLoss(nn.Module):
             the calculated loss.
         """
         if self.gan_mode in ["lsgan", "vanilla"]:
+            target_tensor = self.get_target_tensor(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
         elif self.gan_mode == "wgangp":
-            if target_tensor[0] > 0.5:  # Its real
+            if target_is_real:  # Its real
                 loss = -prediction.mean()
             else:
                 loss = prediction.mean()
