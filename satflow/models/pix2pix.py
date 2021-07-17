@@ -91,8 +91,8 @@ class Pix2Pix(pl.LightningModule):
             generated_images = self(images)
             fake = torch.cat((images, generated_images), 1)
             # log sampled images
-            if np.random.random() < 0.01:
-                self.visualize(images, future_images, generated_images, batch_idx, step="train")
+            # if np.random.random() < 0.01:
+            self.visualize(images, future_images, generated_images, batch_idx, step="train")
 
             # adversarial loss is binary cross-entropy
             gan_loss = self.criterionGAN(self.discriminator(fake), True)
@@ -154,7 +154,7 @@ class Pix2Pix(pl.LightningModule):
                 "log": tqdm_dict,
             }
         )
-        self.log_dict({"val/d_loss": d_loss, "val/g_loss": g_loss})
+        self.log_dict({"val/d_loss": d_loss, "val/g_loss": g_loss, "val/loss": d_loss + g_loss})
         return output
 
     def configure_optimizers(self):

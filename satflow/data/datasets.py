@@ -12,7 +12,7 @@ import io
 import random
 
 logger = logging.getLogger("satflow.dataset")
-logger.setLevel(logging.NOTSET)
+logger.setLevel(logging.WARN)
 
 REGISTERED_DATASET_CLASSES = {}
 
@@ -382,9 +382,12 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 ]
                 if (
                     not all(e in sample_keys for e in key_checker)
-                    or len(sample_keys)
-                    <= self.num_timesteps * self.skip_timesteps + self.forecast_times
+                    or self.num_timesteps * self.skip_timesteps + 1
+                    >= available_steps - self.forecast_times
                 ):
+                    logger.warning(
+                        f"Issue with {self.num_timesteps * self.skip_timesteps + 1} >= {available_steps - self.forecast_times} with {available_steps} available timesteps"
+                    )
                     continue  # Skip this sample as it is missing timesteps, or has none
                 # Times that have enough previous timesteps and post timesteps for training
                 # pick one at random
