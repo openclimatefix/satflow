@@ -12,7 +12,7 @@ import io
 import random
 
 logger = logging.getLogger("satflow.dataset")
-logger.setLevel(logging.WARN)
+logger.setLevel(logging.NOTSET)
 
 REGISTERED_DATASET_CLASSES = {}
 
@@ -478,9 +478,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                     target_image, copy=False, neginf=0.0, posinf=0.0
                                 ).astype(np.float32)
                             if self.vis:
-                                self.visualize(
-                                    self.input_cube, self.target_image_cube, self.target_cube
-                                )
+                                self.visualize(image, target_image=target_image, mask=target_mask)
                             if self.use_time and self.time_aux:
                                 time_layer = create_time_layer(
                                     target_timestep - idx - 1, self.output_shape
@@ -525,7 +523,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             if is_input:
                 self.input_cube[time_idx, : t_image.shape[2], :, :] = t_image.transpose((2, 1, 0))
             elif t_image is not None:
-                print("In T_Image is not None")
                 remove_last_channels = 3 if self.use_time else 0
                 remove_last_channels = (
                     remove_last_channels + 1 if self.use_mask else remove_last_channels
