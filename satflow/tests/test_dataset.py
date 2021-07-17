@@ -57,6 +57,8 @@ def test_satflow_all():
     assert x.shape == (13, channels, 128, 128)
     assert y.shape == (24, 1, 128, 128)
     assert image.shape == (24, 12, 128, 128)
+    assert not np.allclose(image[0], image[-1])
+    assert not np.allclose(y[0], y[-1])
 
 
 def test_satflow_large():
@@ -69,6 +71,8 @@ def test_satflow_large():
     assert x.shape == (13, channels, 256, 256)
     assert y.shape == (24, 1, 256, 256)
     assert image.shape == (24, 12, 256, 256)
+    assert not np.allclose(image[0], image[-1])
+    assert not np.allclose(y[0], y[-1])
 
 
 def test_satflow_crop():
@@ -81,6 +85,8 @@ def test_satflow_crop():
     assert x.shape == (13, channels, 256, 256)
     assert y.shape == (24, 1, 64, 64)
     assert image.shape == (24, 12, 64, 64)
+    assert not np.allclose(image[0], image[-1])
+    assert not np.allclose(y[0], y[-1])
 
 
 def test_satflow_channels():
@@ -116,6 +122,8 @@ def test_satflow_time_channels_all():
     assert x.shape == (channels, 128, 128)
     assert y.shape == (24, 128, 128)
     assert image.shape == (12 * 24, 128, 128)
+    assert not np.allclose(image[0], image[-1])
+    assert not np.allclose(y[0], y[-1])
 
 
 def test_cloudflow():
@@ -141,6 +149,8 @@ def test_satflow_all_deterministic_validation():
     np.testing.assert_almost_equal(x, x2)
     np.testing.assert_almost_equal(image, image2)
     np.testing.assert_almost_equal(y, y2)
+    assert not np.allclose(image[0], image[-1])
+    assert not np.allclose(y[0], y[-1])
 
 
 def test_satflow_all_deterministic_validation_restart():
@@ -154,3 +164,5 @@ def test_satflow_all_deterministic_validation_restart():
     np.testing.assert_almost_equal(x, x2)
     np.testing.assert_almost_equal(image, image2)
     np.testing.assert_almost_equal(y, y2)
+    assert not np.allclose(image[0], image[-1])
+    assert not np.allclose(y[0], y[-1])

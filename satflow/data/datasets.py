@@ -50,7 +50,7 @@ def load_np(data):
 def binarize_mask(mask):
     """Binarize mask, taking max value as the data, and setting everything else to 0"""
     tmp_mask = np.zeros_like(mask)
-    tmp_mask[mask == 2] = 1
+    tmp_mask[np.isclose(np.round(mask), 2)] = 1
     return tmp_mask
 
 
@@ -418,10 +418,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 f"Timesteps: Current: {timesteps[input_idxs[-1]]} Prev: {timesteps[input_idxs[0]]} Next: {timesteps[target_idxs[0]]} Final: {timesteps[target_idxs[-1]]} "
                                 f"Timedelta: Next - Curr: {timesteps[target_idxs[0]] - timesteps[input_idxs[-1]] } End - Curr: {timesteps[target_idxs[-1]] - timesteps[input_idxs[-1]]}"
                             )
-                            if not self.create_stack(
-                                target_idxs,
-                                sample,
-                            ):
+                            if not self.create_stack(target_idxs, sample, is_input=False):
                                 self.replay = None
                                 continue
                             logger.debug(f"Target Masks Shape: {self.target_cube.shape}")
@@ -481,7 +478,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                     target_image, copy=False, neginf=0.0, posinf=0.0
                                 ).astype(np.float32)
                             if self.vis:
-                                self.visualize(self.input_cube, target_image, target_mask)
+                                self.visualize(
+                                    self.input_cube, self.target_image_cube, self.target_cube
+                                )
                             if self.use_time and self.time_aux:
                                 time_layer = create_time_layer(
                                     target_timestep - idx - 1, self.output_shape
@@ -517,27 +516,27 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 self.replay = data["replay"]
                 logger.debug(self.replay)
             t_mask = self.aug.replay(self.replay, image=t_mask)["image"]
+            if t_image is not None:
+                t_image = self.aug.replay(self.replay, image=t_image)["image"]
             if is_input:
                 self.input_mask_cube[time_idx, :, :, :] = t_mask
             else:
                 self.target_cube[time_idx, :, :, :] = t_mask
-            # mask = np.concatenate([mask, np.expand_dims(t_mask, axis=0)])
-            if self.use_image or is_input:
-                if not is_input:
-                    remove_last_channels = 3 if self.use_time else 0
-                    remove_last_channels = (
-                        remove_last_channels + 1 if self.use_mask else remove_last_channels
-                    )
-                    t_image = t_image[:, :, :-remove_last_channels]
-                t_image = self.aug.replay(self.replay, image=t_image)["image"]
-                if is_input:
-                    self.input_cube[time_idx, : t_image.shape[2], :, :] = t_image.transpose(
-                        (2, 1, 0)
-                    )
-                else:
-                    self.target_image_cube[time_idx, : t_image.shape[2], :, :] = t_image.transpose(
-                        (2, 1, 0)
-                    )
+            if is_input:
+                self.input_cube[time_idx, : t_image.shape[2], :, :] = t_image.transpose((2, 1, 0))
+            elif t_image is not None:
+                print("In T_Image is not None")
+                remove_last_channels = 3 if self.use_time else 0
+                remove_last_channels = (
+                    remove_last_channels + 1 if self.use_mask else remove_last_channels
+                )
+                t_image = (
+                    t_image[:, :, :-remove_last_channels] if remove_last_channels > 0 else t_image
+                )
+                self.target_image_cube[time_idx, : t_image.shape[2], :, :] = t_image.transpose(
+                    (2, 1, 0)
+                )
+
             time_idx += 1
         # Convert to Time x Channel x W x H
         # target_mask = np.expand_dims(target_mask, axis=1)
