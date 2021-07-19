@@ -13,7 +13,7 @@ terminate_on_nan: True
 auto_lr_find: False
 auto_scale_batch_size: False
 
-reload_dataloaders_every_epoch: True
+reload_dataloaders_every_epoch: False
 accumulate_grad_batches: 1
 precision: 32
 

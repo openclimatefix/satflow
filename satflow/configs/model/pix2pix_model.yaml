@@ -1,11 +1,11 @@
 # @package _group_
 _target_: satflow.models.pix2pix.Pix2Pix
-forecast_steps: 48
+forecast_steps: 6
 input_channels: 12
 lr: 0.0002
 beta1: 0.5
 beta2: 0.999
-num_filters: 64
+num_filters: 128
 generator_model: "unet_128"
 norm: "batch"
 use_dropout: false
@@ -14,3 +14,5 @@ discriminator_layers: 0
 loss: "vanilla"
 scheduler: "cosine"
 lr_epochs: 10
+lambda_l1: 0.01
+channels_per_timestep: 16
