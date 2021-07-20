@@ -4,15 +4,61 @@ from torch.optim import lr_scheduler
 import torchvision
 from collections import OrderedDict
 from satflow.models import R2U_Net, ConvLSTM
-from satflow.models.gan import PixelDiscriminator, NLayerDiscriminator, GANLoss
+from satflow.models.gan import PixelDiscriminator, NLayerDiscriminator, GANLoss, define_G, define_D
 import numpy as np
 
 
 class CloudGAN(pl.LightningModule):
     def __init__(
         self,
+        forecast_steps: int = 48,
+        input_channels: int = 12,
+        lr: float = 0.0002,
+        beta1: float = 0.5,
+        beta2: float = 0.999,
+        num_filters: int = 64,
+        generator_model: str = "unet_128",
+        norm: str = "batch",
+        use_dropout: bool = False,
+        discriminator_model: str = "basic",
+        discriminator_layers: int = 0,
+        loss: str = "vanilla",
+        scheduler: str = "plateau",
+        lr_epochs: int = 10,
+        lambda_l1: float = 100.0,
+        channels_per_timestep: int = 12,
     ):
         super().__init__()
+        self.save_hyperparameters()
+        self.lr = lr
+        self.b1 = beta1
+        self.b2 = beta2
+        self.loss = loss
+        self.lambda_l1 = lambda_l1
+        self.lr_epochs = lr_epochs
+        self.lr_method = scheduler
+        self.forecast_steps = forecast_steps
+        self.input_channels = input_channels
+        self.output_channels = forecast_steps * 12
+        self.channels_per_timestep = channels_per_timestep
+
+        # define networks (both generator and discriminator)
+        self.generator = define_G(
+            input_channels, self.output_channels, num_filters, generator_model, norm, use_dropout
+        )
+
+        self.discriminator = define_D(
+            input_channels + self.output_channels,
+            num_filters,
+            discriminator_model,
+            discriminator_layers,
+            norm,
+        )
+
+        # define loss functions
+        self.criterionGAN = GANLoss(loss)
+        self.criterionL1 = torch.nn.L1Loss()
+        # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         images, future_images, future_masks = batch
