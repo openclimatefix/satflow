@@ -7,7 +7,7 @@ from satflow.models.gan.common import get_norm_layer, init_net
 from satflow.models import R2U_Net, ConvLSTM
 
 
-def define_G(
+def define_generator(
     input_nc,
     output_nc,
     ngf,

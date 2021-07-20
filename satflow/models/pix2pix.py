@@ -5,8 +5,8 @@ from collections import OrderedDict
 from torch.optim import lr_scheduler
 import pytorch_lightning as pl
 from satflow.models.base import register_model
-from satflow.models.gan.discriminators import define_D, GANLoss
-from satflow.models.gan import define_G
+from satflow.models.gan.discriminators import define_discriminator, GANLoss
+from satflow.models.gan import define_generator
 
 
 @register_model
@@ -44,11 +44,11 @@ class Pix2Pix(pl.LightningModule):
         self.channels_per_timestep = channels_per_timestep
 
         # define networks (both generator and discriminator)
-        self.generator = define_G(
+        self.generator = define_generator(
             input_channels, self.output_channels, num_filters, generator_model, norm, use_dropout
         )
 
-        self.discriminator = define_D(
+        self.discriminator = define_discriminator(
             input_channels + self.output_channels,
             num_filters,
             discriminator_model,

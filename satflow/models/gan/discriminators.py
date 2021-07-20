@@ -5,7 +5,9 @@ from torch import nn as nn
 from satflow.models.gan.common import get_norm_layer, init_net
 
 
-def define_D(input_nc, ndf, netD, n_layers_D=3, norm="batch", init_type="normal", init_gain=0.02):
+def define_discriminator(
+    input_nc, ndf, netD, n_layers_D=3, norm="batch", init_type="normal", init_gain=0.02
+):
     """Create a discriminator
 
     Parameters:

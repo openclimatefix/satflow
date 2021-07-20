@@ -3,8 +3,7 @@ import torch
 from torch.optim import lr_scheduler
 import torchvision
 from collections import OrderedDict
-from satflow.models import R2U_Net, ConvLSTM
-from satflow.models.gan import GANLoss, define_G, define_D
+from satflow.models.gan import GANLoss, define_generator, define_discriminator
 import numpy as np
 
 
@@ -42,11 +41,16 @@ class CloudGAN(pl.LightningModule):
         self.channels_per_timestep = channels_per_timestep
 
         # define networks (both generator and discriminator)
-        self.generator = define_G(
+        self.generator = define_generator(
             input_channels, self.output_channels, num_filters, generator_model, norm, use_dropout
         )
+        if generator_model == "convlstm":
+            # Timestep x C x H x W inputs/outputs, need to flatten for discriminator
+            self.flatten_generator = True
+        else:
+            self.flatten_generator = False
 
-        self.discriminator = define_D(
+        self.discriminator = define_discriminator(
             input_channels + self.output_channels,
             num_filters,
             discriminator_model,
@@ -133,8 +137,8 @@ class CloudGAN(pl.LightningModule):
         self.log_dict({"val/d_loss": d_loss, "val/g_loss": g_loss, "val/loss": d_loss + g_loss})
         return output
 
-    def forward(self, x):
-        return self.generator.forward(x)
+    def forward(self, x, **kwargs):
+        return self.generator.forward(x, **kwargs)
 
     def configure_optimizers(self):
         lr = self.lr
