@@ -52,8 +52,9 @@ box_2 = (446, -1, 978, -1)
 eumetsat_dir = "/run/media/bieker/Round1/EUMETSAT/"
 
 
-def make_day(data, flow=True, batch=144, tile=True):
+def make_day(data, flow=True, batch=146, tile=True):
     root_dir, shard_num = data
+    shard_num += 150  # Start after the current ones
     # reset optical flow samples
     flow_sample = {}
     # Initialize new flow sample
@@ -202,7 +203,7 @@ def make_day(data, flow=True, batch=144, tile=True):
 
 import multiprocessing
 
-pool = multiprocessing.Pool(6)
+pool = multiprocessing.Pool(3)
 
 old = os.listdir(os.path.join(eumetsat_dir, "2020"))
 old.sort(key=int)
@@ -228,4 +229,7 @@ all_dates = zip(all_dates, range(len(all_dates)))
 # pool.map(make_day, all_dates)
 # exit()
 for data in all_dates:
-    make_day(data)
+    try:
+        make_day(data)
+    except:
+        continue

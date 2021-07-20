@@ -37,7 +37,7 @@ def retrieve_pixel_value(geo_coord, data_source):
 
 
 def map_satellite_to_mercator(
-    native_satellite,
+    native_satellite=None,
     grib_files=None,
     bufr_files=None,
     bands=(
@@ -67,8 +67,10 @@ def map_satellite_to_mercator(
     :param save_loc: Save location
     :return:
     """
-    areas = load_area("/home/bieker/Development/satflow/satflow/examples/areas.yaml")
-    filenames = {"seviri_l1b_native": [native_satellite]}
+    areas = load_area("/home/bieker/Development/satflow/satflow/resources/areas.yaml")
+    filenames = {}
+    if native_satellite is not None:
+        filenames["seviri_l1b_native"] = [native_satellite]
     if grib_files is not None:
         filenames["seviri_l2_grib"] = [grib_files]
     if bufr_files is not None:
