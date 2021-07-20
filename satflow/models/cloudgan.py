@@ -46,6 +46,7 @@ class CloudGAN(pl.LightningModule):
         )
         if generator_model == "convlstm":
             # Timestep x C x H x W inputs/outputs, need to flatten for discriminator
+            # TODO Add Discriminator that can use timesteps
             self.flatten_generator = True
         else:
             self.flatten_generator = False
