@@ -3,7 +3,7 @@ import functools
 import torch
 from torch import nn as nn
 
-from satflow.models.gan.discriminators import get_norm_layer, init_net
+from satflow.models.gan.common import get_norm_layer, init_net
 
 
 def define_G(
