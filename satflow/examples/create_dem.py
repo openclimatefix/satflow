@@ -7,6 +7,53 @@ from rasterio.merge import merge
 from rasterio.plot import show
 from satpy import Scene
 
+
+def create_pixel_coord_layers(x_dim: int, y_dim: int, with_r: bool = False) -> np.ndarray:
+    """
+    Creates Coord layer for CoordConv model
+
+    :param x_dim: size of x dimension for output
+    :param y_dim: size of y dimension for output
+    :param with_r: Whether to include polar coordinates from center
+    :return: (2, x_dim, y_dim) or (3, x_dim, y_dim) array of the pixel coordinates
+    """
+    xx_ones = np.ones([1, x_dim], dtype=np.int32)
+    xx_ones = np.expand_dims(xx_ones, -1)
+
+    xx_range = np.expand_dims(np.arange(x_dim), 0)
+    xx_range = np.expand_dims(xx_range, 1)
+
+    xx_channel = np.matmul(xx_ones, xx_range)
+    xx_channel = np.expand_dims(xx_channel, -1)
+
+    yy_ones = np.ones([1, y_dim], dtype=np.int32)
+    yy_ones = np.expand_dims(yy_ones, 1)
+
+    yy_range = np.expand_dims(np.arange(y_dim), 0)
+    yy_range = np.expand_dims(yy_range, -1)
+
+    yy_channel = np.matmul(yy_range, yy_ones)
+    yy_channel = np.expand_dims(yy_channel, -1)
+
+    xx_channel = xx_channel.astype("float32") / (x_dim - 1)
+    yy_channel = yy_channel.astype("float32") / (y_dim - 1)
+
+    xx_channel = xx_channel * 2 - 1
+    yy_channel = yy_channel * 2 - 1
+    ret = np.concatenate((xx_channel, yy_channel), axis=0)
+    if with_r:
+        rr = np.sqrt(np.square(xx_channel - 0.5) + np.square(yy_channel - 0.5))
+        ret = np.concatenate([ret, rr], axis=0)
+    ret = ret.squeeze(axis=-1)
+    ret = np.expand_dims(ret, axis=0)
+    return ret
+
+
+ret = create_pixel_coord_layers(x_dim=5, y_dim=5, with_r=False)
+img = np.random.random((6, 13, 128, 128))
+np.concatenate([img, ret], axis=1)
+exit()
+
 dem_path = "/home/bieker/bda/Bulk Order 20210611_041625/SRTM 1 Arc-Second Global/*.tif"
 dem_files = glob.glob(dem_path)
 

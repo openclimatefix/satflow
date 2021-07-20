@@ -26,6 +26,8 @@ config:
   use_mask: False
   use_image: False
   time_as_channels: True
+  add_pixel_coords: True
+  add_polar_coords: False
   bands:
     [
       "HRV",
