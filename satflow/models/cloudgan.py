@@ -4,7 +4,7 @@ from torch.optim import lr_scheduler
 import torchvision
 from collections import OrderedDict
 from satflow.models import R2U_Net, ConvLSTM
-from satflow.models.gan import PixelDiscriminator, NLayerDiscriminator, GANLoss, define_G, define_D
+from satflow.models.gan import GANLoss, define_G, define_D
 import numpy as np
 
 
@@ -29,7 +29,6 @@ class CloudGAN(pl.LightningModule):
         channels_per_timestep: int = 12,
     ):
         super().__init__()
-        self.save_hyperparameters()
         self.lr = lr
         self.b1 = beta1
         self.b2 = beta2
@@ -58,7 +57,7 @@ class CloudGAN(pl.LightningModule):
         # define loss functions
         self.criterionGAN = GANLoss(loss)
         self.criterionL1 = torch.nn.L1Loss()
-        # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
+        self.save_hyperparameters()
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         images, future_images, future_masks = batch
@@ -135,7 +134,7 @@ class CloudGAN(pl.LightningModule):
         return output
 
     def forward(self, x):
-        return x
+        return self.generator.forward(x)
 
     def configure_optimizers(self):
         lr = self.lr

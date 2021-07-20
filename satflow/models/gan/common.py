@@ -3,8 +3,6 @@ import functools
 import torch
 from torch.nn import init
 
-from satflow.models.gan.discriminators import Identity
-
 
 def get_norm_layer(norm_type="instance"):
     """Return a normalization layer
@@ -16,9 +14,11 @@ def get_norm_layer(norm_type="instance"):
     For InstanceNorm, we do not use learnable affine parameters. We do not track running statistics.
     """
     if norm_type == "batch":
-        norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
+        norm_layer = functools.partial(torch.nn.BatchNorm2d, affine=True, track_running_stats=True)
     elif norm_type == "instance":
-        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+        norm_layer = functools.partial(
+            torch.nn.InstanceNorm2d, affine=False, track_running_stats=False
+        )
     elif norm_type == "none":
 
         def norm_layer(x):
@@ -134,3 +134,8 @@ def cal_gradient_penalty(
         return gradient_penalty, gradients
     else:
         return 0.0, None
+
+
+class Identity(nn.Module):
+    def forward(self, x):
+        return x
