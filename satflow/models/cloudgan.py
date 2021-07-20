@@ -17,10 +17,10 @@ class CloudGAN(pl.LightningModule):
         beta1: float = 0.5,
         beta2: float = 0.999,
         num_filters: int = 64,
-        generator_model: str = "unet_128",
+        generator_model: str = "runet",
         norm: str = "batch",
         use_dropout: bool = False,
-        discriminator_model: str = "basic",
+        discriminator_model: str = "enhanced",
         discriminator_layers: int = 0,
         loss: str = "vanilla",
         scheduler: str = "plateau",
@@ -68,8 +68,8 @@ class CloudGAN(pl.LightningModule):
             generated_images = self(images)
             fake = torch.cat((images, generated_images), 1)
             # log sampled images
-            # if np.random.random() < 0.01:
-            self.visualize(images, future_images, generated_images, batch_idx, step="train")
+            if np.random.random() < 0.01:
+                self.visualize(images, future_images, generated_images, batch_idx, step="train")
 
             # adversarial loss is binary cross-entropy
             gan_loss = self.criterionGAN(self.discriminator(fake), True)
