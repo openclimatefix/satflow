@@ -24,6 +24,7 @@ class Unet(pl.LightningModule):
     ):
         super(Unet, self).__init__()
         self.lr = lr
+        self.input_channels = input_channels
         self.forecast_steps = forecast_steps
         assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
         if loss == "mse":
@@ -109,15 +110,17 @@ class Unet(pl.LightningModule):
             if i % self.input_channels == 0:  # First one
                 j += 1
                 tensorboard.add_image(
-                    f"Input_Image_{j}_Channel_{i}", in_slice, global_step=batch_idx
+                    f"Input_Image_{j}_Channel_{i}",
+                    np.expand_dims(in_slice, axis=0),
+                    global_step=batch_idx,
                 )  # Each Channel
         out_image = y_hat[0].cpu().detach().numpy()
         for i, out_slice in enumerate(out_image):
             tensorboard.add_image(
-                f"Output_Image_{i}", out_slice, global_step=batch_idx
+                f"Output_Image_{i}", np.expand_dims(out_slice, axis=0), global_step=batch_idx
             )  # Each Channel
         out_image = y[0].cpu().detach().numpy()
         for i, out_slice in enumerate(out_image):
             tensorboard.add_image(
-                f"Target_Image_{i}", out_slice, global_step=batch_idx
+                f"Target_Image_{i}", np.expand_dims(out_slice, axis=0), global_step=batch_idx
             )  # Each Channel

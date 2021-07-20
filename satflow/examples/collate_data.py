@@ -3,7 +3,7 @@ import subprocess
 
 from satflow.data.utils.utils import map_satellite_to_mercator
 
-eumetsat_dir = "/run/media/bieker/Round1/EUMETSAT/"
+eumetsat_dir = "/run/media/bieker/Round1/EUMETSAT/2020/"
 
 
 def decompress(full_bzip_filename: str) -> str:

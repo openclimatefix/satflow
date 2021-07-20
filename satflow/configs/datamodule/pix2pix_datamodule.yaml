@@ -1,7 +1,7 @@
 # @package _group_
 _target_: satflow.data.datamodules.SatFlowDataModule
 
-batch_size: 12
+batch_size: 16
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 shuffle: 0
 sources:
@@ -12,21 +12,33 @@ num_workers: 12
 pin_memory: True
 config:
   visualize: False
-  num_timesteps: 6
+  num_timesteps: 3
   skip_timesteps: 1
-  forecast_times: 24
+  forecast_times: 6
   output_shape: 128
   target_type: "cloudmask"
   num_crops: 10
-  num_times: 15
-  use_topo: False
-  use_latlon: False
+  use_topo: True
+  use_latlon: True
   use_time: False
   time_aux: False
   use_mask: False
-  use_image: False
+  use_image: True
   time_as_channels: True
   add_pixel_coords: False
-  add_polar_coords: False
-  bands: ["HRV", "IR016", "VIS006", "VIS008"]
+  bands:
+    [
+      "HRV",
+      "IR016",
+      "IR039",
+      "IR087",
+      "IR097",
+      "IR108",
+      "IR120",
+      "IR134",
+      "VIS006",
+      "VIS008",
+      "WV062",
+      "WV073",
+    ]
   transforms: {}

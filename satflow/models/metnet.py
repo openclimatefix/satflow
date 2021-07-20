@@ -50,6 +50,7 @@ class MetNet(pl.LightningModule):
         super().__init__()
 
         self.forecast_steps = forecast_steps
+        self.criterion = F.mse_loss
         self.lr = lr
         self.criterion = F.mse_loss
         self.make_vis = make_vis
