@@ -4,6 +4,7 @@ import torch
 from torch import nn as nn
 
 from satflow.models.gan.common import get_norm_layer, init_net
+from satflow.models.runet import R2U_Net
 
 
 def define_G(
@@ -60,6 +61,8 @@ def define_G(
         net = UnetGenerator(
             input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout
         )
+    elif netG == "runet":
+        net = R2U_Net(input_nc, output_nc, t=3)  # 3 residual blocks from the slide
     else:
         raise NotImplementedError("Generator model name [%s] is not recognized" % netG)
     return init_net(net, init_type, init_gain)
