@@ -381,7 +381,7 @@ class DiscriminatorNetwork(torch.nn.Module):
         return logits
 
 
-class TimeGAN(torch.nn.Module):
+class TimeGANModel(torch.nn.Module):
     """Implementation of TimeGAN (Yoon et al., 2019) using PyTorch
     Reference:
     - https://papers.nips.cc/paper/2019/hash/c9efe5f26cd17ba6216bbe2a7d26d490-Abstract.html
@@ -389,7 +389,7 @@ class TimeGAN(torch.nn.Module):
     """
 
     def __init__(self, args):
-        super(TimeGAN, self).__init__()
+        super(TimeGANModel, self).__init__()
         self.device = args.device
         self.feature_dim = args.feature_dim
         self.Z_dim = args.Z_dim
