@@ -4,6 +4,8 @@ from torch.optim import lr_scheduler
 import torchvision
 from collections import OrderedDict
 from satflow.models import R2U_Net, ConvLSTM
+from satflow.models.gan import PixelDiscriminator, NLayerDiscriminator, GANLoss
+import numpy as np
 
 
 class CloudGAN(pl.LightningModule):
@@ -53,7 +55,38 @@ class CloudGAN(pl.LightningModule):
             return output
 
     def validation_step(self, batch, batch_idx):
-        return
+        images, future_images, future_masks = batch
+        # generate images
+        generated_images = self(images)
+        fake = torch.cat((images, generated_images), 1)
+        # log sampled images
+        if np.random.random() < 0.01:
+            self.visualize(images, future_images, generated_images, batch_idx, step="val")
+
+        # adversarial loss is binary cross-entropy
+        gan_loss = self.criterionGAN(self.discriminator(fake), True)
+        l1_loss = self.criterionL1(generated_images, future_images) * self.lambda_l1
+        g_loss = gan_loss + l1_loss
+        # how well can it label as real?
+        real = torch.cat((images, future_images), 1)
+        real_loss = self.criterionGAN(self.discriminator(real), True)
+
+        # how well can it label as fake?
+        fake_loss = self.criterionGAN(self.discriminator(fake), True)
+
+        # discriminator loss is the average of these
+        d_loss = (real_loss + fake_loss) / 2
+        tqdm_dict = {"d_loss": d_loss}
+        output = OrderedDict(
+            {
+                "val/discriminator_loss": d_loss,
+                "val/generator_loss": g_loss,
+                "progress_bar": tqdm_dict,
+                "log": tqdm_dict,
+            }
+        )
+        self.log_dict({"val/d_loss": d_loss, "val/g_loss": g_loss, "val/loss": d_loss + g_loss})
+        return output
 
     def forward(self, x):
         return x
