@@ -2,15 +2,94 @@ import torch
 import torch.nn as nn
 from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
+import torchvision
+
+
+class AttentionUnet(pl.LightningModule):
+    def __init__(self, input_channels: int = 12, output_channels: int = 12):
+        super().__init__()
+        self.input_channels = input_channels
+        self.output_channels = output_channels
+        self.module = AttU_Net(input_channels=input_channels, output_channels=output_channels)
+
+    def forward(self, x):
+        return self.module.forward(x)
+
+    def training_step(self, batch, batch_idx):
+        return
+
+    def validation_step(self, batch, batch_idx):
+        return
+
+    def configure_optimizers(self):
+        return
+
+    def visualize(self, x, y, y_hat, batch_idx, step):
+        # the logger you used (in this case tensorboard)
+        tensorboard = self.logger.experiment[0]
+        # Add all the different timesteps for a single prediction, 0.1% of the time
+        images = x[0].cpu().detach()
+        images = [img for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=self.channels_per_timestep)
+        tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
+        images = y[0].cpu().detach()
+        images = [img for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=12)
+        tensorboard.add_image(f"{step}/Target_Image_Stack", image_grid, global_step=batch_idx)
+        images = y_hat[0].cpu().detach()
+        images = [img for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=12)
+        tensorboard.add_image(f"{step}/Generated_Image_Stack", image_grid, global_step=batch_idx)
+
+
+class AttentionRUnet(pl.LightningModule):
+    def __init__(
+        self, input_channels: int = 12, output_channels: int = 12, recurrent_blocks: int = 2
+    ):
+        super().__init__()
+        self.input_channels = input_channels
+        self.output_channels = output_channels
+        self.module = R2AttU_Net(
+            input_channels=input_channels, output_channels=output_channels, t=recurrent_blocks
+        )
+
+    def forward(self, x):
+        return self.module.forward(x)
+
+    def training_step(self, batch, batch_idx):
+        return
+
+    def validation_step(self, batch, batch_idx):
+        return
+
+    def configure_optimizers(self):
+        return
+
+    def visualize(self, x, y, y_hat, batch_idx, step):
+        # the logger you used (in this case tensorboard)
+        tensorboard = self.logger.experiment[0]
+        # Add all the different timesteps for a single prediction, 0.1% of the time
+        images = x[0].cpu().detach()
+        images = [torch.unsqueeze(img, dim=0) for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=self.channels_per_timestep)
+        tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
+        images = y[0].cpu().detach()
+        images = [torch.unsqueeze(img, dim=0) for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=12)
+        tensorboard.add_image(f"{step}/Target_Image_Stack", image_grid, global_step=batch_idx)
+        images = y_hat[0].cpu().detach()
+        images = [torch.unsqueeze(img, dim=0) for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=12)
+        tensorboard.add_image(f"{step}/Generated_Image_Stack", image_grid, global_step=batch_idx)
 
 
 class AttU_Net(nn.Module):
-    def __init__(self, img_ch=3, output_ch=1):
+    def __init__(self, input_channels=3, output_channels=1):
         super(AttU_Net, self).__init__()
 
         self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.Conv1 = conv_block(ch_in=img_ch, ch_out=64)
+        self.Conv1 = conv_block(ch_in=input_channels, ch_out=64)
         self.Conv2 = conv_block(ch_in=64, ch_out=128)
         self.Conv3 = conv_block(ch_in=128, ch_out=256)
         self.Conv4 = conv_block(ch_in=256, ch_out=512)
@@ -32,7 +111,7 @@ class AttU_Net(nn.Module):
         self.Att2 = Attention_block(F_g=64, F_l=64, F_int=32)
         self.Up_conv2 = conv_block(ch_in=128, ch_out=64)
 
-        self.Conv_1x1 = nn.Conv2d(64, output_ch, kernel_size=1, stride=1, padding=0)
+        self.Conv_1x1 = nn.Conv2d(64, output_channels, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
         # encoding path
@@ -77,13 +156,13 @@ class AttU_Net(nn.Module):
 
 
 class R2AttU_Net(nn.Module):
-    def __init__(self, img_ch=3, output_ch=1, t=2):
+    def __init__(self, input_channels=3, output_channels=1, t=2):
         super(R2AttU_Net, self).__init__()
 
         self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.Upsample = nn.Upsample(scale_factor=2)
 
-        self.RRCNN1 = RRCNN_block(ch_in=img_ch, ch_out=64, t=t)
+        self.RRCNN1 = RRCNN_block(ch_in=input_channels, ch_out=64, t=t)
 
         self.RRCNN2 = RRCNN_block(ch_in=64, ch_out=128, t=t)
 
@@ -109,7 +188,7 @@ class R2AttU_Net(nn.Module):
         self.Att2 = Attention_block(F_g=64, F_l=64, F_int=32)
         self.Up_RRCNN2 = RRCNN_block(ch_in=128, ch_out=64, t=t)
 
-        self.Conv_1x1 = nn.Conv2d(64, output_ch, kernel_size=1, stride=1, padding=0)
+        self.Conv_1x1 = nn.Conv2d(64, output_channels, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
         # encoding path

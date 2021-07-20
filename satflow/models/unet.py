@@ -6,6 +6,7 @@ from pl_bolts.models.vision import UNet
 import numpy as np
 from typing import Union
 from satflow.models.losses import FocalLoss
+import torchvision
 
 
 @register_model
@@ -98,29 +99,18 @@ class Unet(pl.LightningModule):
         loss = self.criterion(y_hat, y)
         return loss
 
-    def visualize(self, x, y, y_hat, batch_idx):
-        # the logger you used (in this case tensorboard)
+    def visualize(self, x, y, y_hat, batch_idx, step="train"):
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
-        in_image = (
-            x[0].cpu().detach().numpy()
-        )  # Input image stack, Unet takes everything in channels, so no time dimension
-        for i, in_slice in enumerate(in_image):
-            j = 0
-            if i % self.input_channels == 0:  # First one
-                j += 1
-                tensorboard.add_image(
-                    f"Input_Image_{j}_Channel_{i}",
-                    np.expand_dims(in_slice, axis=0),
-                    global_step=batch_idx,
-                )  # Each Channel
-        out_image = y_hat[0].cpu().detach().numpy()
-        for i, out_slice in enumerate(out_image):
-            tensorboard.add_image(
-                f"Output_Image_{i}", np.expand_dims(out_slice, axis=0), global_step=batch_idx
-            )  # Each Channel
-        out_image = y[0].cpu().detach().numpy()
-        for i, out_slice in enumerate(out_image):
-            tensorboard.add_image(
-                f"Target_Image_{i}", np.expand_dims(out_slice, axis=0), global_step=batch_idx
-            )  # Each Channel
+        images = x[0].cpu().detach()
+        images = [torch.unsqueeze(img, dim=0) for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=self.channels_per_timestep)
+        tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
+        images = y[0].cpu().detach()
+        images = [torch.unsqueeze(img, dim=0) for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=12)
+        tensorboard.add_image(f"{step}/Target_Image_Stack", image_grid, global_step=batch_idx)
+        images = y_hat[0].cpu().detach()
+        images = [torch.unsqueeze(img, dim=0) for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=12)
+        tensorboard.add_image(f"{step}/Generated_Image_Stack", image_grid, global_step=batch_idx)
