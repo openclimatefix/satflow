@@ -29,8 +29,6 @@ box_2 = (446, -1, 978, -1)
 data_dir = "/run/media/bieker/Round1/EUMETSAT/"
 debug_fp = "../logs/EUMETSAT_download.txt"
 metadata_db_fp = "../data/EUMETSAT_metadata.db"
-user_key = "L_ZQjZR0GU1SgtSmmUeRefYMmoga"
-user_secret = "oqmObw5H3WOewKmCl4vintUzUvca"
 from glob import glob
 
 grb_files = glob(data_dir + "*.grb")
