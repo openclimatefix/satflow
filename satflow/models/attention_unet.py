@@ -4,8 +4,10 @@ import pytorch_lightning as pl
 import torchvision
 import numpy as np
 from satflow.models.losses import FocalLoss
+from satflow.models.base import register_model
 
 
+@register_model
 class AttentionUnet(pl.LightningModule):
     def __init__(
         self,
@@ -13,11 +15,14 @@ class AttentionUnet(pl.LightningModule):
         forecast_steps: int = 12,
         loss: Union[str, torch.nn.Module] = "mse",
         lr: float = 0.001,
+        visualize: bool = False,
     ):
         super().__init__()
         self.lr = lr
+        self.make_vis = visualize
         self.input_channels = input_channels
-        self.output_channels = forecast_steps
+        self.forecast_steps = forecast_steps
+        self.channels_per_timestep = 12
         self.model = AttU_Net(input_channels=input_channels, output_channels=forecast_steps)
         assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
         if loss == "mse":
@@ -82,19 +87,20 @@ class AttentionUnet(pl.LightningModule):
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
         images = x[0].cpu().detach()
-        images = [img for img in images]
+        images = [torch.unsqueeze(img, dim=0) for img in images]
         image_grid = torchvision.utils.make_grid(images, nrow=self.channels_per_timestep)
         tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
         images = y[0].cpu().detach()
-        images = [img for img in images]
+        images = [torch.unsqueeze(img, dim=0) for img in images]
         image_grid = torchvision.utils.make_grid(images, nrow=12)
         tensorboard.add_image(f"{step}/Target_Image_Stack", image_grid, global_step=batch_idx)
         images = y_hat[0].cpu().detach()
-        images = [img for img in images]
+        images = [torch.unsqueeze(img, dim=0) for img in images]
         image_grid = torchvision.utils.make_grid(images, nrow=12)
         tensorboard.add_image(f"{step}/Generated_Image_Stack", image_grid, global_step=batch_idx)
 
 
+@register_model
 class AttentionRUnet(pl.LightningModule):
     def __init__(
         self,
