@@ -4,6 +4,7 @@ import torchvision
 from typing import Union
 from satflow.models.losses import FocalLoss
 from satflow.models.base import register_model
+import numpy as np
 
 
 @register_model
@@ -59,7 +60,7 @@ class RUnet(pl.LightningModule):
 
         if self.visualize:
             if np.random.random() < 0.01:
-                self.visualize(x, y, y_hat, batch_idx)
+                self.visualize_step(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         loss = self.criterion(y_hat, y)
@@ -92,7 +93,7 @@ class RUnet(pl.LightningModule):
         loss = self.criterion(y_hat, y)
         return loss
 
-    def visualize(self, x, y, y_hat, batch_idx, step="train"):
+    def visualize_step(self, x, y, y_hat, batch_idx, step="train"):
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
         images = x[0].cpu().detach()

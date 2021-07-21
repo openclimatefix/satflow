@@ -22,7 +22,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         out_channels: int = 1,
         forecast_steps: int = 48,
         lr: float = 0.001,
-        make_vis: bool = False,
+        visualize: bool = False,
         loss: Union[str, torch.nn.Module] = "mse",
         pretrained: bool = False,
     ):
@@ -41,7 +41,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
             else:
                 raise ValueError(f"loss {loss} not recognized")
         self.lr = lr
-        self.make_vis = make_vis
+        self.visualize = visualize
         self.module = ConvLSTM(input_channels, hidden_dim, out_channels)
         self.save_hyperparameters()
 
@@ -69,9 +69,9 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         # the logger you used (in this case tensorboard)
-        if self.make_vis:
+        if self.visualize:
             if np.random.random() < 0.01:
-                self.visualize(x, y, y_hat, batch_idx)
+                self.visualize_step(x, y, y_hat, batch_idx)
         loss = self.criterion(y_hat, y)
         self.log("train/loss", loss, on_step=True)
         y_hat = torch.moveaxis(y_hat, 2, 1)
@@ -102,7 +102,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         loss = self.criterion(y_hat, y)
         return loss
 
-    def visualize(self, x, y, y_hat, batch_idx, step="train"):
+    def visualize_step(self, x, y, y_hat, batch_idx, step="train"):
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
         images = x[0].cpu().detach()

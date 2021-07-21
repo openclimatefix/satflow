@@ -68,7 +68,9 @@ class CloudGAN(pl.LightningModule):
             fake = torch.cat((images, generated_images), 1)
             # log sampled images
             if np.random.random() < 0.01:
-                self.visualize(images, future_images, generated_images, batch_idx, step="train")
+                self.visualize_step(
+                    images, future_images, generated_images, batch_idx, step="train"
+                )
 
             # adversarial loss is binary cross-entropy
             gan_loss = self.criterionGAN(self.discriminator(fake), True)
@@ -106,7 +108,7 @@ class CloudGAN(pl.LightningModule):
         fake = torch.cat((images, generated_images), 1)
         # log sampled images
         if np.random.random() < 0.01:
-            self.visualize(images, future_images, generated_images, batch_idx, step="val")
+            self.visualize_step(images, future_images, generated_images, batch_idx, step="val")
 
         # adversarial loss is binary cross-entropy
         gan_loss = self.criterionGAN(self.discriminator(fake), True)
@@ -158,7 +160,7 @@ class CloudGAN(pl.LightningModule):
 
         return [opt_g, opt_d], [g_scheduler, d_scheduler]
 
-    def visualize(self, x, y, y_hat, batch_idx, step):
+    def visualize_step(self, x, y, y_hat, batch_idx, step):
         # the logger you used (in this case tensorboard)
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
