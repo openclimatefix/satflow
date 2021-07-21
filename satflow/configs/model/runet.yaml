@@ -4,5 +4,5 @@ input_channels: 68
 hidden_dim: 64
 num_layers: 5
 forecast_steps: 24
-make_vis: True
+visualize: True
 lr: 0.0001

@@ -9,6 +9,7 @@ from satflow.models.layers import ConvGRU, TimeDistributed
 from axial_attention import AxialAttention
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 import numpy as np
+import torchvision
 
 
 class DownSampler(nn.Module):
@@ -45,7 +46,7 @@ class MetNet(pl.LightningModule):
         temporal_dropout: float = 0.2,
         lr: float = 0.001,
         pretrained: bool = False,
-        make_vis: bool = False,
+        visualize: bool = False,
     ):
         super().__init__()
 
@@ -53,7 +54,7 @@ class MetNet(pl.LightningModule):
         self.criterion = F.mse_loss
         self.lr = lr
         self.criterion = F.mse_loss
-        self.make_vis = make_vis
+        self.visualize = visualize
         self.drop = nn.Dropout(temporal_dropout)
         if image_encoder in ["downsampler", "default"]:
             image_encoder = DownSampler(input_channels + forecast_steps)
@@ -134,9 +135,9 @@ class MetNet(pl.LightningModule):
         y_hat = self(x)
         y = torch.squeeze(y)
 
-        if self.make_vis:
+        if self.visualize:
             if np.random.random() < 0.01:
-                self.visualize(x, y, y_hat, batch_idx)
+                self.visualize_step(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         loss = self.criterion(y_hat, y)
@@ -170,34 +171,21 @@ class MetNet(pl.LightningModule):
         loss = F.mse_loss(y_hat, y)
         return loss
 
-    def visualize(self, x, y, y_hat, batch_idx):
+    def visualize_step(self, x, y, y_hat, batch_idx, step="train"):
         tensorboard = self.logger.experiment[0]
-        # print(tensorboard)
         # Add all the different timesteps for a single prediction, 0.1% of the time
-        in_image = x[0].cpu().detach().numpy()  # Input image stack
-        for i, in_slice in enumerate(in_image):
-            for j, in_channel in enumerate(in_slice):
-                tensorboard.add_image(
-                    f"Input_Image_{i}_Channel_{j}",
-                    np.expand_dims(in_channel, axis=0),
-                    global_step=batch_idx,
-                )  # Each Channel
-        out_image = y_hat[0].cpu().detach().numpy()
-        for i, out_slice in enumerate(out_image):
-            for j, out_channel in enumerate(out_slice):
-                tensorboard.add_image(
-                    f"Output_Image_{i}_Channel_{j}",
-                    np.expand_dims(out_channel, axis=0),
-                    global_step=batch_idx,
-                )  # Each Channel
-        out_image = y[0].cpu().detach().numpy()
-        for i, out_slice in enumerate(out_image):
-            for j, out_channel in enumerate(out_slice):
-                tensorboard.add_image(
-                    f"Target_{i}_Channel_{j}",
-                    np.expand_dims(out_channel, axis=0),
-                    global_step=batch_idx,
-                )  # Each Channel
+        images = x[0].cpu().detach()
+        images = [img for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=self.channels_per_timestep)
+        tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
+        images = y[0].cpu().detach()
+        images = [img for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=12)
+        tensorboard.add_image(f"{step}/Target_Image_Stack", image_grid, global_step=batch_idx)
+        images = y_hat[0].cpu().detach()
+        images = [img for img in images]
+        image_grid = torchvision.utils.make_grid(images, nrow=12)
+        tensorboard.add_image(f"{step}/Generated_Image_Stack", image_grid, global_step=batch_idx)
 
 
 class TemporalEncoder(nn.Module):

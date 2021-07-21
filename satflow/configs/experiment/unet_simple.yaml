@@ -5,7 +5,7 @@
 
 defaults:
   - override /trainer: minimal.yaml # choose trainer from 'configs/trainer/'
-  - override /model: unet_model.yaml
+  - override /model: unet.yaml
   - override /datamodule: unet_dataloaders.yaml
   - override /callbacks: default.yaml
   - override /logger: null
