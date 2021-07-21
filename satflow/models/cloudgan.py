@@ -42,6 +42,12 @@ class CloudGAN(pl.LightningModule):
         self.channels_per_timestep = channels_per_timestep
 
         # define networks (both generator and discriminator)
+        if generator_model == "runet":
+            generator_model = R2U_Net(input_channels, self.output_channels, t=3)
+        elif generator_model == "convlstm":
+            generator_model = ConvLSTM(
+                input_channels, hidden_dim=num_filters, out_channels=self.output_channels
+            )
         self.generator = define_G(
             input_channels, self.output_channels, num_filters, generator_model, norm, use_dropout
         )
