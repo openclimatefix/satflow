@@ -99,9 +99,78 @@ class CloudGAN(pl.LightningModule):
         self.criterionL1 = torch.nn.L1Loss()
         self.save_hyperparameters()
 
-    def training_step(self, batch, batch_idx, optimizer_idx):
-        images, future_images, future_masks = batch
-        # train generator
+    def train_per_timestep(
+        self, images: torch.Tensor, future_images: torch.Tensor, optimizer_idx: int, batch_idx: int
+    ):
+        """
+        For training with conditioning on time, so when the model is giving a single output
+
+        This goes through every timestep in forecast_steps and runs the training
+        Args:
+            images: (Batch, Timestep, Channels, Width, Height)
+            future_images: (Batch, Timestep, Channels, Width, Height)
+            optimizer_idx: int, the optiimizer to use
+
+        Returns:
+
+        """
+
+        if optimizer_idx == 0:
+            # generate images
+            total_loss = 0
+            for i in range(self.forecast_steps):
+                x = self.ct.forward(images, i)  # Condition on future timestep
+                fake = self(x)  # (Batch, Channel, Width, Height)
+
+                # adversarial loss is binary cross-entropy
+                gan_loss = self.criterionGAN(self.discriminator(fake), True)
+                # Only L1 loss on the given timestep
+                l1_loss = self.criterionL1(fake, future_images[:, i, :, :]) * self.lambda_l1
+                self.log(f"train/frame_{i}_l1_loss", l1_loss)
+                g_loss = gan_loss + l1_loss
+                total_loss += g_loss
+            g_loss = total_loss / self.forecast_steps  # Get the mean loss over all timesteps
+            tqdm_dict = {"g_loss": g_loss}
+            output = OrderedDict({"loss": g_loss, "progress_bar": tqdm_dict, "log": tqdm_dict})
+            self.log_dict({"train/g_loss": g_loss})
+            return output
+
+        # train discriminator
+        if optimizer_idx == 1:
+            # Measure discriminator's ability to classify real from generated samples
+            # generate images
+            total_loss = 0
+            for i in range(self.forecast_steps):
+                x = self.ct.forward(images, i)  # Condition on future timestep
+                fake = self(x)  # (Batch, Channel, Width, Height)
+                real_loss = self.criterionGAN(self.discriminator(future_images[:, i, :, :]), True)
+                # adversarial loss is binary cross-entropy
+                fake_loss = self.criterionGAN(self.discriminator(fake), False)
+                # Only L1 loss on the given timestep
+                # discriminator loss is the average of these
+                d_loss = (real_loss + fake_loss) / 2
+                self.log(f"train/frame_{i}_d_loss", d_loss)
+                total_loss += d_loss
+            d_loss = total_loss / self.forecast_steps  # Average of the per-timestep loss
+            tqdm_dict = {"d_loss": d_loss}
+            output = OrderedDict({"loss": d_loss, "progress_bar": tqdm_dict, "log": tqdm_dict})
+            self.log_dict({"train/d_loss": d_loss})
+            return output
+
+    def train_all_timestep(
+        self, images: torch.Tensor, future_images: torch.Tensor, optimizer_idx: int, batch_idx: int
+    ):
+        """
+        Train on all timesteps, instead of single timestep at a time. No conditioning on future timestep
+        Args:
+            images:
+            future_images:
+            optimizer_idx:
+            batch_idx:
+
+        Returns:
+
+        """
         if optimizer_idx == 0:
             # generate images
             generated_images = self(images)
@@ -132,7 +201,7 @@ class CloudGAN(pl.LightningModule):
             # how well can it label as fake?
             gen_output = self(images)
             fake = torch.cat((images, gen_output), 1)
-            fake_loss = self.criterionGAN(self.discriminator(fake), True)
+            fake_loss = self.criterionGAN(self.discriminator(fake), False)
 
             # discriminator loss is the average of these
             d_loss = (real_loss + fake_loss) / 2
@@ -141,8 +210,14 @@ class CloudGAN(pl.LightningModule):
             self.log_dict({"train/d_loss": d_loss})
             return output
 
-    def validation_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, optimizer_idx):
         images, future_images, future_masks = batch
+        if self.condition_time:
+            return self.train_per_timestep(images, future_images, optimizer_idx, batch_idx)
+        else:
+            return self.train_all_timestep(images, future_images, optimizer_idx, batch_idx)
+
+    def val_all_timestep(self, images, future_images, batch_idx):
         # generate images
         generated_images = self(images)
         fake = torch.cat((images, generated_images), 1)
@@ -174,6 +249,57 @@ class CloudGAN(pl.LightningModule):
         )
         self.log_dict({"val/d_loss": d_loss, "val/g_loss": g_loss, "val/loss": d_loss + g_loss})
         return output
+
+    def val_per_timestep(self, images, future_images, batch_idx):
+        # generate images
+        generated_images = self(images)
+        fake = torch.cat((images, generated_images), 1)
+        # log sampled images
+        if np.random.random() < 0.01:
+            self.visualize_step(images, future_images, generated_images, batch_idx, step="val")
+
+        total_g_loss = 0
+        total_d_loss = 0
+        for i in range(self.forecast_steps):
+            x = self.ct.forward(images, i)  # Condition on future timestep
+            fake = self(x)  # (Batch, Channel, Width, Height)
+
+            # adversarial loss is binary cross-entropy
+            gan_loss = self.criterionGAN(self.discriminator(fake), True)
+            # Only L1 loss on the given timestep
+            l1_loss = self.criterionL1(fake, future_images[:, i, :, :]) * self.lambda_l1
+            real_loss = self.criterionGAN(self.discriminator(future_images[:, i, :, :]), True)
+            # adversarial loss is binary cross-entropy
+            fake_loss = self.criterionGAN(self.discriminator(fake), False)
+            # Only L1 loss on the given timestep
+            # discriminator loss is the average of these
+            d_loss = (real_loss + fake_loss) / 2
+            self.log(f"val/frame_{i}_d_loss", d_loss)
+            total_d_loss += d_loss
+            self.log(f"val/frame_{i}_l1_loss", l1_loss)
+            g_loss = gan_loss + l1_loss
+            total_g_loss += g_loss
+        g_loss = total_g_loss / self.forecast_steps
+        d_loss = total_d_loss / self.forecast_steps
+        loss = g_loss + d_loss
+        tqdm_dict = {"loss": loss}
+        output = OrderedDict(
+            {
+                "val/discriminator_loss": d_loss,
+                "val/generator_loss": g_loss,
+                "progress_bar": tqdm_dict,
+                "log": tqdm_dict,
+            }
+        )
+        self.log_dict({"val/d_loss": d_loss, "val/g_loss": g_loss, "val/loss": d_loss + g_loss})
+        return output
+
+    def validation_step(self, batch, batch_idx):
+        images, future_images, future_masks = batch
+        if self.condition_time:
+            return self.val_per_timestep(images, future_images, batch_idx)
+        else:
+            return self.val_all_timestep(images, future_images, batch_idx)
 
     def forward(self, x, **kwargs):
         if self.condition_time:
