@@ -1,28 +1,81 @@
-import torch
-import torch.nn as nn
+from typing import Union
 from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
 import torchvision
+import numpy as np
+from satflow.models.losses import FocalLoss
 
 
 class AttentionUnet(pl.LightningModule):
-    def __init__(self, input_channels: int = 12, output_channels: int = 12):
+    def __init__(
+        self,
+        input_channels: int = 12,
+        forecast_steps: int = 12,
+        loss: Union[str, torch.nn.Module] = "mse",
+        lr: float = 0.001,
+    ):
         super().__init__()
+        self.lr = lr
         self.input_channels = input_channels
-        self.output_channels = output_channels
-        self.module = AttU_Net(input_channels=input_channels, output_channels=output_channels)
+        self.output_channels = forecast_steps
+        self.model = AttU_Net(input_channels=input_channels, output_channels=forecast_steps)
+        assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
+        if loss == "mse":
+            self.criterion = F.mse_loss
+        elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
+            self.criterion = F.nll_loss
+        elif loss in ["focal"]:
+            self.criterion = FocalLoss()
+        else:
+            raise ValueError(f"loss {loss} not recognized")
 
     def forward(self, x):
-        return self.module.forward(x)
-
-    def training_step(self, batch, batch_idx):
-        return
-
-    def validation_step(self, batch, batch_idx):
-        return
+        return self.model.forward(x)
 
     def configure_optimizers(self):
-        return
+        # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
+        # optimizer = torch.optim.adam()
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        x = x.float()
+        y_hat = self(x)
+
+        if self.make_vis:
+            if np.random.random() < 0.01:
+                self.visualize(x, y, y_hat, batch_idx, "train")
+        # Generally only care about the center x crop, so the model can take into account the clouds in the area without
+        # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
+        loss = self.criterion(y_hat, y)
+        self.log("train/loss", loss, on_step=True)
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss_dict[f"train/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        x = x.float()
+        y_hat = self(x)
+        val_loss = self.criterion(y_hat, y)
+        self.log("val/loss", val_loss)
+        # Save out loss per frame as well
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict)
+        return val_loss
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        x = x.float()
+        y_hat = self(x)
+        loss = self.criterion(y_hat, y)
+        return loss
 
     def visualize(self, x, y, y_hat, batch_idx, step):
         # the logger you used (in this case tensorboard)
@@ -44,26 +97,79 @@ class AttentionUnet(pl.LightningModule):
 
 class AttentionRUnet(pl.LightningModule):
     def __init__(
-        self, input_channels: int = 12, output_channels: int = 12, recurrent_blocks: int = 2
+        self,
+        input_channels: int = 12,
+        forecast_steps: int = 12,
+        recurrent_blocks: int = 2,
+        visualize: bool = False,
+        loss: Union[str, torch.nn.Module] = "mse",
+        lr: float = 0.001,
     ):
         super().__init__()
+        self.lr = lr
         self.input_channels = input_channels
-        self.output_channels = output_channels
-        self.module = R2AttU_Net(
-            input_channels=input_channels, output_channels=output_channels, t=recurrent_blocks
+        self.output_channels = forecast_steps
+        self.model = R2AttU_Net(
+            input_channels=input_channels, output_channels=forecast_steps, t=recurrent_blocks
         )
+        self.make_vis = visualize
+        assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
+        if loss == "mse":
+            self.criterion = F.mse_loss
+        elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
+            self.criterion = F.nll_loss
+        elif loss in ["focal"]:
+            self.criterion = FocalLoss()
+        else:
+            raise ValueError(f"loss {loss} not recognized")
 
     def forward(self, x):
-        return self.module.forward(x)
-
-    def training_step(self, batch, batch_idx):
-        return
-
-    def validation_step(self, batch, batch_idx):
-        return
+        return self.model.forward(x)
 
     def configure_optimizers(self):
-        return
+        # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
+        # optimizer = torch.optim.adam()
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        x = x.float()
+        y_hat = self(x)
+
+        if self.make_vis:
+            if np.random.random() < 0.01:
+                self.visualize(x, y, y_hat, batch_idx, "train")
+        # Generally only care about the center x crop, so the model can take into account the clouds in the area without
+        # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
+        loss = self.criterion(y_hat, y)
+        self.log("train/loss", loss, on_step=True)
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss_dict[f"train/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        x = x.float()
+        y_hat = self(x)
+        val_loss = self.criterion(y_hat, y)
+        self.log("val/loss", val_loss)
+        # Save out loss per frame as well
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict)
+        return val_loss
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        x = x.float()
+        y_hat = self(x)
+        loss = self.criterion(y_hat, y)
+        return loss
 
     def visualize(self, x, y, y_hat, batch_idx, step):
         # the logger you used (in this case tensorboard)

@@ -1,0 +1,6 @@
+# @package _group_
+_target_: satflow.models.attention_unet.AttentionRUnet
+input_channels: 68
+forecast_steps: 24
+make_vis: True
+lr: 0.0001
