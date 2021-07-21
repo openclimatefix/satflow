@@ -114,7 +114,8 @@ class AttentionRUnet(pl.LightningModule):
         super().__init__()
         self.lr = lr
         self.input_channels = input_channels
-        self.output_channels = forecast_steps
+        self.forecast_steps = forecast_steps
+        self.channels_per_timestep = 12
         self.model = R2AttU_Net(
             input_channels=input_channels, output_channels=forecast_steps, t=recurrent_blocks
         )

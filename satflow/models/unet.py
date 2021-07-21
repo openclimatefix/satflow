@@ -19,7 +19,7 @@ class Unet(pl.LightningModule):
         hidden_dim: int = 64,
         bilinear: bool = False,
         lr: float = 0.001,
-        make_vis: bool = False,
+        visualize: bool = False,
         loss: Union[str, torch.nn.Module] = "mse",
         pretrained: bool = False,
     ):
@@ -36,7 +36,7 @@ class Unet(pl.LightningModule):
             self.criterion = FocalLoss()
         else:
             raise ValueError(f"loss {loss} not recognized")
-        self.make_vis = make_vis
+        self.visualize = visualize
         self.model = UNet(forecast_steps, input_channels, num_layers, hidden_dim, bilinear)
         self.save_hyperparameters()
 
@@ -64,7 +64,7 @@ class Unet(pl.LightningModule):
         x = x.float()
         y_hat = self(x)
 
-        if self.make_vis:
+        if self.visualize:
             if np.random.random() < 0.01:
                 self.visualize(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without

@@ -33,7 +33,7 @@ class RUnet(pl.LightningModule):
             self.criterion = FocalLoss()
         else:
             raise ValueError(f"loss {loss} not recognized")
-        self.make_vis = visualize
+        self.visualize = visualize
         self.save_hyperparameters()
 
     @classmethod
@@ -57,7 +57,7 @@ class RUnet(pl.LightningModule):
         x = x.float()
         y_hat = self(x)
 
-        if self.make_vis:
+        if self.visualize:
             if np.random.random() < 0.01:
                 self.visualize(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without

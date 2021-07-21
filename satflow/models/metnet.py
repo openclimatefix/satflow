@@ -46,7 +46,7 @@ class MetNet(pl.LightningModule):
         temporal_dropout: float = 0.2,
         lr: float = 0.001,
         pretrained: bool = False,
-        make_vis: bool = False,
+        visualize: bool = False,
     ):
         super().__init__()
 
@@ -54,7 +54,7 @@ class MetNet(pl.LightningModule):
         self.criterion = F.mse_loss
         self.lr = lr
         self.criterion = F.mse_loss
-        self.make_vis = make_vis
+        self.visualize = visualize
         self.drop = nn.Dropout(temporal_dropout)
         if image_encoder in ["downsampler", "default"]:
             image_encoder = DownSampler(input_channels + forecast_steps)
@@ -135,7 +135,7 @@ class MetNet(pl.LightningModule):
         y_hat = self(x)
         y = torch.squeeze(y)
 
-        if self.make_vis:
+        if self.visualize:
             if np.random.random() < 0.01:
                 self.visualize(x, y, y_hat, batch_idx)
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
