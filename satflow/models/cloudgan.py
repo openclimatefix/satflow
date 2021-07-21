@@ -118,10 +118,14 @@ class CloudGAN(pl.LightningModule):
         if optimizer_idx == 0:
             # generate images
             total_loss = 0
+            vis_step = True if np.random.random() < 0.01 else False
             for i in range(self.forecast_steps):
                 x = self.ct.forward(images, i)  # Condition on future timestep
                 fake = self(x)  # (Batch, Channel, Width, Height)
-
+                if vis_step:
+                    self.visualize_step(
+                        images, future_images[:, i, :, :], fake, batch_idx, step=f"train_frame_{i}"
+                    )
                 # adversarial loss is binary cross-entropy
                 gan_loss = self.criterionGAN(self.discriminator(fake), True)
                 # Only L1 loss on the given timestep
@@ -224,7 +228,6 @@ class CloudGAN(pl.LightningModule):
         # log sampled images
         if np.random.random() < 0.01:
             self.visualize_step(images, future_images, generated_images, batch_idx, step="val")
-
         # adversarial loss is binary cross-entropy
         gan_loss = self.criterionGAN(self.discriminator(fake), True)
         l1_loss = self.criterionL1(generated_images, future_images) * self.lambda_l1
@@ -251,19 +254,16 @@ class CloudGAN(pl.LightningModule):
         return output
 
     def val_per_timestep(self, images, future_images, batch_idx):
-        # generate images
-        generated_images = self(images)
-        fake = torch.cat((images, generated_images), 1)
-        # log sampled images
-        if np.random.random() < 0.01:
-            self.visualize_step(images, future_images, generated_images, batch_idx, step="val")
-
         total_g_loss = 0
         total_d_loss = 0
+        vis_step = True if np.random.random() < 0.01 else False
         for i in range(self.forecast_steps):
             x = self.ct.forward(images, i)  # Condition on future timestep
             fake = self(x)  # (Batch, Channel, Width, Height)
-
+            if vis_step:
+                self.visualize_step(
+                    images, future_images[:, i, :, :], fake, batch_idx, step=f"val_frame_{i}"
+                )
             # adversarial loss is binary cross-entropy
             gan_loss = self.criterionGAN(self.discriminator(fake), True)
             # Only L1 loss on the given timestep
@@ -335,14 +335,27 @@ class CloudGAN(pl.LightningModule):
 
         return [opt_g, opt_d], [g_scheduler, d_scheduler]
 
-    def visualize_step(self, x, y, y_hat, batch_idx, step):
+    def visualize_step(
+        self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
+    ):
         # the logger you used (in this case tensorboard)
         tensorboard = self.logger.experiment[0]
-        # Add all the different timesteps for a single prediction, 0.1% of the time
-        images = x[0].cpu().detach()
-        images = [torch.unsqueeze(img, dim=0) for img in images]
-        image_grid = torchvision.utils.make_grid(images, nrow=self.channels_per_timestep)
-        tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
+        # Image input is either (B, C, H, W) or (B, T, C, H, W)
+        if len(x.shape) == 5:
+            # Timesteps per channel
+            images = x[0].cpu().detach()
+            for i, t in enumerate(images):  # Now would be (C, H, W)
+                t = [torch.unsqueeze(img, dim=0) for img in t]
+                image_grid = torchvision.utils.make_grid(t, nrow=self.channels_per_timestep)
+                tensorboard.add_image(
+                    f"{step}/Input_Image_Stack_Frame_{i}", image_grid, global_step=batch_idx
+                )
+        else:
+            images = x[0].cpu().detach()
+            images = [torch.unsqueeze(img, dim=0) for img in images]
+            image_grid = torchvision.utils.make_grid(images, nrow=self.channels_per_timestep)
+            tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
+        # In all cases, the output target and image are in (B, C, H, W) format
         images = y[0].cpu().detach()
         images = [torch.unsqueeze(img, dim=0) for img in images]
         image_grid = torchvision.utils.make_grid(images, nrow=12)
