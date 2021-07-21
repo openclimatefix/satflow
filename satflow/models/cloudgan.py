@@ -6,6 +6,7 @@ from collections import OrderedDict
 from satflow.models import R2U_Net, ConvLSTM
 from satflow.models.gan import GANLoss, define_generator, define_discriminator
 from satflow.models.layers import ConditionTime
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 import numpy as np
 
 
@@ -329,7 +330,14 @@ class CloudGAN(pl.LightningModule):
             )
         elif self.lr_method == "cosine":
             g_scheduler = lr_scheduler.CosineAnnealingLR(opt_g, T_max=self.lr_epochs, eta_min=0)
-            d_scheduler = lr_scheduler.CosineAnnealingLR(opt_g, T_max=self.lr_epochs, eta_min=0)
+            d_scheduler = lr_scheduler.CosineAnnealingLR(opt_d, T_max=self.lr_epochs, eta_min=0)
+        elif self.lr_method == "warmup":
+            g_scheduler = LinearWarmupCosineAnnealingLR(
+                opt_g, warmup_epochs=self.lr_epochs, max_epochs=100
+            )
+            d_scheduler = LinearWarmupCosineAnnealingLR(
+                opt_d, warmup_epochs=self.lr_epochs, max_epochs=100
+            )
         else:
             return NotImplementedError("learning rate policy is not implemented")
 

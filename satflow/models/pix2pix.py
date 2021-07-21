@@ -172,7 +172,7 @@ class Pix2Pix(pl.LightningModule):
             )
         elif self.lr_method == "cosine":
             g_scheduler = lr_scheduler.CosineAnnealingLR(opt_g, T_max=self.lr_epochs, eta_min=0)
-            d_scheduler = lr_scheduler.CosineAnnealingLR(opt_g, T_max=self.lr_epochs, eta_min=0)
+            d_scheduler = lr_scheduler.CosineAnnealingLR(opt_d, T_max=self.lr_epochs, eta_min=0)
         else:
             return NotImplementedError("learning rate policy is not implemented")
 
