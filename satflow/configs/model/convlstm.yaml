@@ -5,3 +5,4 @@ hidden_dim: 64
 out_channels: 1
 forecast_steps: 24
 lr: 0.0001
+visualize: True

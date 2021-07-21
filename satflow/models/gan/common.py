@@ -136,6 +136,6 @@ def cal_gradient_penalty(
         return 0.0, None
 
 
-class Identity(nn.Module):
+class Identity(torch.nn.Module):
     def forward(self, x):
         return x

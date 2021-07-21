@@ -2,16 +2,15 @@ import functools
 
 import torch
 from torch import nn as nn
-
+from typing import Union
 from satflow.models.gan.common import get_norm_layer, init_net
-from satflow.models import R2U_Net, ConvLSTM
 
 
 def define_generator(
     input_nc,
     output_nc,
     ngf,
-    netG,
+    netG: Union[str, torch.nn.Module],
     norm="batch",
     use_dropout=False,
     init_type="normal",
@@ -44,8 +43,9 @@ def define_generator(
     """
     net = None
     norm_layer = get_norm_layer(norm_type=norm)
-
-    if netG == "resnet_9blocks":
+    if isinstance(netG, torch.nn.Module):
+        net = netG
+    elif netG == "resnet_9blocks":
         net = ResnetGenerator(
             input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9
         )
@@ -61,10 +61,6 @@ def define_generator(
         net = UnetGenerator(
             input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout
         )
-    elif netG == "runet":
-        net = R2U_Net(input_nc, output_nc, t=3)  # 3 residual blocks from the slide
-    elif netG == "convlstm":
-        net = ConvLSTM(input_nc, hidden_dim=ngf, out_channels=output_nc)
     else:
         raise NotImplementedError("Generator model name [%s] is not recognized" % netG)
     return init_net(net, init_type, init_gain)
