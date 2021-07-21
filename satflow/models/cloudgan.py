@@ -5,6 +5,7 @@ import torchvision
 from collections import OrderedDict
 from satflow.models import R2U_Net, ConvLSTM
 from satflow.models.gan import GANLoss, define_generator, define_discriminator
+from satflow.models.layers import ConditionTime
 import numpy as np
 
 
@@ -27,7 +28,32 @@ class CloudGAN(pl.LightningModule):
         lr_epochs: int = 10,
         lambda_l1: float = 100.0,
         channels_per_timestep: int = 12,
+        condition_time: bool = False,
     ):
+        """
+        Creates CloudGAN, based off of https://www.climatechange.ai/papers/icml2021/54
+        Changes include allowing outputs for all timesteps, optionally conditioning on time
+        for single timestep output
+
+        Args:
+            forecast_steps: Number of timesteps to forecast
+            input_channels: Number of input channels
+            lr: Learning Rate
+            beta1: optimizer beta1
+            beta2: optimizer beta2 value
+            num_filters: Number of filters in generator
+            generator_model: Generator name
+            norm: Norm type
+            use_dropout: Whether to use dropout
+            discriminator_model: model for discriminator, one of options in define_discriminator
+            discriminator_layers: Number of layers in discriminator, only for NLayerDiscriminator
+            loss: Loss function, described in GANLoss
+            scheduler: LR scheduler name
+            lr_epochs: Epochs for LR scheduler
+            lambda_l1: Lambda for L1 loss, from slides recommended between 5-200
+            channels_per_timestep: Channels per input timestep
+            condition_time: Whether to condition on a future timestep, similar to MetNet
+        """
         super().__init__()
         self.lr = lr
         self.b1 = beta1
@@ -40,7 +66,8 @@ class CloudGAN(pl.LightningModule):
         self.input_channels = input_channels
         self.output_channels = forecast_steps * 12
         self.channels_per_timestep = channels_per_timestep
-
+        if condition_time:
+            self.condition_time = ConditionTime(forecast_steps)
         # define networks (both generator and discriminator)
         if generator_model == "runet":
             generator_model = R2U_Net(input_channels, self.output_channels, t=3)
