@@ -3,6 +3,7 @@ import torch
 from torch.optim import lr_scheduler
 import torchvision
 from collections import OrderedDict
+from satflow.models import R2U_Net, ConvLSTM
 from satflow.models.gan import GANLoss, define_generator, define_discriminator
 import numpy as np
 
@@ -47,7 +48,7 @@ class CloudGAN(pl.LightningModule):
             generator_model = ConvLSTM(
                 input_channels, hidden_dim=num_filters, out_channels=self.output_channels
             )
-        self.generator = define_G(
+        self.generator = define_generator(
             input_channels, self.output_channels, num_filters, generator_model, norm, use_dropout
         )
         if generator_model == "convlstm":
