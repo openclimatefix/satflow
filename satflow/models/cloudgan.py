@@ -66,8 +66,9 @@ class CloudGAN(pl.LightningModule):
         self.input_channels = input_channels
         self.output_channels = forecast_steps * 12
         self.channels_per_timestep = channels_per_timestep
+        self.condition_time = condition_time
         if condition_time:
-            self.condition_time = ConditionTime(forecast_steps)
+            self.ct = ConditionTime(forecast_steps)
         # define networks (both generator and discriminator)
         if generator_model == "runet":
             generator_model = R2U_Net(input_channels, self.output_channels, t=3)
@@ -175,7 +176,16 @@ class CloudGAN(pl.LightningModule):
         return output
 
     def forward(self, x, **kwargs):
-        return self.generator.forward(x, **kwargs)
+        if self.condition_time:
+            res = []
+            for i in range(self.forecast_steps):
+                x_i = self.ct.forward(x, i)
+                out = self.generator.forward(x_i, **kwargs)
+                res.append(out)
+            res = torch.stack(res, dim=1).squeeze()
+            return res
+        else:
+            return self.generator.forward(x, **kwargs)
 
     def configure_optimizers(self):
         lr = self.lr
