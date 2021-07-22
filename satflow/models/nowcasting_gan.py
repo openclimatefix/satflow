@@ -9,7 +9,7 @@ from satflow.models.base import register_model
 
 
 @register_model
-class DVDGan(pl.LightningModule):
+class NowcastingGAN(pl.LightningModule):
     def __init__(
         self,
         forecast_steps: int,
@@ -22,7 +22,21 @@ class DVDGan(pl.LightningModule):
         loss: Union[str, torch.nn.Module] = "mse",
         pretrained: bool = False,
     ):
-        super(DVDGan, self).__init__()
+        """
+        Nowcasting GAN is an attempt to recreate DeepMind's Skillful Nowcasting GAN from https://arxiv.org/abs/2104.00954
+        but slightly modified for multiple satellite channels
+        Args:
+            forecast_steps:
+            input_channels:
+            num_layers:
+            hidden_dim:
+            bilinear:
+            lr:
+            make_vis:
+            loss:
+            pretrained:
+        """
+        super(NowcastingGAN, self).__init__()
         self.lr = lr
         assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
         if loss == "mse":
