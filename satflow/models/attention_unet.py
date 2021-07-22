@@ -3,9 +3,8 @@ from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
 import torchvision
 import numpy as np
-from satflow.models.losses import FocalLoss
+from satflow.models.losses import FocalLoss, get_loss
 from satflow.models.base import register_model
-from satflow.models.utils import get_loss
 
 
 @register_model

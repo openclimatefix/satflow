@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 import torchvision
 from typing import Union
 from satflow.models.base import register_model
-from satflow.models.utils import get_loss
+from satflow.models.losses import get_loss
 import numpy as np
 
 

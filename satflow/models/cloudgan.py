@@ -6,7 +6,7 @@ from collections import OrderedDict
 from satflow.models import R2U_Net, ConvLSTM
 from satflow.models.gan import GANLoss, define_generator, define_discriminator
 from satflow.models.layers import ConditionTime
-from satflow.models.utils import get_loss
+from satflow.models.losses import get_loss
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 import numpy as np
 
@@ -100,7 +100,7 @@ class CloudGAN(pl.LightningModule):
 
         # define loss functions
         self.criterionGAN = GANLoss(loss)
-        self.criterionL1 = get_loss(loss, channels=self.channels_per_timestep)
+        self.criterionL1 = get_loss(l1_loss, channels=self.channels_per_timestep)
         self.save_hyperparameters()
 
     def train_per_timestep(

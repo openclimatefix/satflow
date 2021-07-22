@@ -5,7 +5,7 @@ from pl_bolts.models.vision import UNet
 import numpy as np
 from typing import Union
 import torchvision
-from satflow.models.utils import get_loss
+from satflow.models.losses import get_loss
 
 
 @register_model

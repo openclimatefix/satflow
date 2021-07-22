@@ -4,7 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from satflow.models.base import register_model
-from satflow.models.utils import get_conv_layer, get_loss
+from satflow.models.utils import get_conv_layer
+from satflow.models.losses import get_loss
 from satflow.models.layers import ConvGRU, TimeDistributed, ConditionTime
 from axial_attention import AxialAttention
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
