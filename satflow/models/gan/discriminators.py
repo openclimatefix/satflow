@@ -3,6 +3,7 @@ import torch
 from torch import nn as nn
 from satflow.models.utils import get_conv_layer
 from satflow.models.gan.common import get_norm_layer, init_net
+import antialiased_cnns
 
 
 def define_discriminator(
@@ -168,18 +169,34 @@ class NLayerDiscriminator(nn.Module):
         for n in range(1, n_layers):  # gradually increase the number of filters
             nf_mult_prev = nf_mult
             nf_mult = min(2 ** n, 8)
-            sequence += [
-                conv2d(
-                    ndf * nf_mult_prev,
-                    ndf * nf_mult,
-                    kernel_size=kw,
-                    stride=2,
-                    padding=padw,
-                    bias=use_bias,
-                ),
-                norm_layer(ndf * nf_mult),
-                nn.LeakyReLU(0.2, True),
-            ]
+            if conv_type == "antialiased":
+                block = [
+                    conv2d(
+                        ndf * nf_mult_prev,
+                        ndf * nf_mult,
+                        kernel_size=kw,
+                        stride=1,
+                        padding=padw,
+                        bias=use_bias,
+                    ),
+                    norm_layer(ndf * nf_mult),
+                    nn.LeakyReLU(0.2, True),
+                    antialiased_cnns.BlurPool(ndf * nf_mult, stride=2),
+                ]
+            else:
+                block = [
+                    conv2d(
+                        ndf * nf_mult_prev,
+                        ndf * nf_mult,
+                        kernel_size=kw,
+                        stride=2,
+                        padding=padw,
+                        bias=use_bias,
+                    ),
+                    norm_layer(ndf * nf_mult),
+                    nn.LeakyReLU(0.2, True),
+                ]
+            sequence += block
 
         nf_mult_prev = nf_mult
         nf_mult = min(2 ** n_layers, 8)
@@ -244,16 +261,23 @@ class PixelDiscriminator(nn.Module):
 
 
 class CloudGANBlock(nn.Module):
-    def __init__(self, input_channels, conv2d: torch.nn.Module):
+    def __init__(self, input_channels, conv_type: str = "standard"):
         super().__init__()
+        conv2d = get_conv_layer(conv_type)
         self.conv = conv2d(input_channels, input_channels * 2, kernel_size=(3, 3))
         self.relu = torch.nn.ReLU()
-        self.pool = torch.nn.MaxPool2d(kernel_size=(2, 2))
+        if conv_type == "antialiased":
+            self.pool = torch.nn.MaxPool2d(kernel_size=(2, 2), stride=1)
+            self.blurpool = antialiased_cnns.BlurPool(input_channels * 2, stride=2)
+        else:
+            self.pool = torch.nn.MaxPool2d(kernel_size=(2, 2), stride=2)
+            self.blurpool = torch.nn.Identity()
 
     def forward(self, x):
         x = self.conv(x)
         x = self.relu(x)
         x = self.pool(x)
+        x = self.blurpool(x)
         return x
 
 
@@ -272,7 +296,7 @@ class CloudGANDiscriminator(nn.Module):
         self.conv_1 = conv2d(input_channels, num_filters, kernel_size=1, stride=1, padding=0)
         self.stages = []
         for stage in range(num_stages):
-            self.stages.append(CloudGANBlock(num_filters, conv2d))
+            self.stages.append(CloudGANBlock(num_filters, conv_type))
             num_filters = num_filters * 2
         self.stages = torch.nn.Sequential(*self.stages)
         self.flatten = torch.nn.Flatten()
