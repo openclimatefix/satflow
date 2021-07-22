@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
+from satflow.models.utils import get_conv_layer
 
 
 class ConvLSTMCell(nn.Module):
-    def __init__(self, input_dim, hidden_dim, kernel_size, bias):
+    def __init__(self, input_dim, hidden_dim, kernel_size, bias, conv_type: str = "standard"):
         """
         Initialize ConvLSTM cell.
 
@@ -27,8 +28,9 @@ class ConvLSTMCell(nn.Module):
         self.kernel_size = kernel_size
         self.padding = kernel_size[0] // 2, kernel_size[1] // 2
         self.bias = bias
+        conv2d = get_conv_layer(conv_type)
 
-        self.conv = nn.Conv2d(
+        self.conv = conv2d(
             in_channels=self.input_dim + self.hidden_dim,
             out_channels=4 * self.hidden_dim,
             kernel_size=self.kernel_size,

@@ -25,6 +25,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         visualize: bool = False,
         loss: Union[str, torch.nn.Module] = "mse",
         pretrained: bool = False,
+        conv_type: str = "standard",
     ):
         super(EncoderDecoderConvLSTM, self).__init__()
         self.forecast_steps = forecast_steps
@@ -42,7 +43,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
                 raise ValueError(f"loss {loss} not recognized")
         self.lr = lr
         self.visualize = visualize
-        self.module = ConvLSTM(input_channels, hidden_dim, out_channels)
+        self.model = ConvLSTM(input_channels, hidden_dim, out_channels, conv_type=conv_type)
         self.save_hyperparameters()
 
     @classmethod
@@ -56,7 +57,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         )
 
     def forward(self, x, future_seq=0, hidden_state=None):
-        return self.module.forward(x, future_seq, hidden_state)
+        return self.model.forward(x, future_seq, hidden_state)
 
     def configure_optimizers(self):
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
@@ -120,7 +121,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
 
 
 class ConvLSTM(torch.nn.Module):
-    def __init__(self, input_channels, hidden_dim, out_channels):
+    def __init__(self, input_channels, hidden_dim, out_channels, conv_type: str = "standard"):
         super().__init__()
         """ ARCHITECTURE
 
@@ -131,11 +132,19 @@ class ConvLSTM(torch.nn.Module):
 
         """
         self.encoder_1_convlstm = ConvLSTMCell(
-            input_dim=input_channels, hidden_dim=hidden_dim, kernel_size=(3, 3), bias=True
+            input_dim=input_channels,
+            hidden_dim=hidden_dim,
+            kernel_size=(3, 3),
+            bias=True,
+            conv_type=conv_type,
         )
 
         self.encoder_2_convlstm = ConvLSTMCell(
-            input_dim=hidden_dim, hidden_dim=hidden_dim, kernel_size=(3, 3), bias=True
+            input_dim=hidden_dim,
+            hidden_dim=hidden_dim,
+            kernel_size=(3, 3),
+            bias=True,
+            conv_type=conv_type,
         )
 
         self.decoder_1_convlstm = ConvLSTMCell(
@@ -143,10 +152,15 @@ class ConvLSTM(torch.nn.Module):
             hidden_dim=hidden_dim,
             kernel_size=(3, 3),
             bias=True,  # nf + 1
+            conv_type=conv_type,
         )
 
         self.decoder_2_convlstm = ConvLSTMCell(
-            input_dim=hidden_dim, hidden_dim=hidden_dim, kernel_size=(3, 3), bias=True
+            input_dim=hidden_dim,
+            hidden_dim=hidden_dim,
+            kernel_size=(3, 3),
+            bias=True,
+            conv_type=conv_type,
         )
 
         self.decoder_CNN = nn.Conv3d(

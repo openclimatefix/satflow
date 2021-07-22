@@ -17,10 +17,13 @@ class RUnet(pl.LightningModule):
         loss: Union[str, torch.nn.Module] = "mse",
         lr: float = 0.001,
         visualize: bool = False,
+        conv_type: str = "standard",
     ):
         self.input_channels = input_channels
         self.forecast_steps = forecast_steps
-        self.module = R2U_Net(img_ch=input_channels, output_ch=forecast_steps, t=recurrent_steps)
+        self.module = R2U_Net(
+            img_ch=input_channels, output_ch=forecast_steps, t=recurrent_steps, conv_type=conv_type
+        )
         super().__init__()
         self.lr = lr
         self.input_channels = input_channels
@@ -111,7 +114,7 @@ class RUnet(pl.LightningModule):
 
 
 class R2U_Net(nn.Module):
-    def __init__(self, img_ch=3, output_ch=1, t=2):
+    def __init__(self, img_ch=3, output_ch=1, t=2, conv_type: str = "standard"):
         super(R2U_Net, self).__init__()
 
         self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
