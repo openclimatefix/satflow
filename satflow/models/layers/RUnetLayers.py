@@ -92,7 +92,10 @@ class RRCNN_block(nn.Module):
     def __init__(self, ch_in, ch_out, t=2, conv_type: str = "standard"):
         super(RRCNN_block, self).__init__()
         conv2d = get_conv_layer(conv_type)
-        self.RCNN = nn.Sequential(Recurrent_block(ch_out, t=t), Recurrent_block(ch_out, t=t))
+        self.RCNN = nn.Sequential(
+            Recurrent_block(ch_out, t=t, conv_type=conv_type),
+            Recurrent_block(ch_out, t=t, conv_type=conv_type),
+        )
         self.Conv_1x1 = conv2d(ch_in, ch_out, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
