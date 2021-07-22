@@ -1,5 +1,5 @@
 import antialiased_cnns
-
+import torch.nn.functional as F
 from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
 import torchvision
