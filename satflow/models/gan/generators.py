@@ -283,7 +283,6 @@ class UnetGenerator(nn.Module):
         """
         super(UnetGenerator, self).__init__()
         # construct unet structure
-        conv2d = get_conv_layer(conv_type)
         unet_block = UnetSkipConnectionBlock(
             ngf * 8,
             ngf * 8,
@@ -291,7 +290,7 @@ class UnetGenerator(nn.Module):
             submodule=None,
             norm_layer=norm_layer,
             innermost=True,
-            conv2d=conv2d,
+            conv_type=conv_type,
         )  # add the innermost layer
         for i in range(num_downs - 5):  # add intermediate layers with ngf * 8 filters
             unet_block = UnetSkipConnectionBlock(
@@ -301,7 +300,7 @@ class UnetGenerator(nn.Module):
                 submodule=unet_block,
                 norm_layer=norm_layer,
                 use_dropout=use_dropout,
-                conv2d=conv2d,
+                conv_type=conv_type,
             )
         # gradually reduce the number of filters from ngf * 8 to ngf
         unet_block = UnetSkipConnectionBlock(
@@ -310,7 +309,7 @@ class UnetGenerator(nn.Module):
             input_nc=None,
             submodule=unet_block,
             norm_layer=norm_layer,
-            conv2d=conv2d,
+            conv_type=conv_type,
         )
         unet_block = UnetSkipConnectionBlock(
             ngf * 2,
@@ -318,10 +317,15 @@ class UnetGenerator(nn.Module):
             input_nc=None,
             submodule=unet_block,
             norm_layer=norm_layer,
-            conv2d=conv2d,
+            conv_type=conv_type,
         )
         unet_block = UnetSkipConnectionBlock(
-            ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer, conv2d=conv2d
+            ngf,
+            ngf * 2,
+            input_nc=None,
+            submodule=unet_block,
+            norm_layer=norm_layer,
+            conv_type=conv_type,
         )
         self.model = UnetSkipConnectionBlock(
             output_nc,
@@ -330,7 +334,7 @@ class UnetGenerator(nn.Module):
             submodule=unet_block,
             outermost=True,
             norm_layer=norm_layer,
-            conv2d=conv2d,
+            conv_type=conv_type,
         )  # add the outermost layer
 
     def forward(self, input):
@@ -402,14 +406,18 @@ class UnetSkipConnectionBlock(nn.Module):
             upconv = nn.ConvTranspose2d(
                 inner_nc, outer_nc, kernel_size=4, stride=2, padding=1, bias=use_bias
             )
-            down = [downrelu, downconv]
+            down = [downrelu, downconv, blurpool] if antialiased else [downrelu, downconv]
             up = [uprelu, upconv, upnorm]
             model = down + up
         else:
             upconv = nn.ConvTranspose2d(
                 inner_nc * 2, outer_nc, kernel_size=4, stride=2, padding=1, bias=use_bias
             )
-            down = [downrelu, downconv, downnorm]
+            down = (
+                [downrelu, downconv, downnorm, blurpool]
+                if antialiased
+                else [downrelu, downconv, downnorm]
+            )
             up = [uprelu, upconv, upnorm]
 
             if use_dropout:
