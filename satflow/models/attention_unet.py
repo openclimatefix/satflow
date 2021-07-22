@@ -16,6 +16,7 @@ class AttentionUnet(pl.LightningModule):
         loss: Union[str, torch.nn.Module] = "mse",
         lr: float = 0.001,
         visualize: bool = False,
+        conv_type: str = "standard",
     ):
         super().__init__()
         self.lr = lr
@@ -23,7 +24,9 @@ class AttentionUnet(pl.LightningModule):
         self.input_channels = input_channels
         self.forecast_steps = forecast_steps
         self.channels_per_timestep = 12
-        self.model = AttU_Net(input_channels=input_channels, output_channels=forecast_steps)
+        self.model = AttU_Net(
+            input_channels=input_channels, output_channels=forecast_steps, conv_type=conv_type
+        )
         assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
         if loss == "mse":
             self.criterion = F.mse_loss
@@ -197,32 +200,32 @@ class AttentionRUnet(pl.LightningModule):
 
 
 class AttU_Net(nn.Module):
-    def __init__(self, input_channels=3, output_channels=1):
+    def __init__(self, input_channels=3, output_channels=1, conv_type: str = "standard"):
         super(AttU_Net, self).__init__()
 
         self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.Conv1 = conv_block(ch_in=input_channels, ch_out=64)
-        self.Conv2 = conv_block(ch_in=64, ch_out=128)
-        self.Conv3 = conv_block(ch_in=128, ch_out=256)
-        self.Conv4 = conv_block(ch_in=256, ch_out=512)
-        self.Conv5 = conv_block(ch_in=512, ch_out=1024)
+        self.Conv1 = conv_block(ch_in=input_channels, ch_out=64, conv_type=conv_type)
+        self.Conv2 = conv_block(ch_in=64, ch_out=128, conv_type=conv_type)
+        self.Conv3 = conv_block(ch_in=128, ch_out=256, conv_type=conv_type)
+        self.Conv4 = conv_block(ch_in=256, ch_out=512, conv_type=conv_type)
+        self.Conv5 = conv_block(ch_in=512, ch_out=1024, conv_type=conv_type)
 
         self.Up5 = up_conv(ch_in=1024, ch_out=512)
-        self.Att5 = Attention_block(F_g=512, F_l=512, F_int=256)
-        self.Up_conv5 = conv_block(ch_in=1024, ch_out=512)
+        self.Att5 = Attention_block(F_g=512, F_l=512, F_int=256, conv_type=conv_type)
+        self.Up_conv5 = conv_block(ch_in=1024, ch_out=512, conv_type=conv_type)
 
         self.Up4 = up_conv(ch_in=512, ch_out=256)
-        self.Att4 = Attention_block(F_g=256, F_l=256, F_int=128)
-        self.Up_conv4 = conv_block(ch_in=512, ch_out=256)
+        self.Att4 = Attention_block(F_g=256, F_l=256, F_int=128, conv_type=conv_type)
+        self.Up_conv4 = conv_block(ch_in=512, ch_out=256, conv_type=conv_type)
 
         self.Up3 = up_conv(ch_in=256, ch_out=128)
-        self.Att3 = Attention_block(F_g=128, F_l=128, F_int=64)
-        self.Up_conv3 = conv_block(ch_in=256, ch_out=128)
+        self.Att3 = Attention_block(F_g=128, F_l=128, F_int=64, conv_type=conv_type)
+        self.Up_conv3 = conv_block(ch_in=256, ch_out=128, conv_type=conv_type)
 
         self.Up2 = up_conv(ch_in=128, ch_out=64)
-        self.Att2 = Attention_block(F_g=64, F_l=64, F_int=32)
-        self.Up_conv2 = conv_block(ch_in=128, ch_out=64)
+        self.Att2 = Attention_block(F_g=64, F_l=64, F_int=32, conv_type=conv_type)
+        self.Up_conv2 = conv_block(ch_in=128, ch_out=64, conv_type=conv_type)
 
         self.Conv_1x1 = nn.Conv2d(64, output_channels, kernel_size=1, stride=1, padding=0)
 
@@ -269,37 +272,37 @@ class AttU_Net(nn.Module):
 
 
 class R2AttU_Net(nn.Module):
-    def __init__(self, input_channels=3, output_channels=1, t=2):
+    def __init__(self, input_channels=3, output_channels=1, t=2, conv_type: str = "standard"):
         super(R2AttU_Net, self).__init__()
 
         self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.Upsample = nn.Upsample(scale_factor=2)
 
-        self.RRCNN1 = RRCNN_block(ch_in=input_channels, ch_out=64, t=t)
+        self.RRCNN1 = RRCNN_block(ch_in=input_channels, ch_out=64, t=t, conv_type=conv_type)
 
-        self.RRCNN2 = RRCNN_block(ch_in=64, ch_out=128, t=t)
+        self.RRCNN2 = RRCNN_block(ch_in=64, ch_out=128, t=t, conv_type=conv_type)
 
-        self.RRCNN3 = RRCNN_block(ch_in=128, ch_out=256, t=t)
+        self.RRCNN3 = RRCNN_block(ch_in=128, ch_out=256, t=t, conv_type=conv_type)
 
-        self.RRCNN4 = RRCNN_block(ch_in=256, ch_out=512, t=t)
+        self.RRCNN4 = RRCNN_block(ch_in=256, ch_out=512, t=t, conv_type=conv_type)
 
-        self.RRCNN5 = RRCNN_block(ch_in=512, ch_out=1024, t=t)
+        self.RRCNN5 = RRCNN_block(ch_in=512, ch_out=1024, t=t, conv_type=conv_type)
 
         self.Up5 = up_conv(ch_in=1024, ch_out=512)
-        self.Att5 = Attention_block(F_g=512, F_l=512, F_int=256)
-        self.Up_RRCNN5 = RRCNN_block(ch_in=1024, ch_out=512, t=t)
+        self.Att5 = Attention_block(F_g=512, F_l=512, F_int=256, conv_type=conv_type)
+        self.Up_RRCNN5 = RRCNN_block(ch_in=1024, ch_out=512, t=t, conv_type=conv_type)
 
         self.Up4 = up_conv(ch_in=512, ch_out=256)
-        self.Att4 = Attention_block(F_g=256, F_l=256, F_int=128)
-        self.Up_RRCNN4 = RRCNN_block(ch_in=512, ch_out=256, t=t)
+        self.Att4 = Attention_block(F_g=256, F_l=256, F_int=128, conv_type=conv_type)
+        self.Up_RRCNN4 = RRCNN_block(ch_in=512, ch_out=256, t=t, conv_type=conv_type)
 
         self.Up3 = up_conv(ch_in=256, ch_out=128)
-        self.Att3 = Attention_block(F_g=128, F_l=128, F_int=64)
-        self.Up_RRCNN3 = RRCNN_block(ch_in=256, ch_out=128, t=t)
+        self.Att3 = Attention_block(F_g=128, F_l=128, F_int=64, conv_type=conv_type)
+        self.Up_RRCNN3 = RRCNN_block(ch_in=256, ch_out=128, t=t, conv_type=conv_type)
 
         self.Up2 = up_conv(ch_in=128, ch_out=64)
-        self.Att2 = Attention_block(F_g=64, F_l=64, F_int=32)
-        self.Up_RRCNN2 = RRCNN_block(ch_in=128, ch_out=64, t=t)
+        self.Att2 = Attention_block(F_g=64, F_l=64, F_int=32, conv_type=conv_type)
+        self.Up_RRCNN2 = RRCNN_block(ch_in=128, ch_out=64, t=t, conv_type=conv_type)
 
         self.Conv_1x1 = nn.Conv2d(64, output_channels, kernel_size=1, stride=1, padding=0)
 

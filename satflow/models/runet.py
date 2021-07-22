@@ -1,3 +1,5 @@
+import antialiased_cnns
+import torch.nn.functional as F
 from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
 import torchvision
@@ -17,10 +19,13 @@ class RUnet(pl.LightningModule):
         loss: Union[str, torch.nn.Module] = "mse",
         lr: float = 0.001,
         visualize: bool = False,
+        conv_type: str = "standard",
     ):
         self.input_channels = input_channels
         self.forecast_steps = forecast_steps
-        self.module = R2U_Net(img_ch=input_channels, output_ch=forecast_steps, t=recurrent_steps)
+        self.module = R2U_Net(
+            img_ch=input_channels, output_ch=forecast_steps, t=recurrent_steps, conv_type=conv_type
+        )
         super().__init__()
         self.lr = lr
         self.input_channels = input_channels
@@ -111,33 +116,47 @@ class RUnet(pl.LightningModule):
 
 
 class R2U_Net(nn.Module):
-    def __init__(self, img_ch=3, output_ch=1, t=2):
+    def __init__(self, img_ch=3, output_ch=1, t=2, conv_type: str = "standard"):
         super(R2U_Net, self).__init__()
+        if conv_type == "antialiased":
+            self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=1)
+            self.antialiased = True
+        else:
+            self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+            self.antialiased = False
 
-        self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.Upsample = nn.Upsample(scale_factor=2)
 
-        self.RRCNN1 = RRCNN_block(ch_in=img_ch, ch_out=64, t=t)
+        self.RRCNN1 = RRCNN_block(ch_in=img_ch, ch_out=64, t=t, conv_type=conv_type)
+        self.Blur1 = antialiased_cnns.BlurPool(64, stride=2) if self.antialiased else nn.Identity()
+        self.RRCNN2 = RRCNN_block(ch_in=64, ch_out=128, t=t, conv_type=conv_type)
+        self.Blur2 = (
+            antialiased_cnns.BlurPool(128, stride=2) if self.antialiased else nn.Identity()
+        )
 
-        self.RRCNN2 = RRCNN_block(ch_in=64, ch_out=128, t=t)
+        self.RRCNN3 = RRCNN_block(ch_in=128, ch_out=256, t=t, conv_type=conv_type)
+        self.Blur3 = (
+            antialiased_cnns.BlurPool(256, stride=2) if self.antialiased else nn.Identity()
+        )
 
-        self.RRCNN3 = RRCNN_block(ch_in=128, ch_out=256, t=t)
+        self.RRCNN4 = RRCNN_block(ch_in=256, ch_out=512, t=t, conv_type=conv_type)
+        self.Blur4 = (
+            antialiased_cnns.BlurPool(512, stride=2) if self.antialiased else nn.Identity()
+        )
 
-        self.RRCNN4 = RRCNN_block(ch_in=256, ch_out=512, t=t)
-
-        self.RRCNN5 = RRCNN_block(ch_in=512, ch_out=1024, t=t)
+        self.RRCNN5 = RRCNN_block(ch_in=512, ch_out=1024, t=t, conv_type=conv_type)
 
         self.Up5 = up_conv(ch_in=1024, ch_out=512)
-        self.Up_RRCNN5 = RRCNN_block(ch_in=1024, ch_out=512, t=t)
+        self.Up_RRCNN5 = RRCNN_block(ch_in=1024, ch_out=512, t=t, conv_type=conv_type)
 
         self.Up4 = up_conv(ch_in=512, ch_out=256)
-        self.Up_RRCNN4 = RRCNN_block(ch_in=512, ch_out=256, t=t)
+        self.Up_RRCNN4 = RRCNN_block(ch_in=512, ch_out=256, t=t, conv_type=conv_type)
 
         self.Up3 = up_conv(ch_in=256, ch_out=128)
-        self.Up_RRCNN3 = RRCNN_block(ch_in=256, ch_out=128, t=t)
+        self.Up_RRCNN3 = RRCNN_block(ch_in=256, ch_out=128, t=t, conv_type=conv_type)
 
         self.Up2 = up_conv(ch_in=128, ch_out=64)
-        self.Up_RRCNN2 = RRCNN_block(ch_in=128, ch_out=64, t=t)
+        self.Up_RRCNN2 = RRCNN_block(ch_in=128, ch_out=64, t=t, conv_type=conv_type)
 
         self.Conv_1x1 = nn.Conv2d(64, output_ch, kernel_size=1, stride=1, padding=0)
 
@@ -146,15 +165,19 @@ class R2U_Net(nn.Module):
         x1 = self.RRCNN1(x)
 
         x2 = self.Maxpool(x1)
+        x2 = self.Blur1(x2)
         x2 = self.RRCNN2(x2)
 
         x3 = self.Maxpool(x2)
+        x3 = self.Blur2(x3)
         x3 = self.RRCNN3(x3)
 
         x4 = self.Maxpool(x3)
+        x4 = self.Blur3(x4)
         x4 = self.RRCNN4(x4)
 
         x5 = self.Maxpool(x4)
+        x5 = self.Blur4(x5)
         x5 = self.RRCNN5(x5)
 
         # decoding + concat path
