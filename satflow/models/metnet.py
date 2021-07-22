@@ -11,22 +11,30 @@ from axial_attention import AxialAttention
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 import numpy as np
 import torchvision
+import antialiased_cnns
 
 
 class DownSampler(nn.Module):
     def __init__(self, in_channels, conv_type: str = "standard"):
         super().__init__()
         conv2d = get_conv_layer(conv_type=conv_type)
+        if conv_type == "antialiased":
+            antialiased = True
+        else:
+            antialiased = False
+
         self.module = nn.Sequential(
             conv2d(in_channels, 160, 3, padding=1),
-            nn.MaxPool2d((2, 2), stride=2),
+            nn.MaxPool2d((2, 2), stride=1 if antialiased else 2),
+            antialiased_cnns.BlurPool(160, stride=2) if antialiased else nn.Identity(),
             nn.BatchNorm2d(160),
             conv2d(160, 256, 3, padding=1),
             nn.BatchNorm2d(256),
             conv2d(256, 256, 3, padding=1),
             nn.BatchNorm2d(256),
             conv2d(256, 256, 3, padding=1),
-            nn.MaxPool2d((2, 2), stride=2),
+            nn.MaxPool2d((2, 2), stride=1 if antialiased else 2),
+            antialiased_cnns.BlurPool(256, stride=2) if antialiased else nn.Identity(),
         )
 
     def forward(self, x):
