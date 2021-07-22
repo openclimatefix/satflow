@@ -1,8 +1,7 @@
 import torch
 import torch.nn.functional as F
 from satflow.models.layers import CoordConv
-from satflow.models.losses import FocalLoss
-from pytorch_msssim import SSIM, MS_SSIM
+from satflow.models.losses import FocalLoss, MS_SSIMLoss, SSIMLoss
 
 
 def get_conv_layer(conv_type: str = "standard") -> torch.nn.Module:
@@ -38,9 +37,9 @@ def get_loss(loss: str = "mse", **kwargs) -> torch.nn.Module:
     elif loss in ["focal"]:
         criterion = FocalLoss()
     elif loss in ["ssim"]:
-        criterion = SSIM(data_range=1.0, size_average=True, **kwargs)
+        criterion = SSIMLoss(data_range=1.0, size_average=True, **kwargs)
     elif loss in ["ms_ssim"]:
-        criterion = MS_SSIM(data_range=1.0, size_average=True, **kwargs)
+        criterion = MS_SSIMLoss(data_range=1.0, size_average=True, **kwargs)
     elif loss in ["l1"]:
         criterion = torch.nn.L1Loss()
     else:

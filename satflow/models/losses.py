@@ -1,7 +1,25 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from pytorch_msssim import SSIM, MS_SSIM
+
+
+class SSIMLoss(nn.Module):
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.ssim_module = SSIM(**kwargs)
+
+    def forward(self, X, Y):
+        return 1.0 - self.ssim_module(X, Y)
+
+
+class MS_SSIMLoss(nn.Module):
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.ssim_module = MS_SSIM(**kwargs)
+
+    def forward(self, X, Y):
+        return 1.0 - self.ssim_module(X, Y)
 
 
 class FocalLoss(nn.Module):
