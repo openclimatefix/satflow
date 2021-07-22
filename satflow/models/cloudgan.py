@@ -68,7 +68,7 @@ class CloudGAN(pl.LightningModule):
         self.lr_method = scheduler
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
-        self.output_channels = forecast_steps * 12 if not condition_time else 12
+        self.output_channels = forecast_steps * channels_per_timestep
         self.channels_per_timestep = channels_per_timestep
         self.condition_time = condition_time
         if condition_time:
@@ -100,7 +100,7 @@ class CloudGAN(pl.LightningModule):
 
         # define loss functions
         self.criterionGAN = GANLoss(loss)
-        self.criterionL1 = get_loss(loss, channels=self.output_channels)
+        self.criterionL1 = get_loss(loss, channels=self.channels_per_timestep)
         self.save_hyperparameters()
 
     def train_per_timestep(
