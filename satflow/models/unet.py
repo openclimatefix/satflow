@@ -1,12 +1,11 @@
 import torch
-import torch.nn.functional as F
 import pytorch_lightning as pl
 from satflow.models.base import register_model
 from pl_bolts.models.vision import UNet
 import numpy as np
 from typing import Union
-from satflow.models.losses import FocalLoss
 import torchvision
+from satflow.models.losses import get_loss
 
 
 @register_model
@@ -27,15 +26,7 @@ class Unet(pl.LightningModule):
         self.lr = lr
         self.input_channels = input_channels
         self.forecast_steps = forecast_steps
-        assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
-        if loss == "mse":
-            self.criterion = F.mse_loss
-        elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
-            self.criterion = F.nll_loss
-        elif loss in ["focal"]:
-            self.criterion = FocalLoss()
-        else:
-            raise ValueError(f"loss {loss} not recognized")
+        self.criterion = get_loss(loss=loss)
         self.visualize = visualize
         self.model = UNet(forecast_steps, input_channels, num_layers, hidden_dim, bilinear)
         self.save_hyperparameters()

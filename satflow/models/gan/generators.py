@@ -8,7 +8,7 @@ from satflow.models.utils import get_conv_layer
 import antialiased_cnns
 
 
-def define_G(
+def define_generator(
     input_nc,
     output_nc,
     ngf,

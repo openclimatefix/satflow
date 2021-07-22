@@ -3,7 +3,7 @@ from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
 import torchvision
 import numpy as np
-from satflow.models.losses import FocalLoss
+from satflow.models.losses import FocalLoss, get_loss
 from satflow.models.base import register_model
 
 
@@ -27,15 +27,7 @@ class AttentionUnet(pl.LightningModule):
         self.model = AttU_Net(
             input_channels=input_channels, output_channels=forecast_steps, conv_type=conv_type
         )
-        assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
-        if loss == "mse":
-            self.criterion = F.mse_loss
-        elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
-            self.criterion = F.nll_loss
-        elif loss in ["focal"]:
-            self.criterion = FocalLoss()
-        else:
-            raise ValueError(f"loss {loss} not recognized")
+        self.criterion = get_loss(loss)
 
     def forward(self, x):
         return self.model.forward(x)
@@ -123,15 +115,7 @@ class AttentionRUnet(pl.LightningModule):
             input_channels=input_channels, output_channels=forecast_steps, t=recurrent_blocks
         )
         self.visualize = visualize
-        assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
-        if loss == "mse":
-            self.criterion = F.mse_loss
-        elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
-            self.criterion = F.nll_loss
-        elif loss in ["focal"]:
-            self.criterion = FocalLoss()
-        else:
-            raise ValueError(f"loss {loss} not recognized")
+        self.criterion = get_loss(loss)
 
     def forward(self, x):
         return self.model.forward(x)

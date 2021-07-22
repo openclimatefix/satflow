@@ -3,12 +3,11 @@ from typing import Any, Dict, Union
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 import numpy as np
-from satflow.models.losses import FocalLoss
 
 from satflow.models.base import register_model
+from satflow.models.losses import get_loss
 from satflow.models.layers.ConvLSTM import ConvLSTMCell
 import torchvision
 
@@ -29,18 +28,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
     ):
         super(EncoderDecoderConvLSTM, self).__init__()
         self.forecast_steps = forecast_steps
-        if isinstance(loss, torch.nn.Module):
-            self.criterion = loss
-        else:
-            assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
-            if loss == "mse":
-                self.criterion = F.mse_loss
-            elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
-                self.criterion = F.nll_loss
-            elif loss in ["focal"]:
-                self.criterion = FocalLoss()
-            else:
-                raise ValueError(f"loss {loss} not recognized")
+        self.criterion = get_loss(loss)
         self.lr = lr
         self.visualize = visualize
         self.model = ConvLSTM(input_channels, hidden_dim, out_channels, conv_type=conv_type)
@@ -204,7 +192,7 @@ class ConvLSTM(torch.nn.Module):
 
         return outputs
 
-    def forward(self, x, future_seq=0, hidden_state=None):
+    def forward(self, x, forecast_steps=0, hidden_state=None):
 
         """
         Parameters
@@ -224,7 +212,7 @@ class ConvLSTM(torch.nn.Module):
 
         # autoencoder forward
         outputs = self.autoencoder(
-            x, seq_len, future_seq, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4
+            x, seq_len, forecast_steps, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4
         )
 
         return outputs
