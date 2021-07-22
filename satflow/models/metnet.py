@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 from satflow.models.base import register_model
 from satflow.models.layers import ConvGRU, TimeDistributed
+from satflow.models.utils import get_conv_layer
 from axial_attention import AxialAttention
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 import numpy as np
@@ -13,17 +14,18 @@ import torchvision
 
 
 class DownSampler(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, conv_type: str = "standard"):
         super().__init__()
+        conv2d = get_conv_layer(conv_type=conv_type)
         self.module = nn.Sequential(
-            nn.Conv2d(in_channels, 160, 3, padding=1),
+            conv2d(in_channels, 160, 3, padding=1),
             nn.MaxPool2d((2, 2), stride=2),
             nn.BatchNorm2d(160),
-            nn.Conv2d(160, 256, 3, padding=1),
+            conv2d(160, 256, 3, padding=1),
             nn.BatchNorm2d(256),
-            nn.Conv2d(256, 256, 3, padding=1),
+            conv2d(256, 256, 3, padding=1),
             nn.BatchNorm2d(256),
-            nn.Conv2d(256, 256, 3, padding=1),
+            conv2d(256, 256, 3, padding=1),
             nn.MaxPool2d((2, 2), stride=2),
         )
 
