@@ -5,6 +5,7 @@ from torch import nn as nn
 from typing import Union
 from satflow.models.gan.common import get_norm_layer, init_net
 from satflow.models.utils import get_conv_layer
+import antialiased_cnns
 
 
 def define_G(
@@ -112,13 +113,35 @@ class ResnetGenerator(nn.Module):
         n_downsampling = 2
         for i in range(n_downsampling):  # add downsampling layers
             mult = 2 ** i
-            model += [
-                conv2d(
-                    ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1, bias=use_bias
-                ),
-                norm_layer(ngf * mult * 2),
-                nn.ReLU(True),
-            ]
+            if conv_type == "antialiased":
+                block = [
+                    conv2d(
+                        ngf * mult,
+                        ngf * mult * 2,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                        bias=use_bias,
+                    ),
+                    norm_layer(ngf * mult * 2),
+                    nn.ReLU(True),
+                    antialiased_cnns.BlurPool(ngf * mult * 2, stride=2),
+                ]
+            else:
+                block = [
+                    conv2d(
+                        ngf * mult,
+                        ngf * mult * 2,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        bias=use_bias,
+                    ),
+                    norm_layer(ngf * mult * 2),
+                    nn.ReLU(True),
+                ]
+
+            model += block
 
         mult = 2 ** n_downsampling
         for i in range(n_blocks):  # add ResNet blocks
@@ -331,7 +354,7 @@ class UnetSkipConnectionBlock(nn.Module):
         innermost=False,
         norm_layer=nn.BatchNorm2d,
         use_dropout=False,
-        conv2d=torch.nn.Module,
+        conv_type: str = "standard",
     ):
         """Construct a Unet submodule with skip connections.
 
@@ -353,7 +376,18 @@ class UnetSkipConnectionBlock(nn.Module):
             use_bias = norm_layer == nn.InstanceNorm2d
         if input_nc is None:
             input_nc = outer_nc
-        downconv = conv2d(input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias)
+        conv2d = get_conv_layer(conv_type)
+        if conv_type == "antialiased":
+            antialiased = True
+            downconv = conv2d(
+                input_nc, inner_nc, kernel_size=4, stride=1, padding=1, bias=use_bias
+            )
+            blurpool = antialiased_cnns.BlurPool(inner_nc, stride=2)
+        else:
+            antialiased = False
+            downconv = conv2d(
+                input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias
+            )
         downrelu = nn.LeakyReLU(0.2, True)
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)
