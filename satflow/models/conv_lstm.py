@@ -192,7 +192,7 @@ class ConvLSTM(torch.nn.Module):
 
         return outputs
 
-    def forward(self, x, future_seq=0, hidden_state=None):
+    def forward(self, x, forecast_steps=0, hidden_state=None):
 
         """
         Parameters
@@ -212,7 +212,7 @@ class ConvLSTM(torch.nn.Module):
 
         # autoencoder forward
         outputs = self.autoencoder(
-            x, seq_len, future_seq, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4
+            x, seq_len, forecast_steps, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4
         )
 
         return outputs

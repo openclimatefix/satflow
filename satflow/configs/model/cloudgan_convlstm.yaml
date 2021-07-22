@@ -1,6 +1,6 @@
 # @package _group_
 _target_: satflow.models.cloudgan.CloudGAN
-forecast_steps: 6
+forecast_steps: 48
 input_channels: 12
 lr: 0.0002
 beta1: 0.5
@@ -9,10 +9,11 @@ num_filters: 128
 generator_model: "convlstm"
 norm: "batch"
 use_dropout: false
-discriminator_model: "enhanced"
+discriminator_model: "basic"
 discriminator_layers: 0
 loss: "vanilla"
 scheduler: "cosine"
 lr_epochs: 10
 lambda_l1: 5
-channels_per_timestep: 16
+channels_per_timestep: 12
+condition_time: True
