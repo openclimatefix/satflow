@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from satflow.models.base import register_model
-from satflow.models.utils import get_conv_layer
+from satflow.models.utils import get_conv_layer, get_loss
 from satflow.models.layers import ConvGRU, TimeDistributed, ConditionTime
 from axial_attention import AxialAttention
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
@@ -56,13 +56,13 @@ class MetNet(pl.LightningModule):
         lr: float = 0.001,
         pretrained: bool = False,
         visualize: bool = False,
+        loss: str = "mse",
     ):
         super().__init__()
 
         self.forecast_steps = forecast_steps
-        self.criterion = F.mse_loss
+        self.criterion = get_loss(loss)
         self.lr = lr
-        self.criterion = F.mse_loss
         self.visualize = visualize
         self.drop = nn.Dropout(temporal_dropout)
         if image_encoder in ["downsampler", "default"]:

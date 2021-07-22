@@ -1,11 +1,10 @@
 import antialiased_cnns
-import torch.nn.functional as F
 from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
 import torchvision
 from typing import Union
-from satflow.models.losses import FocalLoss
 from satflow.models.base import register_model
+from satflow.models.utils import get_loss
 import numpy as np
 
 
@@ -30,15 +29,7 @@ class RUnet(pl.LightningModule):
         self.lr = lr
         self.input_channels = input_channels
         self.forecast_steps = forecast_steps
-        assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
-        if loss == "mse":
-            self.criterion = F.mse_loss
-        elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
-            self.criterion = F.nll_loss
-        elif loss in ["focal"]:
-            self.criterion = FocalLoss()
-        else:
-            raise ValueError(f"loss {loss} not recognized")
+        self.criterion = get_loss(loss=loss)
         self.visualize = visualize
         self.save_hyperparameters()
 

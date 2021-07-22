@@ -3,12 +3,11 @@ from typing import Any, Dict, Union
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 import numpy as np
-from satflow.models.losses import FocalLoss
 
 from satflow.models.base import register_model
+from satflow.models.utils import get_loss
 from satflow.models.layers.ConvLSTM import ConvLSTMCell
 import torchvision
 
@@ -29,18 +28,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
     ):
         super(EncoderDecoderConvLSTM, self).__init__()
         self.forecast_steps = forecast_steps
-        if isinstance(loss, torch.nn.Module):
-            self.criterion = loss
-        else:
-            assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
-            if loss == "mse":
-                self.criterion = F.mse_loss
-            elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
-                self.criterion = F.nll_loss
-            elif loss in ["focal"]:
-                self.criterion = FocalLoss()
-            else:
-                raise ValueError(f"loss {loss} not recognized")
+        self.criterion = get_loss(loss)
         self.lr = lr
         self.visualize = visualize
         self.model = ConvLSTM(input_channels, hidden_dim, out_channels, conv_type=conv_type)

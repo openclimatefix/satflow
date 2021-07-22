@@ -6,6 +6,7 @@ from collections import OrderedDict
 from satflow.models import R2U_Net, ConvLSTM
 from satflow.models.gan import GANLoss, define_generator, define_discriminator
 from satflow.models.layers import ConditionTime
+from satflow.models.utils import get_loss
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 import numpy as np
 
@@ -28,6 +29,7 @@ class CloudGAN(pl.LightningModule):
         scheduler: str = "plateau",
         lr_epochs: int = 10,
         lambda_l1: float = 100.0,
+        l1_loss: str = "l1",
         channels_per_timestep: int = 12,
         condition_time: bool = False,
     ):
@@ -52,6 +54,7 @@ class CloudGAN(pl.LightningModule):
             scheduler: LR scheduler name
             lr_epochs: Epochs for LR scheduler
             lambda_l1: Lambda for L1 loss, from slides recommended between 5-200
+            l1_loss: Loss to use for the L1 in the slides, default is L1, also SSIM is available
             channels_per_timestep: Channels per input timestep
             condition_time: Whether to condition on a future timestep, similar to MetNet
         """
@@ -65,7 +68,7 @@ class CloudGAN(pl.LightningModule):
         self.lr_method = scheduler
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
-        self.output_channels = forecast_steps * 12
+        self.output_channels = forecast_steps * 12 if not condition_time else 12
         self.channels_per_timestep = channels_per_timestep
         self.condition_time = condition_time
         if condition_time:
@@ -97,7 +100,7 @@ class CloudGAN(pl.LightningModule):
 
         # define loss functions
         self.criterionGAN = GANLoss(loss)
-        self.criterionL1 = torch.nn.L1Loss()
+        self.criterionL1 = get_loss(loss, channels=self.output_channels)
         self.save_hyperparameters()
 
     def train_per_timestep(
