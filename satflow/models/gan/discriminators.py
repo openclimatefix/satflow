@@ -1,11 +1,20 @@
 import functools
 import torch
 from torch import nn as nn
-
+from satflow.models.utils import get_conv_layer
 from satflow.models.gan.common import get_norm_layer, init_net
 
 
-def define_D(input_nc, ndf, netD, n_layers_D=3, norm="batch", init_type="normal", init_gain=0.02):
+def define_discriminator(
+    input_nc,
+    ndf,
+    netD,
+    n_layers_D=3,
+    norm="batch",
+    init_type="normal",
+    init_gain=0.02,
+    conv_type: str = "standard",
+):
     """Create a discriminator
 
     Parameters:
@@ -36,15 +45,20 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm="batch", init_type="normal"
     """
     net = None
     norm_layer = get_norm_layer(norm_type=norm)
-
     if netD == "basic":  # default PatchGAN classifier
-        net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer)
+        net = NLayerDiscriminator(
+            input_nc, ndf, n_layers=3, norm_layer=norm_layer, conv_type=conv_type
+        )
     elif netD == "n_layers":  # more options
-        net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer)
+        net = NLayerDiscriminator(
+            input_nc, ndf, n_layers_D, norm_layer=norm_layer, conv_type=conv_type
+        )
     elif netD == "pixel":  # classify if each pixel is real or fake
-        net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer)
+        net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer, conv_type=conv_type)
     elif netD == "enhanced":
-        net = CloudGANDiscriminator(input_channels=input_nc, num_filters=ndf, num_stages=3)
+        net = CloudGANDiscriminator(
+            input_channels=input_nc, num_filters=ndf, num_stages=3, conv_type=conv_type
+        )
     else:
         raise NotImplementedError("Discriminator model name [%s] is not recognized" % netD)
     return init_net(net, init_type, init_gain)
@@ -122,7 +136,9 @@ class GANLoss(nn.Module):
 class NLayerDiscriminator(nn.Module):
     """Defines a PatchGAN discriminator"""
 
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d):
+    def __init__(
+        self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, conv_type: str = "standard"
+    ):
         """Construct a PatchGAN discriminator
 
         Parameters:
@@ -139,10 +155,12 @@ class NLayerDiscriminator(nn.Module):
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
 
+        conv2d = get_conv_layer(conv_type)
+
         kw = 4
         padw = 1
         sequence = [
-            nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw),
+            conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw),
             nn.LeakyReLU(0.2, True),
         ]
         nf_mult = 1
@@ -151,7 +169,7 @@ class NLayerDiscriminator(nn.Module):
             nf_mult_prev = nf_mult
             nf_mult = min(2 ** n, 8)
             sequence += [
-                nn.Conv2d(
+                conv2d(
                     ndf * nf_mult_prev,
                     ndf * nf_mult,
                     kernel_size=kw,
@@ -166,7 +184,7 @@ class NLayerDiscriminator(nn.Module):
         nf_mult_prev = nf_mult
         nf_mult = min(2 ** n_layers, 8)
         sequence += [
-            nn.Conv2d(
+            conv2d(
                 ndf * nf_mult_prev,
                 ndf * nf_mult,
                 kernel_size=kw,
@@ -179,7 +197,7 @@ class NLayerDiscriminator(nn.Module):
         ]
 
         sequence += [
-            nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)
+            conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)
         ]  # output 1 channel prediction map
         self.model = nn.Sequential(*sequence)
 
@@ -191,7 +209,7 @@ class NLayerDiscriminator(nn.Module):
 class PixelDiscriminator(nn.Module):
     """Defines a 1x1 PatchGAN discriminator (pixelGAN)"""
 
-    def __init__(self, input_nc, ndf=64, norm_layer=nn.BatchNorm2d):
+    def __init__(self, input_nc, ndf=64, norm_layer=nn.BatchNorm2d, conv_type: str = "standard"):
         """Construct a 1x1 PatchGAN discriminator
 
         Parameters:
@@ -207,13 +225,15 @@ class PixelDiscriminator(nn.Module):
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
 
+        conv2d = get_conv_layer(conv_type)
+
         self.net = [
-            nn.Conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0),
+            conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0),
             nn.LeakyReLU(0.2, True),
-            nn.Conv2d(ndf, ndf * 2, kernel_size=1, stride=1, padding=0, bias=use_bias),
+            conv2d(ndf, ndf * 2, kernel_size=1, stride=1, padding=0, bias=use_bias),
             norm_layer(ndf * 2),
             nn.LeakyReLU(0.2, True),
-            nn.Conv2d(ndf * 2, 1, kernel_size=1, stride=1, padding=0, bias=use_bias),
+            conv2d(ndf * 2, 1, kernel_size=1, stride=1, padding=0, bias=use_bias),
         ]
 
         self.net = nn.Sequential(*self.net)
@@ -224,9 +244,9 @@ class PixelDiscriminator(nn.Module):
 
 
 class CloudGANBlock(nn.Module):
-    def __init__(self, input_channels):
+    def __init__(self, input_channels, conv2d: torch.nn.Module):
         super().__init__()
-        self.conv = torch.nn.Conv2d(input_channels, input_channels * 2, kernel_size=(3, 3))
+        self.conv = conv2d(input_channels, input_channels * 2, kernel_size=(3, 3))
         self.relu = torch.nn.ReLU()
         self.pool = torch.nn.MaxPool2d(kernel_size=(2, 2))
 
@@ -240,14 +260,19 @@ class CloudGANBlock(nn.Module):
 class CloudGANDiscriminator(nn.Module):
     """Defines a discriminator based off https://www.climatechange.ai/papers/icml2021/54/slides.pdf"""
 
-    def __init__(self, input_channels: int = 12, num_filters: int = 64, num_stages: int = 3):
+    def __init__(
+        self,
+        input_channels: int = 12,
+        num_filters: int = 64,
+        num_stages: int = 3,
+        conv_type: str = "standard",
+    ):
         super().__init__()
-        self.conv_1 = torch.nn.Conv2d(
-            input_channels, num_filters, kernel_size=1, stride=1, padding=0
-        )
+        conv2d = get_conv_layer(conv_type)
+        self.conv_1 = conv2d(input_channels, num_filters, kernel_size=1, stride=1, padding=0)
         self.stages = []
         for stage in range(num_stages):
-            self.stages.append(CloudGANBlock(num_filters))
+            self.stages.append(CloudGANBlock(num_filters, conv2d))
             num_filters = num_filters * 2
         self.stages = torch.nn.Sequential(*self.stages)
         self.flatten = torch.nn.Flatten()
