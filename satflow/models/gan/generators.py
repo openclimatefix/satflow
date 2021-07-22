@@ -4,6 +4,7 @@ import torch
 from torch import nn as nn
 from typing import Union
 from satflow.models.gan.common import get_norm_layer, init_net
+from satflow.models.utils import get_conv_layer
 
 
 def define_G(
@@ -81,6 +82,7 @@ class ResnetGenerator(nn.Module):
         use_dropout=False,
         n_blocks=6,
         padding_type="reflect",
+        conv_type: str = "standard",
     ):
         """Construct a Resnet-based generator
 
@@ -99,10 +101,10 @@ class ResnetGenerator(nn.Module):
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
-
+        conv2d = get_conv_layer(conv_type)
         model = [
             nn.ReflectionPad2d(3),
-            nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0, bias=use_bias),
+            conv2d(input_nc, ngf, kernel_size=7, padding=0, bias=use_bias),
             norm_layer(ngf),
             nn.ReLU(True),
         ]
@@ -111,7 +113,7 @@ class ResnetGenerator(nn.Module):
         for i in range(n_downsampling):  # add downsampling layers
             mult = 2 ** i
             model += [
-                nn.Conv2d(
+                conv2d(
                     ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1, bias=use_bias
                 ),
                 norm_layer(ngf * mult * 2),
@@ -160,7 +162,9 @@ class ResnetGenerator(nn.Module):
 class ResnetBlock(nn.Module):
     """Define a Resnet block"""
 
-    def __init__(self, dim, padding_type, norm_layer, use_dropout, use_bias):
+    def __init__(
+        self, dim, padding_type, norm_layer, use_dropout, use_bias, conv_type: str = "standard"
+    ):
         """Initialize the Resnet block
 
         A resnet block is a conv block with skip connections
@@ -169,11 +173,14 @@ class ResnetBlock(nn.Module):
         Original Resnet paper: https://arxiv.org/pdf/1512.03385.pdf
         """
         super(ResnetBlock, self).__init__()
+        conv2d = get_conv_layer(conv_type)
         self.conv_block = self.build_conv_block(
-            dim, padding_type, norm_layer, use_dropout, use_bias
+            dim, padding_type, norm_layer, use_dropout, use_bias, conv2d
         )
 
-    def build_conv_block(self, dim, padding_type, norm_layer, use_dropout, use_bias):
+    def build_conv_block(
+        self, dim, padding_type, norm_layer, use_dropout, use_bias, conv2d: torch.nn.Module
+    ):
         """Construct a convolutional block.
 
         Parameters:
@@ -197,7 +204,7 @@ class ResnetBlock(nn.Module):
             raise NotImplementedError("padding [%s] is not implemented" % padding_type)
 
         conv_block += [
-            nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias),
+            conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias),
             norm_layer(dim),
             nn.ReLU(True),
         ]
@@ -214,7 +221,7 @@ class ResnetBlock(nn.Module):
         else:
             raise NotImplementedError("padding [%s] is not implemented" % padding_type)
         conv_block += [
-            nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias),
+            conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias),
             norm_layer(dim),
         ]
 
@@ -230,7 +237,14 @@ class UnetGenerator(nn.Module):
     """Create a Unet-based generator"""
 
     def __init__(
-        self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False
+        self,
+        input_nc,
+        output_nc,
+        num_downs,
+        ngf=64,
+        norm_layer=nn.BatchNorm2d,
+        use_dropout=False,
+        conv_type: str = "standard",
     ):
         """Construct a Unet generator
         Parameters:
@@ -246,8 +260,15 @@ class UnetGenerator(nn.Module):
         """
         super(UnetGenerator, self).__init__()
         # construct unet structure
+        conv2d = get_conv_layer(conv_type)
         unet_block = UnetSkipConnectionBlock(
-            ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True
+            ngf * 8,
+            ngf * 8,
+            input_nc=None,
+            submodule=None,
+            norm_layer=norm_layer,
+            innermost=True,
+            conv2d=conv2d,
         )  # add the innermost layer
         for i in range(num_downs - 5):  # add intermediate layers with ngf * 8 filters
             unet_block = UnetSkipConnectionBlock(
@@ -257,16 +278,27 @@ class UnetGenerator(nn.Module):
                 submodule=unet_block,
                 norm_layer=norm_layer,
                 use_dropout=use_dropout,
+                conv2d=conv2d,
             )
         # gradually reduce the number of filters from ngf * 8 to ngf
         unet_block = UnetSkipConnectionBlock(
-            ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer
+            ngf * 4,
+            ngf * 8,
+            input_nc=None,
+            submodule=unet_block,
+            norm_layer=norm_layer,
+            conv2d=conv2d,
         )
         unet_block = UnetSkipConnectionBlock(
-            ngf * 2, ngf * 4, input_nc=None, submodule=unet_block, norm_layer=norm_layer
+            ngf * 2,
+            ngf * 4,
+            input_nc=None,
+            submodule=unet_block,
+            norm_layer=norm_layer,
+            conv2d=conv2d,
         )
         unet_block = UnetSkipConnectionBlock(
-            ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer
+            ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer, conv2d=conv2d
         )
         self.model = UnetSkipConnectionBlock(
             output_nc,
@@ -275,6 +307,7 @@ class UnetGenerator(nn.Module):
             submodule=unet_block,
             outermost=True,
             norm_layer=norm_layer,
+            conv2d=conv2d,
         )  # add the outermost layer
 
     def forward(self, input):
@@ -298,6 +331,7 @@ class UnetSkipConnectionBlock(nn.Module):
         innermost=False,
         norm_layer=nn.BatchNorm2d,
         use_dropout=False,
+        conv2d=torch.nn.Module,
     ):
         """Construct a Unet submodule with skip connections.
 
@@ -319,7 +353,7 @@ class UnetSkipConnectionBlock(nn.Module):
             use_bias = norm_layer == nn.InstanceNorm2d
         if input_nc is None:
             input_nc = outer_nc
-        downconv = nn.Conv2d(input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias)
+        downconv = conv2d(input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias)
         downrelu = nn.LeakyReLU(0.2, True)
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)

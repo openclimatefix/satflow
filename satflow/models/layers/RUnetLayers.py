@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from satflow.models.utils import get_conv_layer
 from torch.nn import init
 
 
@@ -33,13 +33,14 @@ def init_weights(net, init_type="normal", gain=0.02):
 
 
 class conv_block(nn.Module):
-    def __init__(self, ch_in, ch_out):
+    def __init__(self, ch_in, ch_out, conv_type: str = "standard"):
         super(conv_block, self).__init__()
+        conv2d = get_conv_layer(conv_type)
         self.conv = nn.Sequential(
-            nn.Conv2d(ch_in, ch_out, kernel_size=3, stride=1, padding=1, bias=True),
+            conv2d(ch_in, ch_out, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(ch_out),
             nn.ReLU(inplace=True),
-            nn.Conv2d(ch_out, ch_out, kernel_size=3, stride=1, padding=1, bias=True),
+            conv2d(ch_out, ch_out, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(ch_out),
             nn.ReLU(inplace=True),
         )
@@ -50,11 +51,12 @@ class conv_block(nn.Module):
 
 
 class up_conv(nn.Module):
-    def __init__(self, ch_in, ch_out):
+    def __init__(self, ch_in, ch_out, conv_type: str = "standard"):
         super(up_conv, self).__init__()
+        conv2d = get_conv_layer(conv_type)
         self.up = nn.Sequential(
             nn.Upsample(scale_factor=2),
-            nn.Conv2d(ch_in, ch_out, kernel_size=3, stride=1, padding=1, bias=True),
+            conv2d(ch_in, ch_out, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(ch_out),
             nn.ReLU(inplace=True),
         )
@@ -65,12 +67,13 @@ class up_conv(nn.Module):
 
 
 class Recurrent_block(nn.Module):
-    def __init__(self, ch_out, t=2):
+    def __init__(self, ch_out, t=2, conv_type: str = "standard"):
         super(Recurrent_block, self).__init__()
+        conv2d = get_conv_layer(conv_type)
         self.t = t
         self.ch_out = ch_out
         self.conv = nn.Sequential(
-            nn.Conv2d(ch_out, ch_out, kernel_size=3, stride=1, padding=1, bias=True),
+            conv2d(ch_out, ch_out, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(ch_out),
             nn.ReLU(inplace=True),
         )
@@ -86,10 +89,11 @@ class Recurrent_block(nn.Module):
 
 
 class RRCNN_block(nn.Module):
-    def __init__(self, ch_in, ch_out, t=2):
+    def __init__(self, ch_in, ch_out, t=2, conv_type: str = "standard"):
         super(RRCNN_block, self).__init__()
+        conv2d = get_conv_layer(conv_type)
         self.RCNN = nn.Sequential(Recurrent_block(ch_out, t=t), Recurrent_block(ch_out, t=t))
-        self.Conv_1x1 = nn.Conv2d(ch_in, ch_out, kernel_size=1, stride=1, padding=0)
+        self.Conv_1x1 = conv2d(ch_in, ch_out, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
         x = self.Conv_1x1(x)
@@ -98,10 +102,11 @@ class RRCNN_block(nn.Module):
 
 
 class single_conv(nn.Module):
-    def __init__(self, ch_in, ch_out):
+    def __init__(self, ch_in, ch_out, conv_type: str = "standard"):
         super(single_conv, self).__init__()
+        conv2d = get_conv_layer(conv_type)
         self.conv = nn.Sequential(
-            nn.Conv2d(ch_in, ch_out, kernel_size=3, stride=1, padding=1, bias=True),
+            conv2d(ch_in, ch_out, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(ch_out),
             nn.ReLU(inplace=True),
         )
@@ -112,20 +117,21 @@ class single_conv(nn.Module):
 
 
 class Attention_block(nn.Module):
-    def __init__(self, F_g, F_l, F_int):
+    def __init__(self, F_g, F_l, F_int, conv_type: str = "standard"):
         super(Attention_block, self).__init__()
+        conv2d = get_conv_layer(conv_type)
         self.W_g = nn.Sequential(
-            nn.Conv2d(F_g, F_int, kernel_size=1, stride=1, padding=0, bias=True),
+            conv2d(F_g, F_int, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(F_int),
         )
 
         self.W_x = nn.Sequential(
-            nn.Conv2d(F_l, F_int, kernel_size=1, stride=1, padding=0, bias=True),
+            conv2d(F_l, F_int, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(F_int),
         )
 
         self.psi = nn.Sequential(
-            nn.Conv2d(F_int, 1, kernel_size=1, stride=1, padding=0, bias=True),
+            conv2d(F_int, 1, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(1),
             nn.Sigmoid(),
         )
