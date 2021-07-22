@@ -1,11 +1,11 @@
 # @package _group_
 _target_: satflow.models.cloudgan.CloudGAN
-forecast_steps: 48
+forecast_steps: 24
 input_channels: 12
 lr: 0.0002
 beta1: 0.5
 beta2: 0.999
-num_filters: 128
+num_filters: 64
 generator_model: "convlstm"
 norm: "batch"
 use_dropout: false

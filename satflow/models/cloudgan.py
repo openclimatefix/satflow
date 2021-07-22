@@ -74,10 +74,16 @@ class CloudGAN(pl.LightningModule):
         if condition_time:
             self.ct = ConditionTime(forecast_steps)
         # define networks (both generator and discriminator)
-        gen_input_channels = input_channels + forecast_steps if condition_time else input_channels
+        gen_input_channels = (
+            input_channels  # + forecast_steps if condition_time else input_channels
+        )
+        self.recurrent = (
+            False  # Does the generator generate all timesteps at once, or a single one at a time?
+        )
         if generator_model == "runet":
             generator_model = R2U_Net(gen_input_channels, self.output_channels, t=3)
         elif generator_model == "convlstm":
+            self.recurrent = True  # ConvLSTM makes a list of output timesteps
             generator_model = ConvLSTM(
                 gen_input_channels, hidden_dim=num_filters, out_channels=self.channels_per_timestep
             )
@@ -129,10 +135,13 @@ class CloudGAN(pl.LightningModule):
             # generate images
             total_loss = 0
             vis_step = True if np.random.random() < 0.01 else False
+            generated_images = self(
+                images, forecast_steps=self.forecast_steps
+            )  # (Batch, Channel, Width, Height)
             for i in range(self.forecast_steps):
-                x = self.ct.forward(images, i)  # Condition on future timestep
-                fake = self(x, forecast_steps=i + 1)  # (Batch, Channel, Width, Height)
-                fake = fake[:, :, -1, :, :]  # Only take the one at the end
+                # x = self.ct.forward(images, i)  # Condition on future timestep
+                # fake = self(x, forecast_steps=i + 1)  # (Batch, Channel, Width, Height)
+                fake = generated_images[:, :, i, :, :]  # Only take the one at the end
                 if vis_step:
                     self.visualize_step(
                         images, future_images[:, i, :, :], fake, batch_idx, step=f"train_frame_{i}"
@@ -155,9 +164,13 @@ class CloudGAN(pl.LightningModule):
             # Measure discriminator's ability to classify real from generated samples
             # generate images
             total_loss = 0
+            generated_images = self(
+                images, forecast_steps=self.forecast_steps
+            )  # (Batch, Channel, Width, Height)
             for i in range(self.forecast_steps):
-                x = self.ct.forward(images, i)  # Condition on future timestep
-                fake = self(x)  # (Batch, Channel, Width, Height)
+                # x = self.ct.forward(images, i)  # Condition on future timestep
+                # fake = self(x, forecast_steps=i + 1)  # (Batch, Channel, Width, Height)
+                fake = generated_images[:, :, i, :, :]  # Only take the one at the end
                 real_loss = self.criterionGAN(self.discriminator(future_images[:, i, :, :]), True)
                 # adversarial loss is binary cross-entropy
                 fake_loss = self.criterionGAN(self.discriminator(fake), False)
@@ -268,10 +281,12 @@ class CloudGAN(pl.LightningModule):
         total_g_loss = 0
         total_d_loss = 0
         vis_step = True if np.random.random() < 0.01 else False
+        generated_images = self(
+            images, forecast_steps=self.forecast_steps
+        )  # (Batch, Channel, Width, Height)
         for i in range(self.forecast_steps):
-            x = self.ct.forward(images, i)  # Condition on future timestep
-            fake = self(x, forecast_steps=i + 1)  # (Batch, Channel, Width, Height)
-            fake = fake[:, :, -1, :, :]  # Only take the one at the end
+            # x = self.ct.forward(images, i)  # Condition on future timestep
+            fake = generated_images[:, :, i, :, :]  # Only take the one at the end
             if vis_step:
                 self.visualize_step(
                     images, future_images[:, i, :, :], fake, batch_idx, step=f"val_frame_{i}"
