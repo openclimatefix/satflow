@@ -1,4 +1,5 @@
 import datetime
+import glob
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Type, Union, Tuple
 
 import albumentations as A
@@ -10,6 +11,8 @@ import logging
 import pickle
 import io
 import random
+import os
+
 
 logger = logging.getLogger("satflow.dataset")
 logger.setLevel(logging.WARN)
@@ -490,6 +493,14 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if not self.use_image:
                                 yield image, target_mask
                             else:
+                                output_dir = "/run/media/jacob/data/preprocessed_satflow_prev6/"
+                                i = np.random.randint(0, 200000)
+                                np.savez_compressed(
+                                    output_dir + f"{'train' if self.train else 'val'}_{i}.npz",
+                                    images=image,
+                                    future_images=target_image,
+                                    masks=target_mask,
+                                )
                                 yield image, target_image, target_mask
 
     def get_topo_latlon(self, sample: dict) -> None:
@@ -702,6 +713,20 @@ def crop_center(img: np.ndarray, cropx: int, cropy: int) -> np.ndarray:
     startx = x // 2 - (cropx // 2)
     starty = y // 2 - (cropy // 2)
     return img[:, :, starty : starty + cropy, startx : startx + cropx]
+
+
+class FileDataset(thd.Dataset):
+    def __getitem__(self, index) -> T_co:
+        arrays = np.load(self.files[index])
+        return arrays["images"], arrays["future_images" if self.use_image else "masks"]
+
+    def __init__(self, directory: str = "./", train: bool = True, use_image: bool = True):
+        super().__init__()
+        self.files = glob.glob(os.path.join(directory, f"{'train' if train else 'val'}_*.npz"))
+        self.use_image = use_image
+
+    def __len__(self):
+        return len(self.files)
 
 
 if __name__ == "__main__":
