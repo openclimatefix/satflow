@@ -191,8 +191,10 @@ class DBlock(torch.nn.Module):
         input_channels: int = 12,
         output_channels: int = 12,
         conv_type: str = "standard",
+        first_relu: bool = True,
     ):
         super().__init__()
+        self.first_relu = first_relu
         conv2d = get_conv_layer(conv_type)
         self.conv_1x1 = conv2d(
             in_channels=input_channels,
@@ -218,13 +220,13 @@ class DBlock(torch.nn.Module):
 
     def forward(self, x):
         x1 = self.conv_1x1(x)
+        if self.first_relu:
+            x = self.relu(x)
+        x = self.first_conv_3x3(x)
+        x = self.relu(x)
+        x = self.last_conv_3x3(x)
 
-        x2 = self.relu(x)
-        x2 = self.first_conv_3x3(x2)
-        x2 = self.relu(x2)
-        x2 = self.last_conv_3x3(x2)
-
-        x = x1 + x2  # Sum the outputs should be half spatial and double channels
+        x = x1 + x  # Sum the outputs should be half spatial and double channels
         return x
 
 
