@@ -142,9 +142,46 @@ class GBlock(torch.nn.Module):
         self, input_channels: int = 12, output_channels: int = 12, conv_type: str = "standard"
     ):
         super().__init__()
+        self.bn1 = torch.nn.BatchNorm2d(input_channels)
+        self.bn2 = torch.nn.BatchNorm2d(input_channels)
+        self.relu = torch.nn.ReLU()
+        # Upsample in the 1x1
+        self.conv_1x1 = torch.nn.Conv2d(
+            in_channels=input_channels,
+            out_channels=output_channels,
+            kernel_size=1,
+        )
+        self.upsample = torch.nn.Upsample(scale_factor=2)
+        # Upsample 2D conv
+        self.first_conv_3x3 = torch.nn.ConvTranspose2d(
+            in_channels=input_channels,
+            out_channels=output_channels,
+            kernel_size=3,
+            stride=2,
+            padding=1,
+        )
+        self.last_conv_3x3 = torch.nn.Conv2d(
+            in_channels=input_channels,
+            out_channels=output_channels,
+            kernel_size=3,
+        )
 
     def forward(self, x):
-        pass
+        # Branch 1
+        x1 = self.upsample(x)
+        x1 = self.conv_1x1(x1)
+
+        # Branch 2
+        x2 = self.bn1(x)
+        x2 = self.relu(x2)
+        x2 = self.first_conv_3x3(x2)
+        x2 = self.bn2(x2)
+        x2 = self.relu(x2)
+        x2 = self.last_conv_3x3(x2)
+
+        # Sum combine
+        x = x1 + x2
+        return x
 
 
 class DBlock(torch.nn.Module):
@@ -156,23 +193,23 @@ class DBlock(torch.nn.Module):
     ):
         super().__init__()
         conv2d = get_conv_layer(conv_type)
-        self.conv_1x1 = torch.nn.Conv2d(
+        self.conv_1x1 = conv2d(
             in_channels=input_channels,
             out_channels=output_channels,
-            kernel_size=(1, 1),
+            kernel_size=1,
             padding=0,
-            stride=(2, 2),
+            stride=2,
         )
         # Downsample in the 1x1
-        self.first_conv_3x3 = torch.nn.Conv2d(
-            in_channels=input_channels, out_channels=output_channels, kernel_size=(3, 3)
+        self.first_conv_3x3 = conv2d(
+            in_channels=input_channels, out_channels=output_channels, kernel_size=3
         )
-        self.last_conv_3x3 = torch.nn.Conv2d(
+        self.last_conv_3x3 = conv2d(
             in_channels=input_channels,
             out_channels=output_channels,
-            kernel_size=(3, 3),
+            kernel_size=3,
             padding=1,
-            stride=(2, 2),
+            stride=2,
         )
         # Downsample at end of 3x3
         self.relu = torch.nn.ReLU()
