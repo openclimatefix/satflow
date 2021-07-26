@@ -2,6 +2,7 @@ import functools
 
 import torch
 from torch import nn as nn
+from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
 from typing import Union
 from satflow.models.gan.common import get_norm_layer, init_net
 from satflow.models.utils import get_conv_layer
@@ -432,3 +433,28 @@ class UnetSkipConnectionBlock(nn.Module):
             return self.model(x)
         else:  # add skip connections
             return torch.cat([x, self.model(x)], 1)
+
+
+class NowcastingGenerator(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        # Get Conditioning Stack of images
+
+        # Space to Depth by pixel_shuffle at beginning
+        self.space2depth = PixelUnshuffle(downscale_factor=2)
+        # Depth to Space at end to get original size as input
+        self.depth2space = PixelShuffle(upscale_factor=2)
+        # For each input image, after S2D, put through 4 downsampling blocks, use the 4 x timesteps outputs
+
+        # Concatenate along channel dimension for each of the 4 sizes
+        # Need 3x3 spectrally normalized conv, and reduce number of channels by 2
+        # Output for 128x128 input should be 32x32x48, 16x16x96, 8x8x192, 4x4x384
+        # Potentially different with the 12 input sat channels? More channel outputs
+
+        # Sampoler, stack of 4 ConvGRU units, with condition reprsentations as initial states
+        # 18 copies of an 8x8x768 latent representations are given as inputto lowest resolution ConvGRU block
+        # 4x4x768 with 128 input I think
+
+    def forward(self, x):
+        pass

@@ -2,6 +2,7 @@ import functools
 
 import torch
 from torch.nn import init
+from satflow.models.utils import get_conv_layer
 
 
 def get_norm_layer(norm_type="instance"):
@@ -22,7 +23,7 @@ def get_norm_layer(norm_type="instance"):
     elif norm_type == "none":
 
         def norm_layer(x):
-            return Identity()
+            return torch.nn.Identity()
 
     else:
         raise NotImplementedError("normalization layer [%s] is not found" % norm_type)
@@ -136,6 +137,89 @@ def cal_gradient_penalty(
         return 0.0, None
 
 
-class Identity(torch.nn.Module):
+class GBlock(torch.nn.Module):
+    def __init__(
+        self, input_channels: int = 12, output_channels: int = 12, conv_type: str = "standard"
+    ):
+        super().__init__()
+
     def forward(self, x):
+        pass
+
+
+class DBlock(torch.nn.Module):
+    def __init__(
+        self,
+        input_channels: int = 12,
+        output_channels: int = 12,
+        conv_type: str = "standard",
+    ):
+        super().__init__()
+        conv2d = get_conv_layer(conv_type)
+        self.conv_1x1 = torch.nn.Conv2d(
+            in_channels=input_channels,
+            out_channels=output_channels,
+            kernel_size=(1, 1),
+            padding=0,
+            stride=(2, 2),
+        )
+        # Downsample in the 1x1
+        self.first_conv_3x3 = torch.nn.Conv2d(
+            in_channels=input_channels, out_channels=output_channels, kernel_size=(3, 3)
+        )
+        self.last_conv_3x3 = torch.nn.Conv2d(
+            in_channels=input_channels,
+            out_channels=output_channels,
+            kernel_size=(3, 3),
+            padding=1,
+            stride=(2, 2),
+        )
+        # Downsample at end of 3x3
+        self.relu = torch.nn.ReLU()
+        # Concatenate to double final channels and keep reduced spatial extent
+
+    def forward(self, x):
+        x1 = self.conv_1x1(x)
+
+        x2 = self.relu(x)
+        x2 = self.first_conv_3x3(x2)
+        x2 = self.relu(x2)
+        x2 = self.last_conv_3x3(x2)
+
+        x = x1 + x2  # Sum the outputs should be half spatial and double channels
         return x
+
+
+class LBlock(torch.nn.Module):
+    def __init__(
+        self, input_channels: int = 12, output_channels: int = 12, conv_type: str = "standard"
+    ):
+        super().__init__()
+
+    def forward(self, x):
+        pass
+
+
+class LatentConditioningStack(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        # 8x8x8 independent drawes from normal distribution
+        # first two entries are H, W which are 1/32nd of input size, so 4x4x8 for this one
+
+    def forward(self, x):
+        pass
+
+
+class NowcastingSampler(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        # Output of latent space is repeated 18 times, one for each future timestep
+        # Output of each ConvGRU is upsampled to input of the enxt ConvGRU with one spectrally normalized convolution
+        # and two residual blocks that process all temporal representations independently
+        # Second residual block doubles input spatial resolution with nearest neighbor interpolation, and halves number
+        # of channels. After last ConvGRU, size is 128x128x48 (64x64x48 for 128x128 input)
+        # Batch norm, ReLU, and 1x1 spectrally normalized convolution is applied, gibing 128x128x4 output,
+        # then Depth2Space
+
+    def forward(self, x):
+        pass

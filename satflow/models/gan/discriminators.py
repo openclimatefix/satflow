@@ -308,3 +308,19 @@ class CloudGANDiscriminator(nn.Module):
         x = self.flatten(x)
         x = self.fc(x)
         return x
+
+
+class NowcastingTemporalDiscriminator(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        pass
+
+
+class NowcastingSpatialDiscriminator(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        pass
