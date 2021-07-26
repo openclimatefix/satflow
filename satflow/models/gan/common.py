@@ -232,9 +232,29 @@ class LBlock(torch.nn.Module):
         self, input_channels: int = 12, output_channels: int = 12, conv_type: str = "standard"
     ):
         super().__init__()
+        # Output size should be channel_out - channel_in
+        conv2d = get_conv_layer(conv_type)
+        self.conv_1x1 = conv2d(
+            in_channels=input_channels,
+            out_channels=output_channels,
+            kernel_size=1,
+        )
+
+        self.first_conv_3x3 = conv2d(input_channels, out_channels=output_channels, kernel_size=3)
+        self.relu = torch.nn.ReLU()
+        self.last_conv_3x3 = conv2d(
+            in_channels=output_channels, out_channels=output_channels, kernel_size=3
+        )
 
     def forward(self, x):
-        pass
+        x1 = self.conv_1x1(x)
+
+        x2 = self.first_conv_3x3(x)
+        x2 = self.relu(x2)
+        x2 = self.last_conv_3x3(x2)
+
+        x = x2 + (torch.cat((x, x1), dim=1))  # TODO make sure this works
+        return x
 
 
 class LatentConditioningStack(torch.nn.Module):
