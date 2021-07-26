@@ -239,7 +239,7 @@ class CloudGAN(pl.LightningModule):
             return output
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        images, future_images, future_masks = batch
+        images, future_images = batch
         if self.condition_time:
             return self.train_per_timestep(images, future_images, optimizer_idx, batch_idx)
         else:
@@ -322,7 +322,7 @@ class CloudGAN(pl.LightningModule):
         return output
 
     def validation_step(self, batch, batch_idx):
-        images, future_images, future_masks = batch
+        images, future_images = batch
         if self.condition_time:
             return self.val_per_timestep(images, future_images, batch_idx)
         else:

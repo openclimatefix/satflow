@@ -25,7 +25,7 @@ training_dataloader = DataLoader(
     t_flow,
     batch_size=1,
     pin_memory=True,
-    num_workers=8,
+    num_workers=16,
 )
 val_dataloader = DataLoader(
     v_flow,
@@ -34,11 +34,11 @@ val_dataloader = DataLoader(
     num_workers=8,
 )
 
-output_dir = "/run/media/jacob/data/preprocessed_satflow_prev6_skip3/"
+output_dir = "/run/media/jacob/data/satflow_prev6_skip3_notime/"
 
-# for i, data in enumerate(training_dataloader):
-#    if i > 40000:
-#        break
+for i, data in enumerate(training_dataloader):
+    if i > 40000:
+        break
 for i, data in enumerate(val_dataloader):
     image, target_image, target_mask = data
     image = image[0].numpy()

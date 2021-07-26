@@ -493,7 +493,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if not self.use_image:
                                 yield image, target_mask
                             else:
-                                output_dir = "/run/media/jacob/data/preprocessed_satflow_prev6/"
+                                output_dir = "/run/media/jacob/data/satflow_prev6_skip3_notime/"
                                 i = np.random.randint(0, 200000)
                                 np.savez_compressed(
                                     output_dir + f"{'train' if self.train else 'val'}_{i}.npz",
@@ -717,13 +717,27 @@ def crop_center(img: np.ndarray, cropx: int, cropy: int) -> np.ndarray:
 
 class FileDataset(thd.Dataset):
     def __getitem__(self, index) -> T_co:
-        arrays = np.load(self.files[index])
-        return arrays["images"], arrays["future_images" if self.use_image else "masks"]
+        try:
+            if index in self.bad_indexes:
+                index = np.random.randint(0, len(self.files))
+                while index in self.bad_indexes:
+                    index = np.random.randint(0, len(self.files))
+            arrays = np.load(self.files[index])
+            return arrays["images"], arrays["future_images" if self.use_image else "masks"][:24]
+        except:
+            self.bad_indexes.append(index)
+            replacement_index = np.random.randint(0, len(self.files))
+            while replacement_index in self.bad_indexes:
+                replacement_index = np.random.randint(0, len(self.files))
+            arrays = np.load(self.files[replacement_index])
+            return arrays["images"], arrays["future_images" if self.use_image else "masks"][:24]
 
     def __init__(self, directory: str = "./", train: bool = True, use_image: bool = True):
         super().__init__()
-        self.files = glob.glob(os.path.join(directory, f"{'train' if train else 'val'}_*.npz"))
+        search_space = os.path.join(directory, f"{'train' if train else 'val'}_*.npz")
+        self.files = glob.glob(search_space)
         self.use_image = use_image
+        self.bad_indexes = []
 
     def __len__(self):
         return len(self.files)
