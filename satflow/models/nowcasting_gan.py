@@ -49,12 +49,14 @@ class NowcastingGAN(pl.LightningModule):
             raise ValueError(f"loss {loss} not recognized")
         self.make_vis = make_vis
         self.input_channels = input_channels
-        self.model = DVDGan(forecast_steps, input_channels, num_layers, hidden_dim, bilinear)
+        self.model = NowcastingGAN(
+            forecast_steps, input_channels, num_layers, hidden_dim, bilinear
+        )
         self.save_hyperparameters()
 
     @classmethod
     def from_config(cls, config):
-        return DVDGan(
+        return NowcastingGAN(
             forecast_steps=config.get("forecast_steps", 12),
             input_channels=config.get("in_channels", 12),
             hidden_dim=config.get("features", 64),
@@ -96,3 +98,41 @@ class NowcastingGAN(pl.LightningModule):
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
         return loss
+
+
+class NowcastingModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        pass
+
+    def temporal_discriminator(self):
+        pass
+
+    def spatial_discriminator(self):
+        pass
+
+    def latent_conditioning_stack(self):
+        pass
+
+    def generator(self):
+        pass
+
+    def space_to_dim(self):
+        pass
+
+    def dim_to_space(self):
+        pass
+
+    def g_block(self):
+        pass
+
+    def d_block(self):
+        pass
+
+    def d3_block(self):
+        pass
+
+    def l_block(self):
+        pass
