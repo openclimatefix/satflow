@@ -1,8 +1,9 @@
 import functools
 import torch
+from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
 from torch import nn as nn
 from satflow.models.utils import get_conv_layer
-from satflow.models.gan.common import get_norm_layer, init_net
+from satflow.models.gan.common import get_norm_layer, init_net, LBlock, GBlock, DBlock
 import antialiased_cnns
 
 
@@ -321,6 +322,37 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
 class NowcastingSpatialDiscriminator(torch.nn.Module):
     def __init__(self):
         super().__init__()
+        # First step is mean pooling 2x2 to reduce input by half
+        self.mean_pool = torch.nn.AvgPool2d(2)
+        self.space2depth = PixelUnshuffle(downscale_factor=2)
+        self.d1 = DBlock(input_channels=4, output_channels=48, first_relu=False)
+        self.d2 = DBlock(input_channels=48, output_channels=96)
+        self.d3 = DBlock(input_channels=96, output_channels=192)
+        self.d4 = DBlock(input_channels=192, output_channels=384)
+        self.d5 = DBlock(input_channels=384, output_channels=768)
+        self.d6 = DBlock(input_channels=768, output_channels=768)
+
+        # Sum pool along width and height, one for each of the 8 representations
+        self.sum_pool0 = torch.nn.LPPool2d(1, kernel_size=(256, 256))
+        self.sum_pool1 = torch.nn.LPPool2d(1, kernel_size=(128, 128))
+        self.sum_pool2 = torch.nn.LPPool2d(1, kernel_size=(64, 64))
+        self.sum_pool3 = torch.nn.LPPool2d(1, kernel_size=(32, 32))
+        self.sum_pool4 = torch.nn.LPPool2d(1, kernel_size=(16, 16))
+        self.sum_pool5 = torch.nn.LPPool2d(1, kernel_size=(8, 8))
+        self.sum_pool6 = torch.nn.LPPool2d(1, kernel_size=(4, 4))
+        self.sum_pool7 = torch.nn.LPPool2d(1, kernel_size=(2, 2))
+        # Spectrally normalized linear layer
+        self.fc = None
 
     def forward(self, x):
-        pass
+        x0 = self.mean_pool(x)  # 128x128
+        x1 = self.space2depth(x0)  # 64x64x4
+        x2 = self.d1(x1)  # 32x32
+        x3 = self.d2(x2)  # 16x16
+        x4 = self.d3(x3)  # 8x8
+        x5 = self.d4(x4)  # 4x4
+        x6 = self.d5(x5)  # 2x2
+        x7 = self.d6(x6)  # 2x2
+        x8 = self.sum_pool(x7)
+        x = self.fc(x)
+        return x
