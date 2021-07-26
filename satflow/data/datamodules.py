@@ -109,12 +109,12 @@ class FileDataModule(pl.LightningDataModule):
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
             self.train_dataset = FileDataset(
-                self.config["sources"]["train"],
+                os.path.join(self.data_dir, self.sources["train"]),
                 use_image=self.config.get("use_image", True),
                 train=True,
             )
             self.val_dataset = FileDataset(
-                self.config["sources"]["val"],
+                os.path.join(self.data_dir, self.sources["val"]),
                 use_image=self.config.get("use_image", True),
                 train=False,
             )
@@ -122,7 +122,7 @@ class FileDataModule(pl.LightningDataModule):
         # Assign test dataset for use in dataloader(s)
         if stage == "test" or stage is None:
             self.test_dataset = FileDataset(
-                self.config["sources"]["test"],
+                os.path.join(self.data_dir, self.sources["test"]),
                 use_image=self.config.get("use_image", True),
                 train=False,
             )
@@ -136,6 +136,7 @@ class FileDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
+            shuffle=True,
         )
         self.training_dataloader_ref = training_dataloader
 

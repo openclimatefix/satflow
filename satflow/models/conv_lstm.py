@@ -55,15 +55,15 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x, self.forecast_steps)
+        y_hat = torch.permute(y_hat, dims=(0, 2, 1, 3, 4))
         # Generally only care about the center x crop, so the model can take into account the clouds in the area without
         # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         # the logger you used (in this case tensorboard)
-        if self.visualize:
-            if np.random.random() < 0.01:
-                self.visualize_step(x, y, y_hat, batch_idx)
+        # if self.visualize:
+        #    if np.random.random() < 0.01:
+        #        self.visualize_step(x, y, y_hat, batch_idx)
         loss = self.criterion(y_hat, y)
         self.log("train/loss", loss, on_step=True)
-        y_hat = torch.moveaxis(y_hat, 2, 1)
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
             frame_loss = self.criterion(y_hat[:, f, :, :, :], y[:, f, :, :, :]).item()
@@ -74,10 +74,11 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x, self.forecast_steps)
+        y_hat = torch.permute(y_hat, dims=(0, 2, 1, 3, 4))
         val_loss = self.criterion(y_hat, y)
         # Save out loss per frame as well
         frame_loss_dict = {}
-        y_hat = torch.moveaxis(y_hat, 2, 1)
+        # y_hat = torch.moveaxis(y_hat, 2, 1)
         for f in range(self.forecast_steps):
             frame_loss = self.criterion(y_hat[:, f, :, :, :], y[:, f, :, :, :]).item()
             frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
@@ -96,7 +97,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         # Add all the different timesteps for a single prediction, 0.1% of the time
         images = x[0].cpu().detach()
         images = [img for img in images]
-        image_grid = torchvision.utils.make_grid(images, nrow=self.channels_per_timestep)
+        image_grid = torchvision.utils.make_grid(images, nrow=16)
         tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
         images = y[0].cpu().detach()
         images = [img for img in images]
