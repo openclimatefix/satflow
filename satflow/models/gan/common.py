@@ -2,6 +2,7 @@ import functools
 
 import torch
 from torch.nn import init
+from torch.distributions import uniform
 from satflow.models.utils import get_conv_layer
 
 
@@ -257,7 +258,7 @@ class LBlock(torch.nn.Module):
         return x
 
 
-class LatentConditioningStack(torch.nn.Module):
+class NowcastingSampler(torch.nn.Module):
     def __init__(self):
         super().__init__()
         # 8x8x8 independent drawes from normal distribution
@@ -267,8 +268,11 @@ class LatentConditioningStack(torch.nn.Module):
         pass
 
 
-class NowcastingSampler(torch.nn.Module):
-    def __init__(self):
+class LatentConditioningStack(torch.nn.Module):
+    def __init__(
+        self,
+        shape: (int, int, int) = (8, 8, 8),
+    ):
         super().__init__()
         # Output of latent space is repeated 18 times, one for each future timestep
         # Output of each ConvGRU is upsampled to input of the enxt ConvGRU with one spectrally normalized convolution
@@ -277,6 +281,22 @@ class NowcastingSampler(torch.nn.Module):
         # of channels. After last ConvGRU, size is 128x128x48 (64x64x48 for 128x128 input)
         # Batch norm, ReLU, and 1x1 spectrally normalized convolution is applied, gibing 128x128x4 output,
         # then Depth2Space
+        self.shape = shape
+        self.distribution = uniform.Uniform(torch.Tensor([0.0]), torch.Tensor([1.0]))
 
-    def forward(self, x):
-        pass
+        self.conv_3x3 = torch.nn.Conv2d(in_channels=shape[2], out_channels=shape[2], kernel_size=3)
+        self.l_block1 = LBlock(input_channels=shape[2], output_channels=24)
+        self.l_block2 = LBlock(input_channels=24, output_channels=48)
+        self.l_block3 = LBlock(input_channels=48, output_channels=192)
+        self.att_block = None  # TODO Add in attention module
+        self.l_block4 = LBlock(input_channels=192, output_channels=768)
+
+    def forward(self):
+        z = self.distribution.sample(self.shape)
+        z = self.conv_3x3(z)
+        z = self.l_block1(z)
+        z = self.l_block2(z)
+        z = self.l_block3(z)
+        z = self.att_block(z)
+        z = self.l_block4(z)
+        return z
