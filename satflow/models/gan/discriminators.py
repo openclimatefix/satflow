@@ -314,7 +314,13 @@ class CloudGANDiscriminator(nn.Module):
 
 
 class NowcastingTemporalDiscriminator(torch.nn.Module):
-    def __init__(self, input_channels: int = 12, crop_size: int = 128):
+    def __init__(
+        self,
+        input_channels: int = 12,
+        crop_size: int = 128,
+        num_layers: int = 3,
+        conv_type: str = "standard",
+    ):
         super().__init__()
         self.transform = RandomCrop(crop_size)
         self.space2depth = PixelUnshuffle(downscale_factor=2)
@@ -322,10 +328,17 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
             input_channels=input_channels, output_channels=48, conv_type="3d", first_relu=False
         )
         self.d2 = DBlock(input_channels=48, output_channels=96, conv_type="3d")
-        self.d3 = DBlock(input_channels=96, output_channels=192)
-        self.d4 = DBlock(input_channels=192, output_channels=384)
-        self.d5 = DBlock(input_channels=384, output_channels=768)
-        self.d6 = DBlock(input_channels=768, output_channels=768, keep_same_output=True)
+        self.intermediate_dblocks = torch.nn.ModuleList()
+        for _ in range(num_layers):
+            self.intermediate_dblocks.append(
+                DBlock(input_channels=96, output_channels=192, conv_type=conv_type)
+            )
+        self.d4 = DBlock(input_channels=192, output_channels=384, conv_type=conv_type)
+        self.d5 = DBlock(input_channels=384, output_channels=768, conv_type=conv_type)
+
+        self.d_last = DBlock(
+            input_channels=768, output_channels=768, keep_same_output=True, conv_type=conv_type
+        )
 
         self.fc = spectral_norm(torch.nn.Linear(768, 2))
 
@@ -334,10 +347,12 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
         x = self.space2depth(x)
         x = self.d1(x)
         x = self.d2(x)
+        # Intermediate DBlocks
         x = self.d3(x)
         x = self.d4(x)
         x = self.d5(x)
-        x = self.d6(x)
+
+        x = self.d_last(x)
         x = torch.sum(x.view(x.size(0), x.size(1), -1), dim=2)  # Sum pool
         x = self.fc(x)
         return torch.nn.ReLU(x)
