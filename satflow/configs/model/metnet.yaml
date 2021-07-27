@@ -9,3 +9,4 @@ num_layers: 1
 num_att_layers: 1
 temporal_dropout: 0.2
 visualize: False
+output_channels: 12

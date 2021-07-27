@@ -493,7 +493,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if not self.use_image:
                                 yield image, target_mask
                             else:
-                                yield image, target_image, target_mask
+                                yield image, target_image
 
     def get_topo_latlon(self, sample: dict) -> None:
         if self.use_topo:

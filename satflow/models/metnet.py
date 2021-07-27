@@ -58,6 +58,7 @@ class MetNet(pl.LightningModule):
         pretrained: bool = False,
         visualize: bool = False,
         loss: str = "mse",
+        output_channels: int = 12,
     ):
         super().__init__()
 
@@ -82,7 +83,7 @@ class MetNet(pl.LightningModule):
         )
 
         self.head = head
-        self.head = nn.Conv2d(hidden_dim, 1, kernel_size=(1, 1))  # Reduces to mask
+        self.head = nn.Conv2d(hidden_dim, output_channels, kernel_size=(1, 1))  # Reduces to mask
         # self.head = nn.Sequential(nn.AdaptiveAvgPool2d(1), )
 
     def encode_timestep(self, x, fstep=1):
@@ -143,7 +144,7 @@ class MetNet(pl.LightningModule):
         x, y = batch
         x = x.float()
         y_hat = self(x)
-        y = torch.squeeze(y)
+        # y = torch.squeeze(y)
 
         if self.visualize:
             if np.random.random() < 0.01:
@@ -154,7 +155,7 @@ class MetNet(pl.LightningModule):
         self.log("train/loss", loss)
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat[f, :, :], y[f, :, :]).item()
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
             frame_loss_dict[f"train/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
         return loss
@@ -163,13 +164,12 @@ class MetNet(pl.LightningModule):
         x, y = batch
         x = x.float()
         y_hat = self(x)
-        y = torch.squeeze(y)
         val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss)
         # Save out loss per frame as well
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat[f, :, :], y[f, :, :]).item()
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
             frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
         return val_loss
@@ -186,7 +186,7 @@ class MetNet(pl.LightningModule):
         # Add all the different timesteps for a single prediction, 0.1% of the time
         images = x[0].cpu().detach()
         images = [img for img in images]
-        image_grid = torchvision.utils.make_grid(images, nrow=self.channels_per_timestep)
+        image_grid = torchvision.utils.make_grid(images, nrow=13)
         tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
         images = y[0].cpu().detach()
         images = [img for img in images]
