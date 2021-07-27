@@ -4,6 +4,7 @@ import torch
 from torch.nn import init
 from torch.distributions import uniform
 from torch.nn.utils.parametrizations import spectral_norm
+from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
 from satflow.models.utils import get_conv_layer
 
 
@@ -267,14 +268,60 @@ class LBlock(torch.nn.Module):
         return x
 
 
-class NowcastingSampler(torch.nn.Module):
-    def __init__(self):
+class ContextConditioningStack(torch.nn.Module):
+    def __init__(
+        self,
+        input_channels: int = 12,
+        output_channels: int = 12,
+        num_timesteps: int = 4,
+        conv_type: str = "standard",
+    ):
         super().__init__()
-        # 8x8x8 independent drawes from normal distribution
-        # first two entries are H, W which are 1/32nd of input size, so 4x4x8 for this one
+        conv2d = get_conv_layer(conv_type)
+        self.space2depth = PixelUnshuffle(downscale_factor=2)
+        # Process each observation processed separately with 4 downsample blocks
+        # Concatenate across channel dimension, and foor each output, 3x3 spectrally normalized convolution to reduce
+        # number of channels by 2, followed by ReLU
+        # TODO Not sure if a different block for each timestep, or same block used separately
+        self.d1 = DBlock(input_channels=4, output_channels=8, conv_type=conv_type)
+        self.d2 = DBlock(input_channels=8, output_channels=16, conv_type=conv_type)
+        self.d3 = DBlock(input_channels=16, output_channels=32, conv_type=conv_type)
+        self.d4 = DBlock(input_channels=32, output_channels=64, conv_type=conv_type)
+
+        self.conv1 = spectral_norm(conv2d(input_channels=96, output_channels=48, kernel_size=3))
+        self.conv2 = spectral_norm(conv2d(input_channels=192, output_channels=96, kernel_size=3))
+        self.conv3 = spectral_norm(conv2d(input_channels=384, output_channels=192, kernel_size=3))
+        self.conv4 = spectral_norm(conv2d(input_channels=768, output_channels=384, kernel_size=3))
+
+        self.relu = torch.nn.ReLU()
 
     def forward(self, x):
-        pass
+        # Each timestep processed separately
+        x = self.space2depth(x)
+        steps = x.size(1)  # Number of timesteps
+        scale_1 = []
+        scale_2 = []
+        scale_3 = []
+        scale_4 = []
+        for i in range(steps):
+            s1 = self.d1(x[:, i, :, :, :])
+            s2 = self.d2(s1)
+            s3 = self.d3(s2)
+            s4 = self.d4(s3)
+            scale_1.append(s1)
+            scale_2.append(s2)
+            scale_3.append(s3)
+            scale_4.append(s4)
+        scale_1 = torch.cat(scale_1, dim=2)  # B, T, C, H, W and want along C dimension
+        scale_2 = torch.cat(scale_2, dim=2)  # B, T, C, H, W and want along C dimension
+        scale_3 = torch.cat(scale_3, dim=2)  # B, T, C, H, W and want along C dimension
+        scale_4 = torch.cat(scale_4, dim=2)  # B, T, C, H, W and want along C dimension
+        scale_1 = self.relu(self.conv1(scale_1))
+        scale_2 = self.relu(self.conv1(scale_2))
+        scale_3 = self.relu(self.conv1(scale_3))
+        scale_4 = self.relu(self.conv1(scale_4))
+
+        return scale_1, scale_2, scale_3, scale_4
 
 
 class LatentConditioningStack(torch.nn.Module):
