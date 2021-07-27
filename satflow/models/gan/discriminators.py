@@ -324,23 +324,38 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
         super().__init__()
         self.transform = RandomCrop(crop_size)
         self.space2depth = PixelUnshuffle(downscale_factor=2)
+        internal_chn = 48
         self.d1 = DBlock(
-            input_channels=input_channels, output_channels=48, conv_type="3d", first_relu=False
+            input_channels=4 * input_channels,
+            output_channels=internal_chn * input_channels,
+            conv_type="3d",
+            first_relu=False,
         )
-        self.d2 = DBlock(input_channels=48, output_channels=96, conv_type="3d")
+        self.d2 = DBlock(
+            input_channels=internal_chn * input_channels,
+            output_channels=2 * internal_chn * input_channels,
+            conv_type="3d",
+        )
         self.intermediate_dblocks = torch.nn.ModuleList()
         for _ in range(num_layers):
+            internal_chn *= 2
             self.intermediate_dblocks.append(
-                DBlock(input_channels=96, output_channels=192, conv_type=conv_type)
+                DBlock(
+                    input_channels=internal_chn * input_channels,
+                    output_channels=2 * internal_chn * input_channels,
+                    conv_type=conv_type,
+                )
             )
-        self.d4 = DBlock(input_channels=192, output_channels=384, conv_type=conv_type)
-        self.d5 = DBlock(input_channels=384, output_channels=768, conv_type=conv_type)
 
         self.d_last = DBlock(
-            input_channels=768, output_channels=768, keep_same_output=True, conv_type=conv_type
+            input_channels=2 * internal_chn * input_channels,
+            output_channels=2 * internal_chn * input_channels,
+            keep_same_output=True,
+            conv_type=conv_type,
         )
 
-        self.fc = spectral_norm(torch.nn.Linear(768, 2))
+        self.fc = spectral_norm(torch.nn.Linear(2 * internal_chn * input_channels, 2))
+        self.relu = torch.nn.ReLU()
 
     def forward(self, x):
         x = self.transform(x)
@@ -348,14 +363,13 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
         x = self.d1(x)
         x = self.d2(x)
         # Intermediate DBlocks
-        x = self.d3(x)
-        x = self.d4(x)
-        x = self.d5(x)
+        for d in self.intermediate_dblocks:
+            x = d(x)
 
         x = self.d_last(x)
         x = torch.sum(x.view(x.size(0), x.size(1), -1), dim=2)  # Sum pool
         x = self.fc(x)
-        return torch.nn.ReLU(x)
+        return self.relu(x)
 
 
 class NowcastingSpatialDiscriminator(torch.nn.Module):
