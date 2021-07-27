@@ -63,6 +63,8 @@ class MetNet(pl.LightningModule):
         super().__init__()
 
         self.forecast_steps = forecast_steps
+        self.input_channels = input_channels
+        self.output_channels = output_channels
         self.criterion = get_loss(loss)
         self.lr = lr
         self.visualize = visualize
@@ -189,28 +191,28 @@ class MetNet(pl.LightningModule):
             images = x[0].cpu().detach()
             for i, t in enumerate(images):  # Now would be (C, H, W)
                 t = [torch.unsqueeze(img, dim=0) for img in t]
-                image_grid = torchvision.utils.make_grid(t, nrow=13)
+                image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
                 tensorboard.add_image(
                     f"{step}/Input_Image_Stack_Frame_{i}", image_grid, global_step=batch_idx
                 )
             images = y[0].cpu().detach()
             for i, t in enumerate(images):  # Now would be (C, H, W)
                 t = [torch.unsqueeze(img, dim=0) for img in t]
-                image_grid = torchvision.utils.make_grid(t, nrow=12)
+                image_grid = torchvision.utils.make_grid(t, nrow=self.output_channels)
                 tensorboard.add_image(
                     f"{step}/Target_Image_Stack_Frame_{i}", image_grid, global_step=batch_idx
                 )
             images = y_hat[0].cpu().detach()
             for i, t in enumerate(images):  # Now would be (C, H, W)
                 t = [torch.unsqueeze(img, dim=0) for img in t]
-                image_grid = torchvision.utils.make_grid(t, nrow=12)
+                image_grid = torchvision.utils.make_grid(t, nrow=self.output_channels)
                 tensorboard.add_image(
                     f"{step}/Generated_Stack_Frame_{i}", image_grid, global_step=batch_idx
                 )
         else:
             images = x[0].cpu().detach()
             images = [torch.unsqueeze(img, dim=0) for img in images]
-            image_grid = torchvision.utils.make_grid(images, nrow=13)
+            image_grid = torchvision.utils.make_grid(images, nrow=self.input_channels)
             tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
 
 
