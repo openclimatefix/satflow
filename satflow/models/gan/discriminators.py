@@ -377,6 +377,8 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
         self,
         input_channels: int = 12,
         num_timesteps: int = 8,
+        num_layers: int = 4,
+        conv_type: str = "standard",
     ):
         super().__init__()
         # Randomly, uniformly, select 8 timesteps to do this on from the input
@@ -384,15 +386,32 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
         # First step is mean pooling 2x2 to reduce input by half
         self.mean_pool = torch.nn.AvgPool2d(2)
         self.space2depth = PixelUnshuffle(downscale_factor=2)
-        self.d1 = DBlock(input_channels=input_channels, output_channels=48, first_relu=False)
-        self.d2 = DBlock(input_channels=48, output_channels=96)
-        self.d3 = DBlock(input_channels=96, output_channels=192)
-        self.d4 = DBlock(input_channels=192, output_channels=384)
-        self.d5 = DBlock(input_channels=384, output_channels=768)
-        self.d6 = DBlock(input_channels=768, output_channels=768, keep_same_output=True)
+        internal_chn = 24
+        self.d1 = DBlock(
+            input_channels=4 * input_channels,
+            output_channels=2 * internal_chn * input_channels,
+            first_relu=False,
+            conv_type=conv_type,
+        )
+        self.intermediate_dblocks = torch.nn.ModuleList()
+        for _ in range(num_layers):
+            internal_chn *= 2
+            self.intermediate_dblocks.append(
+                DBlock(
+                    input_channels=internal_chn * input_channels,
+                    output_channels=2 * internal_chn * input_channels,
+                    conv_type=conv_type,
+                )
+            )
+        self.d6 = DBlock(
+            input_channels=2 * internal_chn * input_channels,
+            output_channels=2 * internal_chn * input_channels,
+            keep_same_output=True,
+            conv_type=conv_type,
+        )
 
         # Spectrally normalized linear layer for binary classification
-        self.fc = spectral_norm(torch.nn.Linear(768, 2))
+        self.fc = spectral_norm(torch.nn.Linear(2 * internal_chn * input_channels, 2))
 
     def forward(self, x):
         # x should be the chosen 8 or so
@@ -402,10 +421,9 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
             rep = self.mean_pool(x[:, idx, :, :, :])  # 128x128
             rep = self.space2depth(rep)  # 64x64x4
             rep = self.d1(rep)  # 32x32
-            rep = self.d2(rep)  # 16x16
-            rep = self.d3(rep)  # 8x8
-            rep = self.d4(rep)  # 4x4
-            rep = self.d5(rep)  # 2x2
+            # Intermediate DBlocks
+            for d in self.intermediate_dblocks:
+                rep = d(rep)
             rep = self.d6(rep)  # 2x2
 
             # Sum-pool along width and height all 8 representations, pretty sure only the last output
