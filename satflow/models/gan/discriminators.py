@@ -362,14 +362,23 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
         x = self.space2depth(x)
         x = self.d1(x)
         x = self.d2(x)
-        # Intermediate DBlocks
-        for d in self.intermediate_dblocks:
-            x = d(x)
-
-        x = self.d_last(x)
-        x = torch.sum(x.view(x.size(0), x.size(1), -1), dim=2)  # Sum pool
-        x = self.fc(x)
-        return self.relu(x)
+        # Per Timestep part now, same as spatial discriminator
+        representations = []
+        for idx in range(x.size(1)):
+            # Intermediate DBlocks
+            rep = x[:, idx, :, :, :]
+            for d in self.intermediate_dblocks:
+                rep = d(rep)
+            rep = self.d_last(rep)
+            # Sum-pool along width and height all 8 representations, pretty sure only the last output
+            rep = torch.sum(rep.view(rep.size(0), rep.size(1), -1), dim=2)
+            rep = self.fc(rep)
+            representations.append(rep)
+        # The representations are summed together before the ReLU
+        x = torch.stack(representations, dim=0).sum(dim=0)  # Should be right shape? TODO Check
+        # ReLU the output
+        x = self.relu(x)
+        return x
 
 
 class NowcastingSpatialDiscriminator(torch.nn.Module):
@@ -412,6 +421,7 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
 
         # Spectrally normalized linear layer for binary classification
         self.fc = spectral_norm(torch.nn.Linear(2 * internal_chn * input_channels, 2))
+        self.relu = torch.nn.ReLU()
 
     def forward(self, x):
         # x should be the chosen 8 or so
@@ -434,5 +444,5 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
         # The representations are summed together before the ReLU
         x = torch.stack(representations, dim=0).sum(dim=0)  # Should be right shape? TODO Check
         # ReLU the output
-        x = torch.nn.ReLU(x)
+        x = self.relu(x)
         return x
