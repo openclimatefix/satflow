@@ -1,4 +1,5 @@
 import torch
+from torch.nn.utils.spectral_norm import spectral_norm
 from satflow.models.layers import CoordConv
 
 

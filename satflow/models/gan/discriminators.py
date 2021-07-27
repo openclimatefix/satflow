@@ -3,6 +3,7 @@ import torch
 from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
 from torch.nn.utils.parametrizations import spectral_norm
 from torch import nn as nn
+from torchvision.transforms import RandomCrop
 from satflow.models.utils import get_conv_layer
 from satflow.models.gan.common import get_norm_layer, init_net, LBlock, GBlock, DBlock
 import antialiased_cnns
@@ -313,11 +314,32 @@ class CloudGANDiscriminator(nn.Module):
 
 
 class NowcastingTemporalDiscriminator(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, input_channels: int = 12, crop_size: int = 128):
         super().__init__()
+        self.transform = RandomCrop(crop_size)
+        self.space2depth = PixelUnshuffle(downscale_factor=2)
+        self.d1 = DBlock(
+            input_channels=input_channels, output_channels=48, conv_type="3d", first_relu=False
+        )
+        self.d2 = DBlock(input_channels=48, output_channels=96, conv_type="3d")
+        self.d3 = DBlock(input_channels=96, output_channels=192)
+        self.d4 = DBlock(input_channels=192, output_channels=384)
+        self.d5 = DBlock(input_channels=384, output_channels=768)
+        self.d6 = DBlock(input_channels=768, output_channels=768, keep_same_output=True)
+
+        self.fc = spectral_norm(torch.nn.Linear(768, 2))
 
     def forward(self, x):
-        pass
+        x = self.transform(x)
+        x = self.space2depth(x)
+        x = self.d1(x)
+        x = self.d2(x)
+        x = self.d3(x)
+        x = self.d4(x)
+        x = self.d5(x)
+        x = self.d6(x)
+        x = self.fc(x)
+        return torch.nn.ReLU(x)
 
 
 class NowcastingSpatialDiscriminator(torch.nn.Module):

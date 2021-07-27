@@ -216,6 +216,11 @@ class DBlock(torch.nn.Module):
             padding=0 if keep_same_output else 1,
             stride=1 if keep_same_output else 2,
         )
+        if conv_type == "3d":
+            # Need spectrally normalized convolutions
+            self.conv_1x1 = spectral_norm(self.conv_1x1)
+            self.first_conv_3x3 = spectral_norm(self.first_conv_3x3)
+            self.last_conv_3x3 = spectral_norm(self.last_conv_3x3)
         # Downsample at end of 3x3
         self.relu = torch.nn.ReLU()
         # Concatenate to double final channels and keep reduced spatial extent
