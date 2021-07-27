@@ -2,10 +2,11 @@ import functools
 
 import torch
 from torch import nn as nn
-from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
+from torch.nn.modules.pixelshuffle import PixelShuffle
 from typing import Union
-from satflow.models.gan.common import get_norm_layer, init_net
+from satflow.models.gan.common import get_norm_layer, init_net, GBlock
 from satflow.models.utils import get_conv_layer
+from satflow.models.layers import ConvGRU
 import antialiased_cnns
 
 
@@ -435,26 +436,88 @@ class UnetSkipConnectionBlock(nn.Module):
             return torch.cat([x, self.model(x)], 1)
 
 
-class NowcastingGenerator(torch.nn.Module):
-    def __init__(self):
+class NowcastingSampler(torch.nn.Module):
+    def __init__(self, forecast_steps: int = 18, input_channels: int = 768):
         super().__init__()
-
-        # Get Conditioning Stack of images
-
-        # Space to Depth by pixel_shuffle at beginning
-        self.space2depth = PixelUnshuffle(downscale_factor=2)
-        # Depth to Space at end to get original size as input
+        self.forecast_steps = forecast_steps
+        self.convGRU1 = ConvGRU(
+            input_dim=input_channels, hidden_dim=input_channels, kernel_size=(3, 3), n_layers=1
+        )
+        self.g1 = GBlock(input_channels=input_channels, output_channels=input_channels // 2)
+        self.convGRU2 = ConvGRU(
+            input_dim=input_channels // 2,
+            hidden_dim=input_channels // 2,
+            kernel_size=(3, 3),
+            n_layers=1,
+        )
+        self.g2 = GBlock(input_channels=input_channels // 2, output_channels=input_channels // 4)
+        self.convGRU3 = ConvGRU(
+            input_dim=input_channels // 4,
+            hidden_dim=input_channels // 4,
+            kernel_size=(3, 3),
+            n_layers=1,
+        )
+        self.g3 = GBlock(input_channels=input_channels // 4, output_channels=input_channels // 8)
+        self.convGRU4 = ConvGRU(
+            input_dim=input_channels // 8,
+            hidden_dim=input_channels // 8,
+            kernel_size=(3, 3),
+            n_layers=1,
+        )
+        self.g4 = GBlock(input_channels=input_channels // 8, output_channels=input_channels // 16)
         self.depth2space = PixelShuffle(upscale_factor=2)
-        # For each input image, after S2D, put through 4 downsampling blocks, use the 4 x timesteps outputs
 
-        # Concatenate along channel dimension for each of the 4 sizes
-        # Need 3x3 spectrally normalized conv, and reduce number of channels by 2
-        # Output for 128x128 input should be 32x32x48, 16x16x96, 8x8x192, 4x4x384
-        # Potentially different with the 12 input sat channels? More channel outputs
+        # Now make copies of the entire stack, one for each future timestep
+        stacks = torch.nn.ModuleDict()
+        for i in range(forecast_steps):
+            stacks[f"forecast_{i}"] = torch.nn.ModuleList(
+                [
+                    self.convGRU1,
+                    self.g1,
+                    self.convGRU2,
+                    self.g2,
+                    self.convGRU3,
+                    self.g3,
+                    self.convGRU4,
+                    self.g4,
+                    self.depth2space,
+                ]
+            )
+        self.stacks = stacks
 
-        # Sampoler, stack of 4 ConvGRU units, with condition reprsentations as initial states
-        # 18 copies of an 8x8x768 latent representations are given as inputto lowest resolution ConvGRU block
-        # 4x4x768 with 128 input I think
+    def forward(self, conditioning_states, latent_dim):
+        """
+        Perform the sampling from Skillful Nowcasting with GANs
+        Args:
+            conditioning_states: Outputs from the `ContextConditioningStack` with the 4 input states, ordered from largest to smallest spatially
+            latent_dim: Output from `LatentConditioningStack` for input into the ConvGRUs
 
-    def forward(self, x):
-        pass
+        Returns:
+            forecast_steps-length output of images for future timesteps
+
+        """
+        # Iterate through each forecast step
+        # Initialize with conditioning state for first one, output for second one
+        forecasts = []
+        for i in range(self.forecast_steps):
+            # Start at lowest one and go up, conditioning states
+            # ConvGRU1
+            x = self.stacks[f"forecast_{i}"][0](latent_dim, hidden_state=conditioning_states[3])
+            # GBlock1
+            x = self.stacks[f"forecast_{i}"][1](x)
+            # ConvGRU2
+            x = self.stacks[f"forecast_{i}"][2](x, hidden_state=conditioning_states[2])
+            # GBlock2
+            x = self.stacks[f"forecast_{i}"][3](x)
+            # ConvGRU3
+            x = self.stacks[f"forecast_{i}"][4](x, hidden_state=conditioning_states[1])
+            # GBlock3
+            x = self.stacks[f"forecast_{i}"][5](x)
+            # ConvGRU4
+            x = self.stacks[f"forecast_{i}"][6](x, hidden_state=conditioning_states[0])
+            # GBlock4
+            x = self.stacks[f"forecast_{i}"][7](x)
+            # Depth2Space
+            x = self.stacks[f"forecast_{i}"][8](x)
+            forecasts.append(x)
+        return forecasts
