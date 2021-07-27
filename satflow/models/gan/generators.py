@@ -499,22 +499,31 @@ class NowcastingSampler(torch.nn.Module):
         # Iterate through each forecast step
         # Initialize with conditioning state for first one, output for second one
         forecasts = []
+        init_states = conditioning_states
         for i in range(self.forecast_steps):
             # Start at lowest one and go up, conditioning states
             # ConvGRU1
-            x = self.stacks[f"forecast_{i}"][0](latent_dim, hidden_state=conditioning_states[3])
+            x = self.stacks[f"forecast_{i}"][0](latent_dim, hidden_state=init_states[3])
+            # Update for next timestep
+            init_states[3] = x
             # GBlock1
             x = self.stacks[f"forecast_{i}"][1](x)
             # ConvGRU2
-            x = self.stacks[f"forecast_{i}"][2](x, hidden_state=conditioning_states[2])
+            x = self.stacks[f"forecast_{i}"][2](x, hidden_state=init_states[2])
+            # Update for next timestep
+            init_states[2] = x
             # GBlock2
             x = self.stacks[f"forecast_{i}"][3](x)
             # ConvGRU3
-            x = self.stacks[f"forecast_{i}"][4](x, hidden_state=conditioning_states[1])
+            x = self.stacks[f"forecast_{i}"][4](x, hidden_state=init_states[1])
+            # Update for next timestep
+            init_states[1] = x
             # GBlock3
             x = self.stacks[f"forecast_{i}"][5](x)
             # ConvGRU4
-            x = self.stacks[f"forecast_{i}"][6](x, hidden_state=conditioning_states[0])
+            x = self.stacks[f"forecast_{i}"][6](x, hidden_state=init_states[0])
+            # Update for next timestep
+            init_states[0] = x
             # GBlock4
             x = self.stacks[f"forecast_{i}"][7](x)
             # Depth2Space
