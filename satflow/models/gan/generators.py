@@ -3,6 +3,7 @@ import functools
 import torch
 from torch import nn as nn
 from torch.nn.modules.pixelshuffle import PixelShuffle
+from torch.nn.utils.parametrizations import spectral_norm
 from typing import Union
 from satflow.models.gan.common import get_norm_layer, init_net, GBlock
 from satflow.models.utils import get_conv_layer
@@ -465,6 +466,11 @@ class NowcastingSampler(torch.nn.Module):
             n_layers=1,
         )
         self.g4 = GBlock(input_channels=input_channels // 8, output_channels=input_channels // 16)
+        self.bn = torch.nn.BatchNorm2d(input_channels // 16)
+        self.relu = torch.nn.ReLU()
+        self.conv_1x1 = spectral_norm(
+            torch.nn.Conv2d(in_channels=input_channels // 16, out_channels=4, kernel_size=1)
+        )
         self.depth2space = PixelShuffle(upscale_factor=2)
 
         # Now make copies of the entire stack, one for each future timestep
@@ -480,6 +486,9 @@ class NowcastingSampler(torch.nn.Module):
                     self.g3,
                     self.convGRU4,
                     self.g4,
+                    self.bn,
+                    self.relu,
+                    self.conv_1x1,
                     self.depth2space,
                 ]
             )
@@ -526,7 +535,13 @@ class NowcastingSampler(torch.nn.Module):
             init_states[0] = x
             # GBlock4
             x = self.stacks[f"forecast_{i}"][7](x)
-            # Depth2Space
+            # BN
             x = self.stacks[f"forecast_{i}"][8](x)
+            # ReLU
+            x = self.stacks[f"forecast_{i}"][9](x)
+            # Conv 1x1
+            x = self.stacks[f"forecast_{i}"][10](x)
+            # Depth2Space
+            x = self.stacks[f"forecast_{i}"][11](x)
             forecasts.append(x)
         return forecasts

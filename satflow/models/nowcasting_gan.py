@@ -20,6 +20,7 @@ class NowcastingGAN(pl.LightningModule):
         self,
         forecast_steps: int,
         input_channels: int = 3,
+        output_shape: int = 256,
         hidden_dim: int = 64,
         bilinear: bool = False,
         lr: float = 0.001,
@@ -50,10 +51,12 @@ class NowcastingGAN(pl.LightningModule):
         self.conditioning_stack = ContextConditioningStack(
             input_channels=input_channels, conv_type=conv_type
         )
-        self.latent_stack = LatentConditioningStack(shape=(8, 8, 8))
+        self.latent_stack = LatentConditioningStack(
+            shape=(output_shape // 32, output_shape // 32, 8 * self.input_channels)
+        )
         self.sampler = NowcastingSampler(forecast_steps=forecast_steps, input_channels=768)
         self.temporal_discriminator = NowcastingTemporalDiscriminator(
-            input_channels=input_channels, crop_size=64
+            input_channels=input_channels, crop_size=output_shape // 4
         )
         self.spatial_discriminator = NowcastingSpatialDiscriminator(
             input_channels=input_channels, num_timesteps=8
