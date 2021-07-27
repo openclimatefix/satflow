@@ -1,6 +1,7 @@
 import functools
 import torch
 from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
+from torch.nn.utils.parametrizations import spectral_norm
 from torch import nn as nn
 from satflow.models.utils import get_conv_layer
 from satflow.models.gan.common import get_norm_layer, init_net, LBlock, GBlock, DBlock
@@ -320,39 +321,48 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
 
 
 class NowcastingSpatialDiscriminator(torch.nn.Module):
-    def __init__(self):
+    def __init__(
+        self,
+        input_channels: int = 12,
+        num_timesteps: int = 8,
+    ):
         super().__init__()
+        # Randomly, uniformly, select 8 timesteps to do this on from the input
+        self.num_timesteps = num_timesteps
         # First step is mean pooling 2x2 to reduce input by half
         self.mean_pool = torch.nn.AvgPool2d(2)
         self.space2depth = PixelUnshuffle(downscale_factor=2)
-        self.d1 = DBlock(input_channels=4, output_channels=48, first_relu=False)
+        self.d1 = DBlock(input_channels=input_channels, output_channels=48, first_relu=False)
         self.d2 = DBlock(input_channels=48, output_channels=96)
         self.d3 = DBlock(input_channels=96, output_channels=192)
         self.d4 = DBlock(input_channels=192, output_channels=384)
         self.d5 = DBlock(input_channels=384, output_channels=768)
-        self.d6 = DBlock(input_channels=768, output_channels=768)
+        self.d6 = DBlock(input_channels=768, output_channels=768, keep_same_output=True)
 
-        # Sum pool along width and height, one for each of the 8 representations
-        self.sum_pool0 = torch.nn.LPPool2d(1, kernel_size=(256, 256))
-        self.sum_pool1 = torch.nn.LPPool2d(1, kernel_size=(128, 128))
-        self.sum_pool2 = torch.nn.LPPool2d(1, kernel_size=(64, 64))
-        self.sum_pool3 = torch.nn.LPPool2d(1, kernel_size=(32, 32))
-        self.sum_pool4 = torch.nn.LPPool2d(1, kernel_size=(16, 16))
-        self.sum_pool5 = torch.nn.LPPool2d(1, kernel_size=(8, 8))
-        self.sum_pool6 = torch.nn.LPPool2d(1, kernel_size=(4, 4))
-        self.sum_pool7 = torch.nn.LPPool2d(1, kernel_size=(2, 2))
-        # Spectrally normalized linear layer
-        self.fc = None
+        # Spectrally normalized linear layer for binary classification
+        self.fc = spectral_norm(torch.nn.Linear(768, 2))
 
     def forward(self, x):
-        x0 = self.mean_pool(x)  # 128x128
-        x1 = self.space2depth(x0)  # 64x64x4
-        x2 = self.d1(x1)  # 32x32
-        x3 = self.d2(x2)  # 16x16
-        x4 = self.d3(x3)  # 8x8
-        x5 = self.d4(x4)  # 4x4
-        x6 = self.d5(x5)  # 2x2
-        x7 = self.d6(x6)  # 2x2
-        x8 = self.sum_pool(x7)
-        x = self.fc(x)
+        # x should be the chosen 8 or so
+        idxs = torch.randint(low=0, high=x.size(1), size=(self.num_timesteps,))
+        representations = []
+        for idx in idxs:
+            rep = self.mean_pool(x[:, idx, :, :, :])  # 128x128
+            rep = self.space2depth(rep)  # 64x64x4
+            rep = self.d1(rep)  # 32x32
+            rep = self.d2(rep)  # 16x16
+            rep = self.d3(rep)  # 8x8
+            rep = self.d4(rep)  # 4x4
+            rep = self.d5(rep)  # 2x2
+            rep = self.d6(rep)  # 2x2
+
+            # Sum-pool along width and height all 8 representations, pretty sure only the last output
+            rep = torch.sum(rep.view(rep.size(0), rep.size(1), -1), dim=2)
+            rep = self.fc(rep)
+            representations.append(rep)
+
+        # The representations are summed together before the ReLU
+        x = torch.stack(representations, dim=0).sum(dim=0)  # Should be right shape? TODO Check
+        # ReLU the output
+        x = torch.nn.ReLU(x)
         return x
