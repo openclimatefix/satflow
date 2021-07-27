@@ -4,7 +4,7 @@
 defaults:
   - trainer: minimal.yaml
   - model: convlstm_model.yaml
-  - datamodule: satflow_datamodule.yaml
+  - datamodule: satflow.yaml
   - callbacks: default.yaml # set this to null if you don't want to use callbacks
   - logger: tensorboard # set logger here or use command line (e.g. `python run.py logger=wandb`)
 
