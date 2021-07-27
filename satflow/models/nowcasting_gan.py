@@ -1,11 +1,17 @@
 import torch
 import torch.nn.functional as F
 from typing import Union
-from satflow.models.losses import FocalLoss
+from satflow.models.losses import FocalLoss, get_loss
 import numpy as np
 import pytorch_lightning as pl
 
 from satflow.models.base import register_model
+from satflow.models.gan.common import LatentConditioningStack, ContextConditioningStack
+from satflow.models.gan.generators import NowcastingSampler
+from satflow.models.gan.discriminators import (
+    NowcastingSpatialDiscriminator,
+    NowcastingTemporalDiscriminator,
+)
 
 
 @register_model
@@ -38,15 +44,7 @@ class NowcastingGAN(pl.LightningModule):
         """
         super(NowcastingGAN, self).__init__()
         self.lr = lr
-        assert loss in ["mse", "bce", "binary_crossentropy", "crossentropy", "focal"]
-        if loss == "mse":
-            self.criterion = F.mse_loss
-        elif loss in ["bce", "binary_crossentropy", "crossentropy"]:
-            self.criterion = F.nll_loss
-        elif loss in ["focal"]:
-            self.criterion = FocalLoss()
-        else:
-            raise ValueError(f"loss {loss} not recognized")
+        self.criterion = get_loss(loss)
         self.make_vis = make_vis
         self.input_channels = input_channels
         self.model = NowcastingGAN(
@@ -98,41 +96,3 @@ class NowcastingGAN(pl.LightningModule):
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
         return loss
-
-
-class NowcastingModel(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x):
-        pass
-
-    def temporal_discriminator(self):
-        pass
-
-    def spatial_discriminator(self):
-        pass
-
-    def latent_conditioning_stack(self):
-        pass
-
-    def generator(self):
-        pass
-
-    def space_to_dim(self):
-        pass
-
-    def dim_to_space(self):
-        pass
-
-    def g_block(self):
-        pass
-
-    def d_block(self):
-        pass
-
-    def d3_block(self):
-        pass
-
-    def l_block(self):
-        pass
