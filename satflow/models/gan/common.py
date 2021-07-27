@@ -3,6 +3,7 @@ import functools
 import torch
 from torch.nn import init
 from torch.distributions import uniform
+from torch.nn.utils.parametrizations import spectral_norm
 from satflow.models.utils import get_conv_layer
 
 
@@ -192,6 +193,7 @@ class DBlock(torch.nn.Module):
         output_channels: int = 12,
         conv_type: str = "standard",
         first_relu: bool = True,
+        keep_same_output: bool = False,
     ):
         super().__init__()
         self.first_relu = first_relu
@@ -201,7 +203,7 @@ class DBlock(torch.nn.Module):
             out_channels=output_channels,
             kernel_size=1,
             padding=0,
-            stride=2,
+            stride=1 if keep_same_output else 2,
         )
         # Downsample in the 1x1
         self.first_conv_3x3 = conv2d(
@@ -211,8 +213,8 @@ class DBlock(torch.nn.Module):
             in_channels=input_channels,
             out_channels=output_channels,
             kernel_size=3,
-            padding=1,
-            stride=2,
+            padding=0 if keep_same_output else 1,
+            stride=1 if keep_same_output else 2,
         )
         # Downsample at end of 3x3
         self.relu = torch.nn.ReLU()
