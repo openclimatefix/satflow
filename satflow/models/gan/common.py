@@ -6,6 +6,7 @@ from torch.distributions import uniform
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
 from satflow.models.utils import get_conv_layer
+from satflow.models.layers.Attention import SelfAttention
 
 
 def get_norm_layer(norm_type="instance"):
@@ -344,7 +345,7 @@ class LatentConditioningStack(torch.nn.Module):
         self.l_block1 = LBlock(input_channels=shape[2], output_channels=24)
         self.l_block2 = LBlock(input_channels=24, output_channels=48)
         self.l_block3 = LBlock(input_channels=48, output_channels=192)
-        self.att_block = None  # TODO Add in attention module
+        self.att_block = SelfAttention(in_dim=192)
         self.l_block4 = LBlock(input_channels=192, output_channels=768)
 
     def forward(self):
