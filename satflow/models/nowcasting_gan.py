@@ -20,13 +20,13 @@ class NowcastingGAN(pl.LightningModule):
         self,
         forecast_steps: int,
         input_channels: int = 3,
-        num_layers: int = 5,
         hidden_dim: int = 64,
         bilinear: bool = False,
         lr: float = 0.001,
         make_vis: bool = False,
         loss: Union[str, torch.nn.Module] = "mse",
         pretrained: bool = False,
+        conv_type: str = "standard",
     ):
         """
         Nowcasting GAN is an attempt to recreate DeepMind's Skillful Nowcasting GAN from https://arxiv.org/abs/2104.00954
@@ -47,8 +47,16 @@ class NowcastingGAN(pl.LightningModule):
         self.criterion = get_loss(loss)
         self.make_vis = make_vis
         self.input_channels = input_channels
-        self.model = NowcastingGAN(
-            forecast_steps, input_channels, num_layers, hidden_dim, bilinear
+        self.conditioning_stack = ContextConditioningStack(
+            input_channels=input_channels, conv_type=conv_type
+        )
+        self.latent_stack = LatentConditioningStack(shape=(8, 8, 8))
+        self.sampler = NowcastingSampler(forecast_steps=forecast_steps, input_channels=768)
+        self.temporal_discriminator = NowcastingTemporalDiscriminator(
+            input_channels=input_channels, crop_size=64
+        )
+        self.spatial_discriminator = NowcastingSpatialDiscriminator(
+            input_channels=input_channels, num_timesteps=8
         )
         self.save_hyperparameters()
 
@@ -64,7 +72,10 @@ class NowcastingGAN(pl.LightningModule):
         )
 
     def forward(self, x):
-        return self.model.forward(x)
+        conditioning_states = self.conditioning_stack(x)
+        latent_dim = self.latent_stack()
+        x = self.sampler(conditioning_states, latent_dim)
+        return x
 
     def configure_optimizers(self):
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
