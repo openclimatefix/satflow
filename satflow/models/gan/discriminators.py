@@ -338,6 +338,7 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
         x = self.d4(x)
         x = self.d5(x)
         x = self.d6(x)
+        x = torch.sum(x.view(x.size(0), x.size(1), -1), dim=2)  # Sum pool
         x = self.fc(x)
         return torch.nn.ReLU(x)
 
