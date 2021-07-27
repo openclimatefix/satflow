@@ -493,14 +493,6 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                             if not self.use_image:
                                 yield image, target_mask
                             else:
-                                output_dir = "/run/media/jacob/data/satflow_prev6_skip3_notime/"
-                                i = np.random.randint(0, 200000)
-                                np.savez_compressed(
-                                    output_dir + f"{'train' if self.train else 'val'}_{i}.npz",
-                                    images=image,
-                                    future_images=target_image,
-                                    masks=target_mask,
-                                )
                                 yield image, target_image, target_mask
 
     def get_topo_latlon(self, sample: dict) -> None:
