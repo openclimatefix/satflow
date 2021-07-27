@@ -159,7 +159,7 @@ class GBlock(torch.nn.Module):
         # Upsample 2D conv
         self.first_conv_3x3 = torch.nn.ConvTranspose2d(
             in_channels=input_channels,
-            out_channels=output_channels,
+            out_channels=input_channels,
             kernel_size=3,
             stride=2,
             padding=1,
@@ -209,7 +209,7 @@ class DBlock(torch.nn.Module):
         )
         # Downsample in the 1x1
         self.first_conv_3x3 = conv2d(
-            in_channels=input_channels, out_channels=output_channels, kernel_size=3
+            in_channels=input_channels, out_channels=input_channels, kernel_size=3
         )
         self.last_conv_3x3 = conv2d(
             in_channels=input_channels,
@@ -265,7 +265,7 @@ class LBlock(torch.nn.Module):
         x2 = self.relu(x2)
         x2 = self.last_conv_3x3(x2)
 
-        x = x2 + (torch.cat((x, x1), dim=1))  # TODO make sure this works
+        x = x2 + (torch.cat((x, x1), dim=1))
         return x
 
 
