@@ -5,6 +5,7 @@ from torch.nn import init
 from torch.distributions import uniform
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
+from torch.nn.functional import interpolate
 from satflow.models.utils import get_conv_layer
 from satflow.models.layers.Attention import SelfAttention
 
@@ -145,17 +146,25 @@ class GBlock(torch.nn.Module):
     def __init__(
         self, input_channels: int = 12, output_channels: int = 12, conv_type: str = "standard"
     ):
+        """
+        G Block from Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
+        Args:
+            input_channels: Number of input channels
+            output_channels: Number of output channels
+            conv_type: Type of convolution desired, see satflow/models/utils.py for options
+        """
         super().__init__()
         self.bn1 = torch.nn.BatchNorm2d(input_channels)
         self.bn2 = torch.nn.BatchNorm2d(input_channels)
         self.relu = torch.nn.ReLU()
         # Upsample in the 1x1
-        self.conv_1x1 = torch.nn.Conv2d(
+        conv2d = get_conv_layer(conv_type)
+        self.conv_1x1 = conv2d(
             in_channels=input_channels,
             out_channels=output_channels,
             kernel_size=1,
         )
-        self.upsample = torch.nn.Upsample(scale_factor=2)
+        self.upsample = torch.nn.Upsample(scale_factor=2, mode="bilinear")
         # Upsample 2D conv
         self.first_conv_3x3 = torch.nn.ConvTranspose2d(
             in_channels=input_channels,
@@ -164,7 +173,7 @@ class GBlock(torch.nn.Module):
             stride=2,
             padding=1,
         )
-        self.last_conv_3x3 = torch.nn.Conv2d(
+        self.last_conv_3x3 = conv2d(
             in_channels=input_channels,
             out_channels=output_channels,
             kernel_size=3,
@@ -197,17 +206,24 @@ class DBlock(torch.nn.Module):
         first_relu: bool = True,
         keep_same_output: bool = False,
     ):
+        """
+        D and 3D Block from Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
+        Args:
+            input_channels: Number of input channels
+            output_channels: Number of output channels
+            conv_type: Convolution type, see satflow/models/utils.py for options
+            first_relu: Whether to have an ReLU before the first 3x3 convolution
+            keep_same_output: Whether the output should have the same spatial dimensions as input, if False, downscales by 2
+        """
         super().__init__()
         self.first_relu = first_relu
+        self.keep_same_output = keep_same_output
         conv2d = get_conv_layer(conv_type)
         self.conv_1x1 = conv2d(
             in_channels=input_channels,
             out_channels=output_channels,
             kernel_size=1,
-            padding=0,
-            stride=1 if keep_same_output else 2,
         )
-        # Downsample in the 1x1
         self.first_conv_3x3 = conv2d(
             in_channels=input_channels, out_channels=input_channels, kernel_size=3
         )
@@ -229,6 +245,8 @@ class DBlock(torch.nn.Module):
 
     def forward(self, x):
         x1 = self.conv_1x1(x)
+        if not self.keep_same_output:
+            x1 = interpolate(x1, mode="bilinear", scale_factor=0.5)  # Downscale by half
         if self.first_relu:
             x = self.relu(x)
         x = self.first_conv_3x3(x)
@@ -243,6 +261,14 @@ class LBlock(torch.nn.Module):
     def __init__(
         self, input_channels: int = 12, output_channels: int = 12, conv_type: str = "standard"
     ):
+        """
+        L-Block for increasing the number of channels in the input
+         from Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
+        Args:
+            input_channels: Number of input channels
+            output_channels: Number of output channels
+            conv_type: Which type of convolution desired, see satflow/models/utils.py for options
+        """
         super().__init__()
         # Output size should be channel_out - channel_in
         conv2d = get_conv_layer(conv_type)
