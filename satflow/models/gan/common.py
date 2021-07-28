@@ -273,8 +273,7 @@ class ContextConditioningStack(torch.nn.Module):
     def __init__(
         self,
         input_channels: int = 12,
-        output_channels: int = 12,
-        num_timesteps: int = 4,
+        output_channels: int = 384,
         conv_type: str = "standard",
     ):
         super().__init__()
@@ -284,15 +283,55 @@ class ContextConditioningStack(torch.nn.Module):
         # Concatenate across channel dimension, and foor each output, 3x3 spectrally normalized convolution to reduce
         # number of channels by 2, followed by ReLU
         # TODO Not sure if a different block for each timestep, or same block used separately
-        self.d1 = DBlock(input_channels=4, output_channels=8, conv_type=conv_type)
-        self.d2 = DBlock(input_channels=8, output_channels=16, conv_type=conv_type)
-        self.d3 = DBlock(input_channels=16, output_channels=32, conv_type=conv_type)
-        self.d4 = DBlock(input_channels=32, output_channels=64, conv_type=conv_type)
+        self.d1 = DBlock(
+            input_channels=4 * input_channels,
+            output_channels=8 * input_channels,
+            conv_type=conv_type,
+        )
+        self.d2 = DBlock(
+            input_channels=8 * input_channels,
+            output_channels=16 * input_channels,
+            conv_type=conv_type,
+        )
+        self.d3 = DBlock(
+            input_channels=16 * input_channels,
+            output_channels=32 * input_channels,
+            conv_type=conv_type,
+        )
+        self.d4 = DBlock(
+            input_channels=32 * input_channels,
+            output_channels=64 * input_channels,
+            conv_type=conv_type,
+        )
 
-        self.conv1 = spectral_norm(conv2d(input_channels=96, output_channels=48, kernel_size=3))
-        self.conv2 = spectral_norm(conv2d(input_channels=192, output_channels=96, kernel_size=3))
-        self.conv3 = spectral_norm(conv2d(input_channels=384, output_channels=192, kernel_size=3))
-        self.conv4 = spectral_norm(conv2d(input_channels=768, output_channels=384, kernel_size=3))
+        self.conv1 = spectral_norm(
+            conv2d(
+                input_channels=(output_channels // 4) * input_channels,
+                output_channels=(output_channels // 8) * input_channels,
+                kernel_size=3,
+            )
+        )
+        self.conv2 = spectral_norm(
+            conv2d(
+                input_channels=(output_channels // 2) * input_channels,
+                output_channels=(output_channels // 4) * input_channels,
+                kernel_size=3,
+            )
+        )
+        self.conv3 = spectral_norm(
+            conv2d(
+                input_channels=output_channels * input_channels,
+                output_channels=(output_channels // 2) * input_channels,
+                kernel_size=3,
+            )
+        )
+        self.conv4 = spectral_norm(
+            conv2d(
+                input_channels=output_channels * 2 * input_channels,
+                output_channels=output_channels * input_channels,
+                kernel_size=3,
+            )
+        )
 
         self.relu = torch.nn.ReLU()
 
@@ -329,6 +368,8 @@ class LatentConditioningStack(torch.nn.Module):
     def __init__(
         self,
         shape: (int, int, int) = (8, 8, 8),
+        output_channels: int = 768,
+        use_attention: bool = True,
     ):
         super().__init__()
         # Output of latent space is repeated 18 times, one for each future timestep
@@ -339,14 +380,22 @@ class LatentConditioningStack(torch.nn.Module):
         # Batch norm, ReLU, and 1x1 spectrally normalized convolution is applied, gibing 128x128x4 output,
         # then Depth2Space
         self.shape = shape
+        self.use_attention = use_attention
         self.distribution = uniform.Uniform(torch.Tensor([0.0]), torch.Tensor([1.0]))
 
         self.conv_3x3 = torch.nn.Conv2d(in_channels=shape[2], out_channels=shape[2], kernel_size=3)
-        self.l_block1 = LBlock(input_channels=shape[2], output_channels=24)
-        self.l_block2 = LBlock(input_channels=24, output_channels=48)
-        self.l_block3 = LBlock(input_channels=48, output_channels=192)
-        self.att_block = SelfAttention(in_dim=192)
-        self.l_block4 = LBlock(input_channels=192, output_channels=768)
+        self.l_block1 = LBlock(input_channels=shape[2], output_channels=output_channels // 32)
+        self.l_block2 = LBlock(
+            input_channels=output_channels // 32, output_channels=output_channels // 16
+        )
+        self.l_block3 = LBlock(
+            input_channels=output_channels // 16, output_channels=output_channels // 4
+        )
+        if self.use_attention:
+            self.att_block = SelfAttention(in_dim=output_channels // 4)
+        self.l_block4 = LBlock(
+            input_channels=output_channels // 4, output_channels=output_channels
+        )
 
     def forward(self):
         z = self.distribution.sample(self.shape)
@@ -354,6 +403,7 @@ class LatentConditioningStack(torch.nn.Module):
         z = self.l_block1(z)
         z = self.l_block2(z)
         z = self.l_block3(z)
-        z = self.att_block(z)
+        if self.use_attention:
+            z = self.att_block(z)
         z = self.l_block4(z)
         return z
