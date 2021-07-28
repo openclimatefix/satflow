@@ -10,4 +10,4 @@ num_att_layers: 1
 temporal_dropout: 0.2
 output_channels: 12
 visualize: True
-loss: "ms_ssim"
+loss: "ssim"

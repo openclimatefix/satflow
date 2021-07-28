@@ -11,7 +11,9 @@ dotenv.load_dotenv(override=True)
 
 @hydra.main(config_path="configs/", config_name="config.yaml")
 def main(config: DictConfig):
-    task = Task.init(project_name="Future Satellite Prediction", task_name="MetNet 12 Channels")
+    task = Task.init(
+        project_name="Future Satellite Prediction", task_name="MetNet 12 Channels SSIM"
+    )
 
     # Imports should be nested inside @hydra.main to optimize tab completion
     # Read more here: https://github.com/facebookresearch/hydra/issues/934

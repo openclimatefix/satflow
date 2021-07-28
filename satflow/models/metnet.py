@@ -65,7 +65,7 @@ class MetNet(pl.LightningModule):
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
         self.output_channels = output_channels
-        self.criterion = get_loss(loss)
+        self.criterion = get_loss(loss, channel=output_channels, nonnegative_ssim=True)
         self.loss = loss
         self.lr = lr
         self.visualize = visualize
@@ -157,6 +157,7 @@ class MetNet(pl.LightningModule):
         # SSIM and MS_SSIM has to be in range 0-1.0, while this is usually in -1-1.0, so need to rescale y
         if self.loss in ["ssim", "ms_ssim"]:
             y = (y + 1) / 2.0
+            y = y.half()
             y_hat = (y_hat + 1) / 2.0
         loss = self.criterion(y_hat, y)
         self.log("train/loss", loss)
@@ -174,6 +175,7 @@ class MetNet(pl.LightningModule):
         # SSIM and MS_SSIM has to be in range 0-1.0, while this is usually in -1-1.0, so need to rescale y
         if self.loss in ["ssim", "ms_ssim"]:
             y = (y + 1) / 2.0
+            y = y.half()
             y_hat = (y_hat + 1) / 2.0
         val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss)

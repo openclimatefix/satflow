@@ -388,7 +388,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     or self.num_timesteps * self.skip_timesteps + 1
                     >= available_steps - self.forecast_times
                 ):
-                    logger.warning(
+                    logger.debug(
                         f"Issue with {self.num_timesteps * self.skip_timesteps + 1} >= {available_steps - self.forecast_times} with {available_steps} available timesteps"
                     )
                     continue  # Skip this sample as it is missing timesteps, or has none
