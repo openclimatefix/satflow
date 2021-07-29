@@ -33,6 +33,7 @@ class NowcastingGAN(pl.LightningModule):
         grid_lambda: float = 20.0,
         beta1: float = 0.0,
         beta2: float = 0.999,
+        latent_channels: int = 768,
     ):
         """
         Nowcasting GAN is an attempt to recreate DeepMind's Skillful Nowcasting GAN from https://arxiv.org/abs/2104.00954
@@ -59,14 +60,19 @@ class NowcastingGAN(pl.LightningModule):
         self.grid_lambda = grid_lambda
         self.num_samples = num_samples
         self.make_vis = make_vis
+        self.latent_channels = latent_channels
         self.input_channels = input_channels
         self.conditioning_stack = ContextConditioningStack(
-            input_channels=input_channels, conv_type=conv_type
+            input_channels=input_channels,
+            conv_type=conv_type,
+            output_channels=self.latent_channels,
         )
         self.latent_stack = LatentConditioningStack(
             shape=(output_shape // 32, output_shape // 32, 8 * self.input_channels)
         )
-        self.sampler = NowcastingSampler(forecast_steps=forecast_steps, input_channels=768)
+        self.sampler = NowcastingSampler(
+            forecast_steps=forecast_steps, input_channels=self.latent_channels
+        )
         self.temporal_discriminator = NowcastingTemporalDiscriminator(
             input_channels=input_channels, crop_size=output_shape // 4
         )
