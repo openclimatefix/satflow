@@ -23,6 +23,42 @@ class MS_SSIMLoss(nn.Module):
         return 1.0 - self.ssim_module(X, Y)
 
 
+class GridCellLoss(nn.Module):
+    """
+    Grid Cell Regularizer loss from Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
+
+    """
+
+    def __init__(self, weight_fn=None):
+        super().__init__()
+        self.weight_fn = weight_fn  # In Paper, weight_fn is max(y+1,24)
+
+    def forward(self, generated_images, targets):
+        """
+        Calculates the grid cell regularizer value, assumes generated images are the mean predictions from
+        6 calls to the generater (Monte Carlo estimation of the expectations for the latent variable)
+        Args:
+            generated_images: Mean generated images from the generator
+            targets: Ground truth future frames
+
+        Returns:
+            Grid Cell Regularizer term
+        """
+        difference = generated_images - targets
+        if self.weight_fn is not None:
+            difference *= self.weight_fn(targets)
+        difference /= targets.size(1) * targets.size(3) * targets.size(4)  # 1/HWN
+        return difference
+
+
+class NowcastingLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, real_loss, fake_loss):
+        return F.relu(1.0 - real_loss) + F.relu(1.0 + fake_loss)
+
+
 class FocalLoss(nn.Module):
     """
     copy from: https://github.com/Hsuxu/Loss_ToolBox-PyTorch/blob/master/FocalLoss/FocalLoss.py
