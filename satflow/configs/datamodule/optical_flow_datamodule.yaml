@@ -21,15 +21,24 @@ config:
   use_latlon: False
   use_time: False
   time_aux: False
-  use_mask: True
-  use_image: False
+  use_mask: False
+  use_image: True
   add_pixel_coords: False
   time_as_channels: False
   # NIR1.6, VIS0.8 and VIS0.6 RGB for near normal view
-  bands: [
+  bands:
+    [
       "HRV",
-      #"IR016",
-      #"VIS006",
-      #"VIS008",
+      "IR016",
+      "IR039",
+      "IR087",
+      "IR097",
+      "IR108",
+      "IR120",
+      "IR134",
+      "VIS006",
+      "VIS008",
+      "WV062",
+      "WV073",
     ]
   transforms: {}
