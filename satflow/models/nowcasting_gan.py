@@ -1,7 +1,9 @@
 import torch
 import torch.nn.functional as F
+from torch.optim import lr_scheduler
 from typing import Union
-from satflow.models.losses import FocalLoss, get_loss
+from collections import OrderedDict
+from satflow.models.losses import get_loss
 import numpy as np
 import pytorch_lightning as pl
 
@@ -80,33 +82,98 @@ class NowcastingGAN(pl.LightningModule):
         x = self.sampler(conditioning_states, latent_dim)
         return x
 
-    def configure_optimizers(self):
-        # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
-        # optimizer = torch.optim.adam()
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
+    def training_step(self, batch, batch_idx, optimizer_idx):
+        images, future_images, future_masks = batch
+        # train generator
+        if optimizer_idx == 0:
+            # generate images
+            generated_images = self(images)
+            fake = torch.cat((images, generated_images), 1)
+            # log sampled images
+            # if np.random.random() < 0.01:
+            self.visualize_step(images, future_images, generated_images, batch_idx, step="train")
 
-    def training_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
+            # adversarial loss is binary cross-entropy
+            gan_loss = self.criterionGAN(self.discriminator(fake), True)
+            l1_loss = self.criterionL1(generated_images, future_images) * self.lambda_l1
+            g_loss = gan_loss + l1_loss
+            tqdm_dict = {"g_loss": g_loss}
+            output = OrderedDict({"loss": g_loss, "progress_bar": tqdm_dict, "log": tqdm_dict})
+            self.log_dict({"train/g_loss": g_loss})
+            return output
 
-        if self.make_vis:
-            if np.random.random() < 0.001:
-                self.visualize(x, y, y_hat, batch_idx)
-        # Generally only care about the center x crop, so the model can take into account the clouds in the area without
-        # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
-        loss = self.criterion(y_hat, y)
-        self.log("train/loss", loss, on_step=True)
-        return loss
+        # train discriminator
+        if optimizer_idx == 1:
+            # Measure discriminator's ability to classify real from generated samples
+
+            # how well can it label as real?
+            real = torch.cat((images, future_images), 1)
+            real_loss = self.criterionGAN(self.discriminator(real), True)
+
+            # how well can it label as fake?
+            gen_output = self(images)
+            fake = torch.cat((images, gen_output), 1)
+            fake_loss = self.criterionGAN(self.discriminator(fake), True)
+
+            # discriminator loss is the average of these
+            d_loss = (real_loss + fake_loss) / 2
+            tqdm_dict = {"d_loss": d_loss}
+            output = OrderedDict({"loss": d_loss, "progress_bar": tqdm_dict, "log": tqdm_dict})
+            self.log_dict({"train/d_loss": d_loss})
+            return output
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        val_loss = self.criterion(y_hat, y)
-        self.log("val/loss", val_loss, on_step=True, on_epoch=True)
-        return val_loss
+        images, future_images, future_masks = batch
+        # generate images
+        generated_images = self(images)
+        fake = torch.cat((images, generated_images), 1)
+        # log sampled images
+        if np.random.random() < 0.01:
+            self.visualize_step(images, future_images, generated_images, batch_idx, step="val")
 
-    def test_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        loss = self.criterion(y_hat, y)
-        return loss
+        # adversarial loss is binary cross-entropy
+        gan_loss = self.criterionGAN(self.discriminator(fake), True)
+        l1_loss = self.criterionL1(generated_images, future_images) * self.lambda_l1
+        g_loss = gan_loss + l1_loss
+        # how well can it label as real?
+        real = torch.cat((images, future_images), 1)
+        real_loss = self.criterionGAN(self.discriminator(real), True)
+
+        # how well can it label as fake?
+        fake_loss = self.criterionGAN(self.discriminator(fake), True)
+
+        # discriminator loss is the average of these
+        d_loss = (real_loss + fake_loss) / 2
+        tqdm_dict = {"d_loss": d_loss}
+        output = OrderedDict(
+            {
+                "val/discriminator_loss": d_loss,
+                "val/generator_loss": g_loss,
+                "progress_bar": tqdm_dict,
+                "log": tqdm_dict,
+            }
+        )
+        self.log_dict({"val/d_loss": d_loss, "val/g_loss": g_loss, "val/loss": d_loss + g_loss})
+        return output
+
+    def configure_optimizers(self):
+        lr = self.lr
+        b1 = self.b1
+        b2 = self.b2
+
+        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr, betas=(b1, b2))
+        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
+        if self.lr_method == "plateau":
+            g_scheduler = lr_scheduler.ReduceLROnPlateau(
+                opt_g, mode="min", factor=0.2, threshold=0.01, patience=10
+            )
+            d_scheduler = lr_scheduler.ReduceLROnPlateau(
+                opt_d, mode="min", factor=0.2, threshold=0.01, patience=10
+            )
+        elif self.lr_method == "cosine":
+            g_scheduler = lr_scheduler.CosineAnnealingLR(opt_g, T_max=self.lr_epochs, eta_min=0)
+            d_scheduler = lr_scheduler.CosineAnnealingLR(opt_d, T_max=self.lr_epochs, eta_min=0)
+        else:
+            return NotImplementedError("learning rate policy is not implemented")
+
+        return [opt_g, opt_d], [g_scheduler, d_scheduler]
