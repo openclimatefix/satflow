@@ -382,6 +382,7 @@ class ContextConditioningStack(torch.nn.Module):
         scale_2 = torch.cat(scale_2, dim=2)  # B, T, C, H, W and want along C dimension
         scale_3 = torch.cat(scale_3, dim=2)  # B, T, C, H, W and want along C dimension
         scale_4 = torch.cat(scale_4, dim=2)  # B, T, C, H, W and want along C dimension
+        # TODO Figure out where extra channels come from, paper says concat outputs and divide channels by 2 gives 48,96,192,384 total, but this gives 8*4 = 32, 16*4 = 64
         scale_1 = self.relu(self.conv1(scale_1))
         scale_2 = self.relu(self.conv1(scale_2))
         scale_3 = self.relu(self.conv1(scale_3))
