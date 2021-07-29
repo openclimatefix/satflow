@@ -20,13 +20,12 @@ from satflow.models.gan.discriminators import (
 class NowcastingGAN(pl.LightningModule):
     def __init__(
         self,
-        forecast_steps: int,
-        input_channels: int = 3,
+        forecast_steps: int = 18,
+        input_channels: int = 1,
         output_shape: int = 256,
         gen_lr: float = 0.00005,
         disc_lr: float = 0.0002,
-        make_vis: bool = False,
-        loss: Union[str, torch.nn.Module] = "mse",
+        visualize: bool = False,
         pretrained: bool = False,
         conv_type: str = "standard",
         num_samples: int = 6,
@@ -39,14 +38,18 @@ class NowcastingGAN(pl.LightningModule):
         Nowcasting GAN is an attempt to recreate DeepMind's Skillful Nowcasting GAN from https://arxiv.org/abs/2104.00954
         but slightly modified for multiple satellite channels
         Args:
-            forecast_steps:
-            input_channels:
-            num_layers:
-            hidden_dim:
-            bilinear:
-            lr:
-            make_vis:
-            loss:
+            forecast_steps: Number of steps to predict in the future
+            input_channels: Number of input channels per image
+            visualize: Whether to visualize output during training
+            gen_lr: Learning rate for the generator
+            disc_lr: Learning rate for the discriminators, shared for both temporal and spatial discriminator
+            conv_type: Type of 2d convolution to use, see satflow/models/utils.py for options
+            beta1: Beta1 for Adam optimizer
+            beta2: Beta2 for Adam optimizer
+            num_samples: Number of samples of the latent space to sample for training/validation
+            grid_lambda: Lambda for the grid regularization loss
+            output_shape: Shape of the output predictions, generally should be same as the input shape
+            latent_channels: Number of channels that the latent space should be reshaped to, input dimension into ConvGRU, also affects the number of channels for other linked inputs/outputs
             pretrained:
         """
         super(NowcastingGAN, self).__init__()
@@ -54,12 +57,11 @@ class NowcastingGAN(pl.LightningModule):
         self.disc_lr = disc_lr
         self.beta1 = beta1
         self.beta2 = beta2
-        self.criterion = get_loss(loss)
         self.discriminator_loss = NowcastingLoss()
         self.grid_regularizer = GridCellLoss()
         self.grid_lambda = grid_lambda
         self.num_samples = num_samples
-        self.make_vis = make_vis
+        self.visualize = visualize
         self.latent_channels = latent_channels
         self.input_channels = input_channels
         self.conditioning_stack = ContextConditioningStack(
@@ -74,10 +76,10 @@ class NowcastingGAN(pl.LightningModule):
             forecast_steps=forecast_steps, input_channels=self.latent_channels
         )
         self.temporal_discriminator = NowcastingTemporalDiscriminator(
-            input_channels=input_channels, crop_size=output_shape // 4
+            input_channels=input_channels, crop_size=output_shape // 4, conv_type=conv_type
         )
         self.spatial_discriminator = NowcastingSpatialDiscriminator(
-            input_channels=input_channels, num_timesteps=8
+            input_channels=input_channels, num_timesteps=8, conv_type=conv_type
         )
         self.save_hyperparameters()
 
@@ -176,9 +178,10 @@ class NowcastingGAN(pl.LightningModule):
         # generate images
         generated_images = self(images)
         # log sampled images
-        self.visualize_step(
-            images, future_images, generated_images, self.global_iteration, step="train"
-        )
+        if self.visualize:
+            self.visualize_step(
+                images, future_images, generated_images, self.global_iteration, step="train"
+            )
 
     def validation_step(self, batch, batch_idx):
         images, future_images = batch
