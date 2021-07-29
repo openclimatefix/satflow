@@ -149,11 +149,9 @@ def test_satflow_all_deterministic_validation_restart():
     config = load_config("satflow/tests/configs/satflow_all.yaml")
     cloudflow = SatFlowDataset([dataset], config, train=False)
     data = next(iter(cloudflow))
-    x, image, y = data
+    x, image = data
     data = next(iter(cloudflow))
-    x2, image2, y2 = data
+    x2, image2 = data
     np.testing.assert_almost_equal(x, x2)
     np.testing.assert_almost_equal(image, image2)
-    np.testing.assert_almost_equal(y, y2)
     assert not np.allclose(image[0], image[-1])
-    assert not np.allclose(y[0], y[-1])
