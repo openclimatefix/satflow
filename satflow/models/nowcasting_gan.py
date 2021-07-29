@@ -23,8 +23,6 @@ class NowcastingGAN(pl.LightningModule):
         forecast_steps: int,
         input_channels: int = 3,
         output_shape: int = 256,
-        hidden_dim: int = 64,
-        bilinear: bool = False,
         gen_lr: float = 0.00005,
         disc_lr: float = 0.0002,
         make_vis: bool = False,
@@ -77,6 +75,11 @@ class NowcastingGAN(pl.LightningModule):
         )
         self.save_hyperparameters()
 
+        self.global_iteration = 0
+
+        # Important: This property activates manual optimization.
+        self.automatic_optimization = False
+
     @classmethod
     def from_config(cls, config):
         return NowcastingGAN(
@@ -94,127 +97,129 @@ class NowcastingGAN(pl.LightningModule):
         x = self.sampler(conditioning_states, latent_dim)
         return x
 
-    def training_step(self, batch, batch_idx, optimizer_idx):
+    def training_step(self, batch, batch_idx):
         images, future_images = batch
-        # train generator
-        if optimizer_idx == 0:
-            # generate images
-            generated_images = self(images)
-            # log sampled images
-            # if np.random.random() < 0.01:
-            self.visualize_step(images, future_images, generated_images, batch_idx, step="train")
+        self.global_iteration += 1
+        g_opt, d_opt_s, d_opt_t = self.optimizers()
+        ##########################
+        # Optimize Discriminator #
+        ##########################
+        # Two discriminator steps per generator step
+        # Measure discriminator's ability to classify real from generated samples
 
-            # First get the 6 samples to mean?
-            # TODO Make sure this is what the paper actually means, or is it run it 6 times then average output?
-            mean_prediction = []
-            for _ in range(self.num_samples):
-                mean_prediction.append(self(images))
-            mean_prediction = torch.mean(torch.cat(mean_prediction, dim=0), dim=0)
+        # First get the 6 samples to mean?
+        # TODO Make sure this is what the paper actually means, or is it run it 6 times then average output?
+        mean_prediction = []
+        for _ in range(self.num_samples):
+            mean_prediction.append(self(images))
+        mean_prediction = torch.mean(torch.cat(mean_prediction, dim=0), dim=0)
 
-            # Get Spatial Loss
-            spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
-            spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
-            spatial_loss = self.discriminator_loss(spatial_real, spatial_fake)
+        # Get Spatial Loss
+        spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
+        spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
+        spatial_loss = self.discriminator_loss(spatial_real, spatial_fake)
 
-            # Get Temporal Loss
-            temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
-            temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
-            temporal_loss = self.discriminator_loss(temporal_real, temporal_fake)
+        # Get Temporal Loss
+        temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
+        temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
+        temporal_loss = self.discriminator_loss(temporal_real, temporal_fake)
 
-            # Grid Cell Loss
-            grid_loss = self.grid_regularizer(mean_prediction, future_images)
+        # discriminator loss is the average of these
+        d_loss = spatial_loss + temporal_loss
+        d_opt_t.zero_grad()
+        self.manual_backward(temporal_loss)
+        d_opt_t.step()
+        d_opt_s.zero_grad()
+        self.manual_backward(spatial_loss)
+        d_opt_s.step()
 
-            g_loss = spatial_loss + temporal_loss - (self.grid_lambda * grid_loss)
-            tqdm_dict = {"g_loss": g_loss}
-            output = OrderedDict({"loss": g_loss, "progress_bar": tqdm_dict, "log": tqdm_dict})
-            self.log_dict({"train/g_loss": g_loss})
-            return output
+        ######################
+        # Optimize Generator #
+        ######################
 
-        # train discriminator
-        if optimizer_idx == 1:
-            # Measure discriminator's ability to classify real from generated samples
+        # Get Spatial Loss
+        spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
+        spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
+        spatial_loss = self.discriminator_loss(spatial_real, spatial_fake)
 
-            # First get the 6 samples to mean?
-            # TODO Make sure this is what the paper actually means, or is it run it 6 times then average output?
-            mean_prediction = []
-            for _ in range(self.num_samples):
-                mean_prediction.append(self(images))
-            mean_prediction = torch.mean(torch.cat(mean_prediction, dim=0), dim=0)
+        # Get Temporal Loss
+        temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
+        temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
+        temporal_loss = self.discriminator_loss(temporal_real, temporal_fake)
 
-            # Get Spatial Loss
-            spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
-            spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
-            spatial_loss = self.discriminator_loss(spatial_real, spatial_fake)
+        # Grid Cell Loss
+        grid_loss = self.grid_regularizer(mean_prediction, future_images)
 
-            # Get Temporal Loss
-            temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
-            temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
-            temporal_loss = self.discriminator_loss(temporal_real, temporal_fake)
+        g_loss = spatial_loss + temporal_loss - (self.grid_lambda * grid_loss)
 
-            # discriminator loss is the average of these
-            d_loss = spatial_loss + temporal_loss
-            tqdm_dict = {"d_loss": d_loss}
-            output = OrderedDict({"loss": d_loss, "progress_bar": tqdm_dict, "log": tqdm_dict})
-            self.log_dict(
-                {
-                    "train/d_loss": d_loss,
-                    "train/temporal_loss": temporal_loss,
-                    "train/spatial_loss": spatial_loss,
-                }
-            )
-            return output
+        g_opt.zero_grad()
+        self.manual_backward(g_loss)
+        g_opt.step()
+
+        self.log_dict(
+            {
+                "train/d_loss": d_loss,
+                "train/temporal_loss": temporal_loss,
+                "train/spatial_loss": spatial_loss,
+                "train/g_loss": g_loss,
+                "train/grid_loss": grid_loss,
+            },
+            prog_bar=True,
+        )
+
+        # generate images
+        generated_images = self(images)
+        # log sampled images
+        self.visualize_step(
+            images, future_images, generated_images, self.global_iteration, step="train"
+        )
 
     def validation_step(self, batch, batch_idx):
         images, future_images = batch
-        # generate images
-        generated_images = self(images)
-        fake = torch.cat((images, generated_images), 1)
-        # log sampled images
-        if np.random.random() < 0.01:
-            self.visualize_step(images, future_images, generated_images, batch_idx, step="val")
 
-        # adversarial loss is binary cross-entropy
-        gan_loss = self.criterionGAN(self.discriminator(fake), True)
-        l1_loss = self.criterionL1(generated_images, future_images) * self.lambda_l1
-        g_loss = gan_loss + l1_loss
-        # how well can it label as real?
-        real = torch.cat((images, future_images), 1)
-        real_loss = self.criterionGAN(self.discriminator(real), True)
+        # First get the 6 samples to mean?
+        # TODO Make sure this is what the paper actually means, or is it run it 6 times then average output?
+        mean_prediction = []
+        for _ in range(self.num_samples):
+            mean_prediction.append(self(images))
+        mean_prediction = torch.mean(torch.cat(mean_prediction, dim=0), dim=0)
 
-        # how well can it label as fake?
-        fake_loss = self.criterionGAN(self.discriminator(fake), True)
+        # Get Spatial Loss
+        spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
+        spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
+        spatial_loss = self.discriminator_loss(spatial_real, spatial_fake)
 
-        # discriminator loss is the average of these
-        d_loss = (real_loss + fake_loss) / 2
-        tqdm_dict = {"d_loss": d_loss}
-        output = OrderedDict(
+        # Get Temporal Loss
+        temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
+        temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
+        temporal_loss = self.discriminator_loss(temporal_real, temporal_fake)
+
+        # Grid Cell Loss
+        grid_loss = self.grid_regularizer(mean_prediction, future_images)
+
+        g_loss = spatial_loss + temporal_loss - (self.grid_lambda * grid_loss)
+
+        self.log_dict(
             {
-                "val/discriminator_loss": d_loss,
-                "val/generator_loss": g_loss,
-                "progress_bar": tqdm_dict,
-                "log": tqdm_dict,
-            }
+                "val/d_loss": temporal_loss + spatial_loss,
+                "val/temporal_loss": temporal_loss,
+                "val/spatial_loss": spatial_loss,
+                "val/g_loss": g_loss,
+                "val/grid_loss": grid_loss,
+            },
+            prog_bar=True,
         )
-        self.log_dict({"val/d_loss": d_loss, "val/g_loss": g_loss, "val/loss": d_loss + g_loss})
-        return output
 
     def configure_optimizers(self):
         b1 = self.b1
         b2 = self.b2
 
         opt_g = torch.optim.Adam(self.generator.parameters(), lr=self.gen_lr, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=self.disc_lr, betas=(b1, b2))
-        if self.lr_method == "plateau":
-            g_scheduler = lr_scheduler.ReduceLROnPlateau(
-                opt_g, mode="min", factor=0.2, threshold=0.01, patience=10
-            )
-            d_scheduler = lr_scheduler.ReduceLROnPlateau(
-                opt_d, mode="min", factor=0.2, threshold=0.01, patience=10
-            )
-        elif self.lr_method == "cosine":
-            g_scheduler = lr_scheduler.CosineAnnealingLR(opt_g, T_max=self.lr_epochs, eta_min=0)
-            d_scheduler = lr_scheduler.CosineAnnealingLR(opt_d, T_max=self.lr_epochs, eta_min=0)
-        else:
-            return NotImplementedError("learning rate policy is not implemented")
+        opt_d_s = torch.optim.Adam(
+            self.spatial_discriminator.parameters(), lr=self.disc_lr, betas=(b1, b2)
+        )
+        opt_d_t = torch.optim.Adam(
+            self.temporal_discriminator.parameters(), lr=self.disc_lr, betas=(b1, b2)
+        )
 
-        return [opt_g, opt_d], [g_scheduler, d_scheduler]
+        return [opt_g, opt_d_s, opt_d_t], []
