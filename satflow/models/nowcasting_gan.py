@@ -1,11 +1,7 @@
 import torch
-import torch.nn.functional as F
-from torch.optim import lr_scheduler
-from typing import Union
-from collections import OrderedDict
 from satflow.models.losses import get_loss, NowcastingLoss, GridCellLoss
-import numpy as np
 import pytorch_lightning as pl
+import torchvision
 
 from satflow.models.base import register_model
 from satflow.models.gan.common import LatentConditioningStack, ContextConditioningStack
@@ -114,7 +110,6 @@ class NowcastingGAN(pl.LightningModule):
         # Optimize Discriminator #
         ##########################
         # Two discriminator steps per generator step
-        # Measure discriminator's ability to classify real from generated samples
 
         # First get the 6 samples to mean?
         # TODO Make sure this is what the paper actually means, or is it run it 6 times then average output?
@@ -233,3 +228,29 @@ class NowcastingGAN(pl.LightningModule):
         )
 
         return [opt_g, opt_d_s, opt_d_t], []
+
+    def visualize_step(
+        self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
+    ):
+        # the logger you used (in this case tensorboard)
+        tensorboard = self.logger.experiment[0]
+        # Timesteps per channel
+        images = x[0].cpu().detach()
+        future_images = y[0].cpu().detach()
+        generated_images = y_hat[0].cpu().detach()
+        for i, t in enumerate(images):  # Now would be (C, H, W)
+            t = [torch.unsqueeze(img, dim=0) for img in t]
+            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
+            tensorboard.add_image(
+                f"{step}/Input_Image_Stack_Frame_{i}", image_grid, global_step=batch_idx
+            )
+            t = [torch.unsqueeze(img, dim=0) for img in future_images[i]]
+            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
+            tensorboard.add_image(
+                f"{step}/Target_Image_Frame_{i}", image_grid, global_step=batch_idx
+            )
+            t = [torch.unsqueeze(img, dim=0) for img in generated_images[i]]
+            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
+            tensorboard.add_image(
+                f"{step}/Generated_Image_Frame_{i}", image_grid, global_step=batch_idx
+            )
