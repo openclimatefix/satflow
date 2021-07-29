@@ -50,7 +50,7 @@ class NowcastingGAN(pl.LightningModule):
             grid_lambda: Lambda for the grid regularization loss
             output_shape: Shape of the output predictions, generally should be same as the input shape
             latent_channels: Number of channels that the latent space should be reshaped to,
-            input dimension into ConvGRU, also affects the number of channels for other linked inputs/outputs
+                input dimension into ConvGRU, also affects the number of channels for other linked inputs/outputs
             pretrained:
         """
         super(NowcastingGAN, self).__init__()
