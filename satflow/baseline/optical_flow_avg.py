@@ -52,8 +52,8 @@ for data in dataset:
         # prev_frame = np.moveaxis(prev_frame, [0], [2])
         # curr_frame = np.moveaxis(curr_frame, [0], [2])
         flow = cv2.calcOpticalFlowFarneback(
-            past_frames[-2][ch].astype(np.float32),
-            past_frames[-1][ch].astype(np.float32),
+            past_frames[0][ch].astype(np.float32),
+            past_frames[1][ch].astype(np.float32),
             None,
             0.5,
             3,
@@ -63,7 +63,56 @@ for data in dataset:
             1.2,
             0,
         )
-        warped_frame = warp_flow(past_frames[-1][ch].astype(np.float32), flow)
+        flow += cv2.calcOpticalFlowFarneback(
+            past_frames[1][ch].astype(np.float32),
+            past_frames[2][ch].astype(np.float32),
+            None,
+            0.5,
+            3,
+            15,
+            3,
+            5,
+            1.2,
+            0,
+        )
+        flow += cv2.calcOpticalFlowFarneback(
+            past_frames[2][ch].astype(np.float32),
+            past_frames[3][ch].astype(np.float32),
+            None,
+            0.5,
+            3,
+            15,
+            3,
+            5,
+            1.2,
+            0,
+        )
+        flow += cv2.calcOpticalFlowFarneback(
+            past_frames[3][ch].astype(np.float32),
+            past_frames[4][ch].astype(np.float32),
+            None,
+            0.5,
+            3,
+            15,
+            3,
+            5,
+            1.2,
+            0,
+        )
+        flow += cv2.calcOpticalFlowFarneback(
+            past_frames[4][ch].astype(np.float32),
+            past_frames[5][ch].astype(np.float32),
+            None,
+            0.5,
+            3,
+            15,
+            3,
+            5,
+            1.2,
+            0,
+        )
+        flow /= 5
+        warped_frame = warp_flow(past_frames[5][ch].astype(np.float32), flow)
         warped_frame = np.expand_dims(warped_frame, axis=-1)
         loss = F.mse_loss(
             torch.from_numpy(warped_frame),
@@ -71,7 +120,7 @@ for data in dataset:
         )
         channel_total_losses[ch][0] += loss.item()
         loss = F.mse_loss(
-            torch.from_numpy(past_frames[-1][ch].astype(np.float32)),
+            torch.from_numpy(past_frames[5][ch].astype(np.float32)),
             torch.from_numpy(next_frames[0][ch].astype(np.float32)),
         )
         channel_baseline_losses[ch][0] += loss.item()
@@ -85,7 +134,7 @@ for data in dataset:
             )
             channel_total_losses[ch][i] += loss.item()
             loss = F.mse_loss(
-                torch.from_numpy(past_frames[-1][ch].astype(np.float32)),
+                torch.from_numpy(past_frames[5][ch].astype(np.float32)),
                 torch.from_numpy(next_frames[i][ch].astype(np.float32)),
             )
             channel_baseline_losses[ch][i] += loss.item()
@@ -93,10 +142,10 @@ for data in dataset:
         f"Avg Total Loss: {np.mean(channel_total_losses) / count} Avg Baseline Loss: {np.mean(channel_baseline_losses) / count}"
     )
     if count % 100 == 0:
-        np.save("optical_flow_mse_loss_channels_two_frames.npy", channel_total_losses / count)
+        np.save("optical_flow_mse_loss_channels_avg_pairs.npy", channel_total_losses / count)
         np.save(
-            "baseline_current_image_mse_loss_channels_two_frames.npy",
+            "baseline_current_image_mse_loss_channels_avg_pairs.npy",
             channel_baseline_losses / count,
         )
-np.save("optical_flow_mse_loss_two_frames.npy", channel_total_losses / count)
-np.save("baseline_current_image_mse_loss_two_frames.npy", channel_baseline_losses / count)
+np.save("optical_flow_mse_loss_avg_pairs.npy", channel_total_losses / count)
+np.save("baseline_current_image_mse_loss_avg_pairs.npy", channel_baseline_losses / count)
