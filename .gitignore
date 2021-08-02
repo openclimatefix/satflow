@@ -5,6 +5,7 @@ __pycache__/
 
 .idea/
 satflow/logs/
+*.png
 # C extensions
 *.so
 
