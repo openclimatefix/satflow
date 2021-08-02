@@ -17,12 +17,8 @@ RUN apt install -y bash \
                    curl \
                    ca-certificates \
                    wget \
+                   libaio-dev \
                    && rm -rf /var/lib/apt/lists
-
-
-# Set working directory
-WORKDIR /workspace/project
-
 
 # Install Miniconda and create main env
 ADD https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh miniconda3.sh
@@ -37,7 +33,9 @@ RUN conda create -n ${CONDA_ENV_NAME} python=${PYTHON_VERSION} pytorch::pytorch=
 SHELL ["/bin/bash", "-c"]
 
 # Install DeepSpeed and build extensions
-RUN DS_BUILD_OPS=1 pip install deepspeed
+RUN source activate ${CONDA_ENV_NAME} \
+    && DS_BUILD_OPS=1 pip install deepspeed
+
 
 # Install requirements
 COPY requirements.txt ./
@@ -48,3 +46,6 @@ RUN source activate ${CONDA_ENV_NAME} \
 
 # Set ${CONDA_ENV_NAME} to default virutal environment
 RUN echo "source activate ${CONDA_ENV_NAME}" >> ~/.bashrc
+
+# Cp in the development directory and install
+RUN cp satflow/ . && cd satflow && source activate ${CONDA_ENV_NAME} \ && pip install -e .
