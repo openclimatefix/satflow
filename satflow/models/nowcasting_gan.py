@@ -231,7 +231,7 @@ class NowcastingGAN(pl.LightningModule):
 
     def visualize_step(
         self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
-    ):
+    ) -> None:
         # the logger you used (in this case tensorboard)
         tensorboard = self.logger.experiment[0]
         # Timesteps per channel
