@@ -72,6 +72,9 @@ class NowcastingGAN(pl.LightningModule):
         self.sampler = NowcastingSampler(
             forecast_steps=forecast_steps, input_channels=self.latent_channels
         )
+        self.generator = NowcastingGenerator(
+            self.conditioning_stack, self.latent_stack, self.sampler
+        )
         self.temporal_discriminator = NowcastingTemporalDiscriminator(
             input_channels=input_channels, crop_size=output_shape // 4, conv_type=conv_type
         )
@@ -97,9 +100,7 @@ class NowcastingGAN(pl.LightningModule):
         )
 
     def forward(self, x):
-        conditioning_states = self.conditioning_stack(x)
-        latent_dim = self.latent_stack()
-        x = self.sampler(conditioning_states, latent_dim)
+        x = self.generator(x)
         return x
 
     def training_step(self, batch, batch_idx):
@@ -216,8 +217,8 @@ class NowcastingGAN(pl.LightningModule):
         )
 
     def configure_optimizers(self):
-        b1 = self.b1
-        b2 = self.b2
+        b1 = self.beta1
+        b2 = self.beta2
 
         opt_g = torch.optim.Adam(self.generator.parameters(), lr=self.gen_lr, betas=(b1, b2))
         opt_d_s = torch.optim.Adam(
@@ -254,3 +255,29 @@ class NowcastingGAN(pl.LightningModule):
             tensorboard.add_image(
                 f"{step}/Generated_Image_Frame_{i}", image_grid, global_step=batch_idx
             )
+
+
+class NowcastingGenerator(torch.nn.Module):
+    def __init__(
+        self,
+        conditioning_stack: torch.nn.Module,
+        latent_stack: torch.nn.Module,
+        sampler: torch.nn.Module,
+    ):
+        """
+        Wraps the three parts of the generator for simpler calling
+        Args:
+            conditioning_stack:
+            latent_stack:
+            sampler:
+        """
+        super().__init__()
+        self.conditioning_stack = conditioning_stack
+        self.latent_stack = latent_stack
+        self.sampler = sampler
+
+    def forward(self, x):
+        conditioning_states = self.conditioning_stack(x)
+        latent_dim = self.latent_stack()
+        x = self.sampler(conditioning_states, latent_dim)
+        return x
