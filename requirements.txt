@@ -1,9 +1,8 @@
 affine~=2.3.0
-satpy~=0.29.0
 git+git://github.com/webdataset/webdataset@master
 albumentations~=1.0.0
 torchvision==0.10.0
 antialiased-cnns==0.3.0
-pytorch-msssim~=0.2.0
-neptune-client~=0.10.1
-hydra-optuna-sweeper
+pytorch-msssim==0.2.1
+neptune-client==0.10.2
+hydra-optuna-sweeper==1.1.0

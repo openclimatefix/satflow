@@ -26,8 +26,9 @@ RUN /bin/bash miniconda3.sh -b -p /conda \
     && echo export PATH=/conda/bin:$PATH >> .bashrc \
     && rm miniconda3.sh
 ENV PATH="/conda/bin:${PATH}"
-RUN conda create -n ${CONDA_ENV_NAME} python=${PYTHON_VERSION} pytorch::pytorch=1.9 torchvision cudatoolkit=10.2 iris rasterio numpy cartopy satpy matplotlib hydra-core pytorch-lightning optuna eccodes -c conda-forge -c nvidia -c pytorch
-
+# RUN conda create -n ${CONDA_ENV_NAME} python=${PYTHON_VERSION} pytorch::pytorch=1.9 torchvision cudatoolkit=10.2 iris rasterio numpy cartopy satpy matplotlib hydra-core pytorch-lightning optuna eccodes -c conda-forge -c nvidia -c pytorch
+COPY environment.yml ./
+RUN conda env create --file environment.yml && rm environment.yml
 
 # Switch to bash shell
 SHELL ["/bin/bash", "-c"]
@@ -48,4 +49,5 @@ RUN source activate ${CONDA_ENV_NAME} \
 RUN echo "source activate ${CONDA_ENV_NAME}" >> ~/.bashrc
 
 # Cp in the development directory and install
-RUN cp satflow/ . && cd satflow && source activate ${CONDA_ENV_NAME} \ && pip install -e .
+COPY . ./
+RUN source activate ${CONDA_ENV_NAME} && pip install -e .
