@@ -4,7 +4,7 @@ import torch
 from torch import nn as nn
 from torch.nn.modules.pixelshuffle import PixelShuffle
 from torch.nn.utils.parametrizations import spectral_norm
-from typing import Union
+from typing import Union, Tuple, List
 from satflow.models.gan.common import get_norm_layer, init_net, GBlock
 from satflow.models.utils import get_conv_layer
 from satflow.models.layers import ConvGRU
@@ -439,6 +439,15 @@ class UnetSkipConnectionBlock(nn.Module):
 
 class NowcastingSampler(torch.nn.Module):
     def __init__(self, forecast_steps: int = 18, input_channels: int = 768):
+        """
+        Sampler from the Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
+
+        The sampler takes the output from the Latent and Context conditioning stacks and
+        creates one stack of ConvGRU layers per future timestep.
+        Args:
+            forecast_steps: Number of forecast steps
+            input_channels: Number of input channels to the lowest ConvGRU layer
+        """
         super().__init__()
         self.forecast_steps = forecast_steps
         self.convGRU1 = ConvGRU(
@@ -494,7 +503,9 @@ class NowcastingSampler(torch.nn.Module):
             )
         self.stacks = stacks
 
-    def forward(self, conditioning_states, latent_dim):
+    def forward(
+        self, conditioning_states: List[torch.Tensor], latent_dim: torch.Tensor
+    ) -> List[torch.Tensor]:
         """
         Perform the sampling from Skillful Nowcasting with GANs
         Args:

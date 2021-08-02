@@ -321,6 +321,15 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
         num_layers: int = 3,
         conv_type: str = "standard",
     ):
+        """
+        Temporal Discriminator from the Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
+
+        Args:
+            input_channels: Number of channels per timestep
+            crop_size: Size of the crop, in the paper half the width of the input images
+            num_layers: Number of intermediate DBlock layers to use
+            conv_type: Type of 2d convolutions to use, see satflow/models/utils.py for options
+        """
         super().__init__()
         self.transform = RandomCrop(crop_size)
         self.space2depth = PixelUnshuffle(downscale_factor=2)
@@ -357,7 +366,7 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
         self.fc = spectral_norm(torch.nn.Linear(2 * internal_chn * input_channels, 2))
         self.relu = torch.nn.ReLU()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.transform(x)
         x = self.space2depth(x)
         x = self.d1(x)
@@ -389,6 +398,15 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
         num_layers: int = 4,
         conv_type: str = "standard",
     ):
+        """
+        Spatial discriminator from Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
+
+        Args:
+            input_channels: Number of input channels per timestep
+            num_timesteps: Number of timesteps to use, in the paper 8/18 timesteps were chosen
+            num_layers: Number of intermediate DBlock layers to use
+            conv_type: Type of 2d convolutions to use, see satflow/models/utils.py for options
+        """
         super().__init__()
         # Randomly, uniformly, select 8 timesteps to do this on from the input
         self.num_timesteps = num_timesteps
@@ -423,9 +441,9 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
         self.fc = spectral_norm(torch.nn.Linear(2 * internal_chn * input_channels, 2))
         self.relu = torch.nn.ReLU()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x should be the chosen 8 or so
-        idxs = torch.randint(low=0, high=x.size(1), size=(self.num_timesteps,))
+        idxs = torch.randint(low=0, high=x.size()[1], size=(self.num_timesteps,))
         representations = []
         for idx in idxs:
             rep = self.mean_pool(x[:, idx, :, :, :])  # 128x128

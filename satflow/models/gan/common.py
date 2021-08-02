@@ -1,4 +1,5 @@
 import functools
+from typing import Tuple
 
 import torch
 from torch.nn import init
@@ -179,7 +180,7 @@ class GBlock(torch.nn.Module):
             kernel_size=3,
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Branch 1
         x1 = self.upsample(x)
         x1 = self.conv_1x1(x1)
@@ -243,7 +244,7 @@ class DBlock(torch.nn.Module):
         self.relu = torch.nn.ReLU()
         # Concatenate to double final channels and keep reduced spatial extent
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x1 = self.conv_1x1(x)
         if not self.keep_same_output:
             x1 = interpolate(x1, mode="bilinear", scale_factor=0.5)  # Downscale by half
@@ -284,7 +285,7 @@ class LBlock(torch.nn.Module):
             in_channels=output_channels, out_channels=output_channels, kernel_size=3
         )
 
-    def forward(self, x):
+    def forward(self, x) -> torch.Tensor:
         x1 = self.conv_1x1(x)
 
         x2 = self.first_conv_3x3(x)
@@ -298,10 +299,18 @@ class LBlock(torch.nn.Module):
 class ContextConditioningStack(torch.nn.Module):
     def __init__(
         self,
-        input_channels: int = 12,
+        input_channels: int = 1,
         output_channels: int = 384,
         conv_type: str = "standard",
     ):
+        """
+        Conditioning Stack using the context images from Skillful Nowcasting, , see https://arxiv.org/pdf/2104.00954.pdf
+
+        Args:
+            input_channels: Number of input channels per timestep
+            output_channels: Number of output channels for the lowest block
+            conv_type: Type of 2D convolution to use, see satflow/models/utils.py for options
+        """
         super().__init__()
         conv2d = get_conv_layer(conv_type)
         self.space2depth = PixelUnshuffle(downscale_factor=2)
@@ -361,7 +370,9 @@ class ContextConditioningStack(torch.nn.Module):
 
         self.relu = torch.nn.ReLU()
 
-    def forward(self, x):
+    def forward(
+        self, x: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         # Each timestep processed separately
         x = self.space2depth(x)
         steps = x.size(1)  # Number of timesteps
@@ -398,14 +409,15 @@ class LatentConditioningStack(torch.nn.Module):
         output_channels: int = 768,
         use_attention: bool = True,
     ):
+        """
+        Latent conditioning stack from Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
+        Converst
+        Args:
+            shape: Shape of the latent space, Should be (H/32,W/32,x) of the final image shape
+            output_channels: Number of output channels for the conditioning stack
+            use_attention: Whether to have a self-attention block or not
+        """
         super().__init__()
-        # Output of latent space is repeated 18 times, one for each future timestep
-        # Output of each ConvGRU is upsampled to input of the enxt ConvGRU with one spectrally normalized convolution
-        # and two residual blocks that process all temporal representations independently
-        # Second residual block doubles input spatial resolution with nearest neighbor interpolation, and halves number
-        # of channels. After last ConvGRU, size is 128x128x48 (64x64x48 for 128x128 input)
-        # Batch norm, ReLU, and 1x1 spectrally normalized convolution is applied, gibing 128x128x4 output,
-        # then Depth2Space
         self.shape = shape
         self.use_attention = use_attention
         self.distribution = uniform.Uniform(torch.Tensor([0.0]), torch.Tensor([1.0]))
@@ -426,7 +438,7 @@ class LatentConditioningStack(torch.nn.Module):
             input_channels=output_channels // 4, output_channels=output_channels
         )
 
-    def forward(self):
+    def forward(self) -> torch.Tensor:
         z = self.distribution.sample(self.shape)
         z = self.conv_3x3(z)
         z = self.l_block1(z)
