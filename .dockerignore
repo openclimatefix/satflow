@@ -12,3 +12,5 @@ satflow.egg-info/*
 .pytest_cache/*
 .pytest_cache
 *.png
+.env
+satflow/.env
