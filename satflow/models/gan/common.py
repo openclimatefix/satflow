@@ -341,29 +341,29 @@ class ContextConditioningStack(torch.nn.Module):
 
         self.conv1 = spectral_norm(
             conv2d(
-                input_channels=(output_channels // 4) * input_channels,
-                output_channels=(output_channels // 8) * input_channels,
+                in_channels=(output_channels // 4) * input_channels,
+                out_channels=(output_channels // 8) * input_channels,
                 kernel_size=3,
             )
         )
         self.conv2 = spectral_norm(
             conv2d(
-                input_channels=(output_channels // 2) * input_channels,
-                output_channels=(output_channels // 4) * input_channels,
+                in_channels=(output_channels // 2) * input_channels,
+                out_channels=(output_channels // 4) * input_channels,
                 kernel_size=3,
             )
         )
         self.conv3 = spectral_norm(
             conv2d(
-                input_channels=output_channels * input_channels,
-                output_channels=(output_channels // 2) * input_channels,
+                in_channels=output_channels * input_channels,
+                out_channels=(output_channels // 2) * input_channels,
                 kernel_size=3,
             )
         )
         self.conv4 = spectral_norm(
             conv2d(
-                input_channels=output_channels * 2 * input_channels,
-                output_channels=output_channels * input_channels,
+                in_channels=output_channels * 2 * input_channels,
+                out_channels=output_channels * input_channels,
                 kernel_size=3,
             )
         )
