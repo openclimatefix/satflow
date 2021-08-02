@@ -14,3 +14,7 @@ satflow.egg-info/*
 *.png
 .env
 satflow/.env
+.idea
+.idea/*
+.git
+.git/*
