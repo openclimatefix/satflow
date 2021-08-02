@@ -10,8 +10,7 @@ ENV PYTHON_VERSION=3.8
 
 
 # Basic setup
-RUN apt update
-RUN apt install -y bash \
+RUN apt update && apt install -y bash \
                    build-essential \
                    git \
                    curl \
