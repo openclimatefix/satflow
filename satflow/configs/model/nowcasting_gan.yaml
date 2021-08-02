@@ -1,0 +1,15 @@
+# @package _group_
+_target_: satflow.models.nowcasting_gan.NowcastingGAN
+forecast_steps: 12
+input_channels: 1
+output_shape: 128
+gen_lr: 0.00005
+disc_lr: 0.0002
+visualize: True
+pretrained: False
+conv_type: "standard"
+num_samples: 6
+grid_lambda: 20.0
+beta1: 0.0
+beta2: 0.999
+latent_channels: 384
