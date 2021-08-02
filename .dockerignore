@@ -1,0 +1,14 @@
+datasets/*
+datasets
+.github
+.github/*
+dist/*
+satflow/logs/
+satflow/logs/*
+satflow.egg-info/
+satflow.egg-info/*
+.idea/*
+.idea
+.pytest_cache/*
+.pytest_cache
+*.png
