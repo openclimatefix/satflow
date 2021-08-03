@@ -12,4 +12,4 @@ num_samples: 6
 grid_lambda: 20.0
 beta1: 0.0
 beta2: 0.999
-latent_channels: 384
+latent_channels: 768

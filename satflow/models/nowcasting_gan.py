@@ -198,6 +198,7 @@ class NowcastingGAN(pl.LightningModule):
         for _ in range(self.num_samples):
             mean_prediction.append(self(images))
         # It is a list of tensors of forecasts
+        print(f"Prediction Forecast: {mean_prediction[0].shape}")
         mean_prediction = self.average_tensors(mean_prediction)
         print(f"Mean Prediction: {mean_prediction.shape}")
 

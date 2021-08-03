@@ -457,28 +457,31 @@ class NowcastingSampler(torch.nn.Module):
         super().__init__()
         self.forecast_steps = forecast_steps
         self.convGRU1 = ConvGRU(
-            input_dim=latent_channels, hidden_dim=context_channels, kernel_size=(3, 3), n_layers=1
+            input_channels=latent_channels,
+            hidden_channels=context_channels,
+            kernel_size=(3, 3),
+            padding=(1, 1),
         )
         self.g1 = GBlock(input_channels=latent_channels, output_channels=latent_channels // 2)
         self.convGRU2 = ConvGRU(
-            input_dim=latent_channels // 2,
-            hidden_dim=context_channels // 2,
+            input_channels=latent_channels // 2,
+            hidden_channels=context_channels // 2,
             kernel_size=(3, 3),
-            n_layers=1,
+            padding=(1, 1),
         )
         self.g2 = GBlock(input_channels=latent_channels // 2, output_channels=latent_channels // 4)
         self.convGRU3 = ConvGRU(
-            input_dim=latent_channels // 4,
-            hidden_dim=context_channels // 4,
+            input_channels=latent_channels // 4,
+            hidden_channels=context_channels // 4,
             kernel_size=(3, 3),
-            n_layers=1,
+            padding=(1, 1),
         )
         self.g3 = GBlock(input_channels=latent_channels // 4, output_channels=latent_channels // 8)
         self.convGRU4 = ConvGRU(
-            input_dim=latent_channels // 8,
-            hidden_dim=context_channels // 8,
+            input_channels=latent_channels // 8,
+            hidden_channels=context_channels // 8,
             kernel_size=(3, 3),
-            n_layers=1,
+            padding=(1, 1),
         )
         self.g4 = GBlock(
             input_channels=latent_channels // 8, output_channels=latent_channels // 16
@@ -529,50 +532,48 @@ class NowcastingSampler(torch.nn.Module):
         # Iterate through each forecast step
         # Initialize with conditioning state for first one, output for second one
         forecasts = []
-        init_states = [torch.unsqueeze(c, dim=1) for c in conditioning_states]
+        init_states = list(
+            conditioning_states
+        )  # [torch.unsqueeze(c, dim=1) for c in conditioning_states]
         # Need to expand latent dim to the batch size
-        # latent_dim = torch.cat(init_states[0].size()[0]*[latent_dim])
-        latent_dim = torch.unsqueeze(latent_dim, dim=0)
+        latent_dim = torch.cat(init_states[0].size()[0] * [latent_dim])
+        latent_dim = torch.unsqueeze(latent_dim, dim=1)
         for i in range(self.forecast_steps):
             # Start at lowest one and go up, conditioning states
             # ConvGRU1
-            # print(latent_dim.shape)
-            # print(init_states[3].shape)
-            x, recurrent_state = self.stacks[f"forecast_{i}"][0](
-                latent_dim, hidden_state=init_states[3]
-            )
+            x = self.stacks[f"forecast_{i}"][0](latent_dim, hidden_state=init_states[3])
             # Update for next timestep
-            init_states[3] = recurrent_state
+            init_states[3] = torch.squeeze(x, dim=0)
             # Reduce to 4D input
             x = torch.squeeze(x, dim=0)
             # GBlock1
             x = self.stacks[f"forecast_{i}"][1](x)
             # Expand to 5D input
-            x = torch.unsqueeze(x, dim=0)
+            x = torch.unsqueeze(x, dim=1)
             # ConvGRU2
-            x, recurrent_state = self.stacks[f"forecast_{i}"][2](x, hidden_state=init_states[2])
+            x = self.stacks[f"forecast_{i}"][2](x, hidden_state=init_states[2])
             # Update for next timestep
-            init_states[2] = recurrent_state
+            init_states[2] = torch.squeeze(x, dim=0)
             # Reduce to 4D input
             x = torch.squeeze(x, dim=0)
             # GBlock2
             x = self.stacks[f"forecast_{i}"][3](x)
             # Expand to 5D input
-            x = torch.unsqueeze(x, dim=0)
+            x = torch.unsqueeze(x, dim=1)
             # ConvGRU3
-            x, recurrent_state = self.stacks[f"forecast_{i}"][4](x, hidden_state=init_states[1])
+            x = self.stacks[f"forecast_{i}"][4](x, hidden_state=init_states[1])
             # Update for next timestep
-            init_states[1] = recurrent_state
+            init_states[1] = torch.squeeze(x, dim=0)
             # Reduce to 4D input
             x = torch.squeeze(x, dim=0)
             # GBlock3
             x = self.stacks[f"forecast_{i}"][5](x)
             # Expand to 5D input
-            x = torch.unsqueeze(x, dim=0)
+            x = torch.unsqueeze(x, dim=1)
             # ConvGRU4
-            x, recurrent_state = self.stacks[f"forecast_{i}"][6](x, hidden_state=init_states[0])
+            x = self.stacks[f"forecast_{i}"][6](x, hidden_state=init_states[0])
             # Update for next timestep
-            init_states[0] = recurrent_state
+            init_states[0] = torch.squeeze(x, dim=0)
             # Reduce to 4D input
             x = torch.squeeze(x, dim=0)
             # GBlock4
@@ -587,5 +588,5 @@ class NowcastingSampler(torch.nn.Module):
             x = self.stacks[f"forecast_{i}"][11](x)
             forecasts.append(x)
         # Convert forecasts to a torch Tensor
-        forecasts = torch.cat(forecasts, dim=0)
+        forecasts = torch.stack(forecasts, dim=1)
         return forecasts
