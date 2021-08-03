@@ -218,6 +218,7 @@ class DBlock(torch.nn.Module):
         super().__init__()
         self.first_relu = first_relu
         self.keep_same_output = keep_same_output
+        self.conv_type = conv_type
         conv2d = get_conv_layer(conv_type)
         self.conv_1x1 = conv2d(
             in_channels=input_channels,
@@ -249,7 +250,9 @@ class DBlock(torch.nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x1 = self.conv_1x1(x)
         if not self.keep_same_output:
-            x1 = interpolate(x1, mode="bilinear", scale_factor=0.5)  # Downscale by half
+            x1 = interpolate(
+                x1, mode="trilinear" if self.conv_type == "3d" else "bilinear", scale_factor=0.5
+            )  # Downscale by half
         if self.first_relu:
             x = self.relu(x)
         x = self.first_conv_3x3(x)
