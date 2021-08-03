@@ -438,7 +438,13 @@ class UnetSkipConnectionBlock(nn.Module):
 
 
 class NowcastingSampler(torch.nn.Module):
-    def __init__(self, forecast_steps: int = 18, input_channels: int = 768):
+    def __init__(
+        self,
+        forecast_steps: int = 18,
+        latent_channels: int = 768,
+        context_channels: int = 384,
+        output_channels: int = 1,
+    ):
         """
         Sampler from the Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
 
@@ -446,39 +452,44 @@ class NowcastingSampler(torch.nn.Module):
         creates one stack of ConvGRU layers per future timestep.
         Args:
             forecast_steps: Number of forecast steps
-            input_channels: Number of input channels to the lowest ConvGRU layer
+            latent_channels: Number of input channels to the lowest ConvGRU layer
         """
         super().__init__()
         self.forecast_steps = forecast_steps
         self.convGRU1 = ConvGRU(
-            input_dim=input_channels, hidden_dim=input_channels, kernel_size=(3, 3), n_layers=1
+            input_dim=latent_channels, hidden_dim=context_channels, kernel_size=(3, 3), n_layers=1
         )
-        self.g1 = GBlock(input_channels=input_channels, output_channels=input_channels // 2)
+        print(f" G1 Latent Input: {latent_channels} Output: {latent_channels // 2}")
+        self.g1 = GBlock(input_channels=latent_channels, output_channels=latent_channels // 2)
         self.convGRU2 = ConvGRU(
-            input_dim=input_channels // 2,
-            hidden_dim=input_channels // 2,
+            input_dim=latent_channels // 2,
+            hidden_dim=context_channels // 2,
             kernel_size=(3, 3),
             n_layers=1,
         )
-        self.g2 = GBlock(input_channels=input_channels // 2, output_channels=input_channels // 4)
+        self.g2 = GBlock(input_channels=latent_channels // 2, output_channels=latent_channels // 4)
         self.convGRU3 = ConvGRU(
-            input_dim=input_channels // 4,
-            hidden_dim=input_channels // 4,
+            input_dim=latent_channels // 4,
+            hidden_dim=context_channels // 4,
             kernel_size=(3, 3),
             n_layers=1,
         )
-        self.g3 = GBlock(input_channels=input_channels // 4, output_channels=input_channels // 8)
+        self.g3 = GBlock(input_channels=latent_channels // 4, output_channels=latent_channels // 8)
         self.convGRU4 = ConvGRU(
-            input_dim=input_channels // 8,
-            hidden_dim=input_channels // 8,
+            input_dim=latent_channels // 8,
+            hidden_dim=context_channels // 8,
             kernel_size=(3, 3),
             n_layers=1,
         )
-        self.g4 = GBlock(input_channels=input_channels // 8, output_channels=input_channels // 16)
-        self.bn = torch.nn.BatchNorm2d(input_channels // 16)
+        self.g4 = GBlock(
+            input_channels=latent_channels // 8, output_channels=latent_channels // 16
+        )
+        self.bn = torch.nn.BatchNorm2d(latent_channels // 16)
         self.relu = torch.nn.ReLU()
         self.conv_1x1 = spectral_norm(
-            torch.nn.Conv2d(in_channels=input_channels // 16, out_channels=4, kernel_size=1)
+            torch.nn.Conv2d(
+                in_channels=latent_channels // 16, out_channels=4 * output_channels, kernel_size=1
+            )
         )
         self.depth2space = PixelShuffle(upscale_factor=2)
 
@@ -519,31 +530,55 @@ class NowcastingSampler(torch.nn.Module):
         # Iterate through each forecast step
         # Initialize with conditioning state for first one, output for second one
         forecasts = []
-        init_states = conditioning_states
+        init_states = [torch.unsqueeze(c, dim=1) for c in conditioning_states]
+        # Need to expand latent dim to the batch size
+        # latent_dim = torch.cat(init_states[0].size()[0]*[latent_dim])
+        latent_dim = torch.unsqueeze(latent_dim, dim=0)
         for i in range(self.forecast_steps):
             # Start at lowest one and go up, conditioning states
             # ConvGRU1
-            x = self.stacks[f"forecast_{i}"][0](latent_dim, hidden_state=init_states[3])
+            # print(latent_dim.shape)
+            # print(init_states[3].shape)
+            x, recurrent_state = self.stacks[f"forecast_{i}"][0](
+                latent_dim, hidden_state=init_states[3]
+            )
             # Update for next timestep
-            init_states[3] = x
+            init_states[3] = recurrent_state
+            # Reduce to 4D input
+            x = torch.squeeze(x, dim=0)
+            print(
+                f"Latent Dim: {latent_dim.shape}, X: {x.shape}, Reccurent: {recurrent_state.shape}"
+            )
             # GBlock1
             x = self.stacks[f"forecast_{i}"][1](x)
+            # Expand to 5D input
+            x = torch.unsqueeze(x, dim=0)
             # ConvGRU2
-            x = self.stacks[f"forecast_{i}"][2](x, hidden_state=init_states[2])
+            x, recurrent_state = self.stacks[f"forecast_{i}"][2](x, hidden_state=init_states[2])
             # Update for next timestep
-            init_states[2] = x
+            init_states[2] = recurrent_state
+            # Reduce to 4D input
+            x = torch.squeeze(x, dim=0)
             # GBlock2
             x = self.stacks[f"forecast_{i}"][3](x)
+            # Expand to 5D input
+            x = torch.unsqueeze(x, dim=0)
             # ConvGRU3
-            x = self.stacks[f"forecast_{i}"][4](x, hidden_state=init_states[1])
+            x, recurrent_state = self.stacks[f"forecast_{i}"][4](x, hidden_state=init_states[1])
             # Update for next timestep
-            init_states[1] = x
+            init_states[1] = recurrent_state
+            # Reduce to 4D input
+            x = torch.squeeze(x, dim=0)
             # GBlock3
             x = self.stacks[f"forecast_{i}"][5](x)
+            # Expand to 5D input
+            x = torch.unsqueeze(x, dim=0)
             # ConvGRU4
-            x = self.stacks[f"forecast_{i}"][6](x, hidden_state=init_states[0])
+            x, recurrent_state = self.stacks[f"forecast_{i}"][6](x, hidden_state=init_states[0])
             # Update for next timestep
-            init_states[0] = x
+            init_states[0] = recurrent_state
+            # Reduce to 4D input
+            x = torch.squeeze(x, dim=0)
             # GBlock4
             x = self.stacks[f"forecast_{i}"][7](x)
             # BN

@@ -68,7 +68,8 @@ class ConvGRUCell(nn.Module):
         # init hidden on forward
         if h_prev is None:
             h_prev = self.init_hidden(input)
-
+        print(h_prev.shape)
+        print(input.shape)
         combined = torch.cat((input, h_prev), dim=1)  # concatenate along channel axis
 
         combined_conv = F.sigmoid(self.conv_zr(combined))
