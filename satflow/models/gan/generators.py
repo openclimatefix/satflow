@@ -459,7 +459,6 @@ class NowcastingSampler(torch.nn.Module):
         self.convGRU1 = ConvGRU(
             input_dim=latent_channels, hidden_dim=context_channels, kernel_size=(3, 3), n_layers=1
         )
-        print(f" G1 Latent Input: {latent_channels} Output: {latent_channels // 2}")
         self.g1 = GBlock(input_channels=latent_channels, output_channels=latent_channels // 2)
         self.convGRU2 = ConvGRU(
             input_dim=latent_channels // 2,
@@ -516,7 +515,7 @@ class NowcastingSampler(torch.nn.Module):
 
     def forward(
         self, conditioning_states: List[torch.Tensor], latent_dim: torch.Tensor
-    ) -> List[torch.Tensor]:
+    ) -> torch.Tensor:
         """
         Perform the sampling from Skillful Nowcasting with GANs
         Args:
@@ -546,9 +545,6 @@ class NowcastingSampler(torch.nn.Module):
             init_states[3] = recurrent_state
             # Reduce to 4D input
             x = torch.squeeze(x, dim=0)
-            print(
-                f"Latent Dim: {latent_dim.shape}, X: {x.shape}, Reccurent: {recurrent_state.shape}"
-            )
             # GBlock1
             x = self.stacks[f"forecast_{i}"][1](x)
             # Expand to 5D input
@@ -590,4 +586,6 @@ class NowcastingSampler(torch.nn.Module):
             # Depth2Space
             x = self.stacks[f"forecast_{i}"][11](x)
             forecasts.append(x)
+        # Convert forecasts to a torch Tensor
+        forecasts = torch.cat(forecasts, dim=0)
         return forecasts

@@ -2,7 +2,8 @@ import torch
 from satflow.models.losses import get_loss, NowcastingLoss, GridCellLoss
 import pytorch_lightning as pl
 import torchvision
-
+from functools import reduce
+from typing import List
 from satflow.models.base import register_model
 from satflow.models.gan.common import LatentConditioningStack, ContextConditioningStack
 from satflow.models.gan.generators import NowcastingSampler
@@ -120,7 +121,7 @@ class NowcastingGAN(pl.LightningModule):
         mean_prediction = []
         for _ in range(self.num_samples):
             mean_prediction.append(self(images))
-        mean_prediction = torch.mean(torch.cat(mean_prediction, dim=0), dim=0)
+        mean_prediction = self.average_tensors(mean_prediction)
 
         # Get Spatial Loss
         spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
@@ -183,6 +184,11 @@ class NowcastingGAN(pl.LightningModule):
                 images, future_images, generated_images, self.global_iteration, step="train"
             )
 
+    def average_tensors(self, x: List[torch.Tensor]):
+        summed_tensor = reduce(torch.Tensor.add_, x, torch.zeros_like(x[0]))
+        summed_tensor /= len(x)
+        return summed_tensor
+
     def validation_step(self, batch, batch_idx):
         images, future_images = batch
 
@@ -191,7 +197,9 @@ class NowcastingGAN(pl.LightningModule):
         mean_prediction = []
         for _ in range(self.num_samples):
             mean_prediction.append(self(images))
-        mean_prediction = torch.mean(torch.cat(mean_prediction, dim=0), dim=0)
+        # It is a list of tensors of forecasts
+        mean_prediction = self.average_tensors(mean_prediction)
+        print(f"Mean Prediction: {mean_prediction.shape}")
 
         # Get Spatial Loss
         spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
