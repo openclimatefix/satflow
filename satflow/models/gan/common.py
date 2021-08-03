@@ -226,7 +226,10 @@ class DBlock(torch.nn.Module):
             kernel_size=1,
         )
         self.first_conv_3x3 = conv2d(
-            in_channels=input_channels, out_channels=input_channels, kernel_size=3
+            in_channels=input_channels,
+            out_channels=input_channels,
+            kernel_size=3,
+            padding=0 if keep_same_output else 1,
         )
         self.last_conv_3x3 = conv2d(
             in_channels=input_channels,
@@ -389,15 +392,15 @@ class ContextConditioningStack(torch.nn.Module):
             scale_2.append(s2)
             scale_3.append(s3)
             scale_4.append(s4)
-        scale_1 = torch.cat(scale_1, dim=2)  # B, T, C, H, W and want along C dimension
-        scale_2 = torch.cat(scale_2, dim=2)  # B, T, C, H, W and want along C dimension
-        scale_3 = torch.cat(scale_3, dim=2)  # B, T, C, H, W and want along C dimension
-        scale_4 = torch.cat(scale_4, dim=2)  # B, T, C, H, W and want along C dimension
+        scale_1 = torch.cat(scale_1, dim=1)  # B, T, C, H, W and want along C dimension
+        scale_2 = torch.cat(scale_2, dim=1)  # B, T, C, H, W and want along C dimension
+        scale_3 = torch.cat(scale_3, dim=1)  # B, T, C, H, W and want along C dimension
+        scale_4 = torch.cat(scale_4, dim=1)  # B, T, C, H, W and want along C dimension
         # TODO Figure out where extra channels come from, paper says concat outputs and divide channels by 2 gives 48,96,192,384 total, but this gives 8*4 = 32, 16*4 = 64
         scale_1 = self.relu(self.conv1(scale_1))
-        scale_2 = self.relu(self.conv1(scale_2))
-        scale_3 = self.relu(self.conv1(scale_3))
-        scale_4 = self.relu(self.conv1(scale_4))
+        scale_2 = self.relu(self.conv2(scale_2))
+        scale_3 = self.relu(self.conv3(scale_3))
+        scale_4 = self.relu(self.conv4(scale_4))
 
         return scale_1, scale_2, scale_3, scale_4
 
