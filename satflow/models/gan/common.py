@@ -308,7 +308,7 @@ class ContextConditioningStack(torch.nn.Module):
     def __init__(
         self,
         input_channels: int = 1,
-        output_channels: int = 384,
+        output_channels: int = 768,
         num_context_steps: int = 4,
         conv_type: str = "standard",
     ):
@@ -347,12 +347,12 @@ class ContextConditioningStack(torch.nn.Module):
             output_channels=(output_channels * 2 * input_channels) // num_context_steps,
             conv_type=conv_type,
         )
-
         self.conv1 = spectral_norm(
             conv2d(
                 in_channels=(output_channels // 4) * input_channels,
                 out_channels=(output_channels // 8) * input_channels,
                 kernel_size=3,
+                padding=1,
             )
         )
         self.conv2 = spectral_norm(
@@ -360,6 +360,7 @@ class ContextConditioningStack(torch.nn.Module):
                 in_channels=(output_channels // 2) * input_channels,
                 out_channels=(output_channels // 4) * input_channels,
                 kernel_size=3,
+                padding=1,
             )
         )
         self.conv3 = spectral_norm(
@@ -367,6 +368,7 @@ class ContextConditioningStack(torch.nn.Module):
                 in_channels=output_channels * input_channels,
                 out_channels=(output_channels // 2) * input_channels,
                 kernel_size=3,
+                padding=1,
             )
         )
         self.conv4 = spectral_norm(
@@ -374,6 +376,7 @@ class ContextConditioningStack(torch.nn.Module):
                 in_channels=output_channels * 2 * input_channels,
                 out_channels=output_channels * input_channels,
                 kernel_size=3,
+                padding=1,
             )
         )
 
@@ -431,7 +434,9 @@ class LatentConditioningStack(torch.nn.Module):
         self.use_attention = use_attention
         self.distribution = uniform.Uniform(low=torch.Tensor([0.0]), high=torch.Tensor([1.0]))
 
-        self.conv_3x3 = torch.nn.Conv2d(in_channels=shape[0], out_channels=shape[0], kernel_size=3)
+        self.conv_3x3 = torch.nn.Conv2d(
+            in_channels=shape[0], out_channels=shape[0], kernel_size=3, padding=1
+        )
         self.l_block1 = LBlock(input_channels=shape[0], output_channels=output_channels // 32)
         self.l_block2 = LBlock(
             input_channels=output_channels // 32, output_channels=output_channels // 16

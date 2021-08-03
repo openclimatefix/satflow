@@ -67,7 +67,8 @@ class NowcastingGAN(pl.LightningModule):
             output_channels=self.latent_channels,
         )
         self.latent_stack = LatentConditioningStack(
-            shape=(8 * self.input_channels, output_shape // 32, output_shape // 32)
+            shape=(8 * self.input_channels, output_shape // 32, output_shape // 32),
+            output_channels=self.latent_channels,
         )
         self.sampler = NowcastingSampler(
             forecast_steps=forecast_steps, input_channels=self.latent_channels
