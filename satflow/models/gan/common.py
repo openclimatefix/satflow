@@ -228,13 +228,13 @@ class DBlock(torch.nn.Module):
             in_channels=input_channels,
             out_channels=input_channels,
             kernel_size=3,
-            padding=0 if keep_same_output else 1,
+            padding=1,
         )
         self.last_conv_3x3 = conv2d(
             in_channels=input_channels,
             out_channels=output_channels,
             kernel_size=3,
-            padding=0 if keep_same_output else 1,
+            padding=1,
             stride=1 if keep_same_output else 2,
         )
         if conv_type == "3d":
@@ -255,7 +255,6 @@ class DBlock(torch.nn.Module):
         x = self.first_conv_3x3(x)
         x = self.relu(x)
         x = self.last_conv_3x3(x)
-
         x = x1 + x  # Sum the outputs should be half spatial and double channels
         return x
 
