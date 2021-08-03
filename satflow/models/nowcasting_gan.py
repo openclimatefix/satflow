@@ -198,9 +198,7 @@ class NowcastingGAN(pl.LightningModule):
         for _ in range(self.num_samples):
             mean_prediction.append(self(images))
         # It is a list of tensors of forecasts
-        print(f"Prediction Forecast: {mean_prediction[0].shape}")
         mean_prediction = self.average_tensors(mean_prediction)
-        print(f"Mean Prediction: {mean_prediction.shape}")
 
         # Get Spatial Loss
         spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
@@ -214,7 +212,6 @@ class NowcastingGAN(pl.LightningModule):
 
         # Grid Cell Loss
         grid_loss = self.grid_regularizer(mean_prediction, future_images)
-
         g_loss = spatial_loss + temporal_loss - (self.grid_lambda * grid_loss)
 
         self.log_dict(

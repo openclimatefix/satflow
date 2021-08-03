@@ -368,9 +368,7 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.transform(x)
-        print(x.shape)
         x = self.space2depth(x)
-        print(x.shape)
         # Have to move time and channels
         x = torch.permute(x, dims=(0, 2, 1, 3, 4))
         x = self.d1(x)
