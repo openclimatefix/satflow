@@ -175,9 +175,7 @@ class GBlock(torch.nn.Module):
             padding=1,
         )
         self.last_conv_3x3 = conv2d(
-            in_channels=input_channels,
-            out_channels=output_channels,
-            kernel_size=3,
+            in_channels=input_channels, out_channels=output_channels, kernel_size=3, padding=1
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -188,11 +186,12 @@ class GBlock(torch.nn.Module):
         # Branch 2
         x2 = self.bn1(x)
         x2 = self.relu(x2)
-        x2 = self.first_conv_3x3(x2)
+        x2 = self.first_conv_3x3(
+            x2, output_size=(2 * x.size()[-2], 2 * x.size()[-1])
+        )  # Make sure size is doubled
         x2 = self.bn2(x2)
         x2 = self.relu(x2)
         x2 = self.last_conv_3x3(x2)
-
         # Sum combine
         x = x1 + x2
         return x
