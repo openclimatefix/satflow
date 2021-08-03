@@ -67,7 +67,7 @@ class NowcastingGAN(pl.LightningModule):
             output_channels=self.latent_channels,
         )
         self.latent_stack = LatentConditioningStack(
-            shape=(output_shape // 32, output_shape // 32, 8 * self.input_channels)
+            shape=(8 * self.input_channels, output_shape // 32, output_shape // 32)
         )
         self.sampler = NowcastingSampler(
             forecast_steps=forecast_steps, input_channels=self.latent_channels
@@ -278,6 +278,6 @@ class NowcastingGenerator(torch.nn.Module):
 
     def forward(self, x):
         conditioning_states = self.conditioning_stack(x)
-        latent_dim = self.latent_stack()
+        latent_dim = self.latent_stack(x)
         x = self.sampler(conditioning_states, latent_dim)
         return x
