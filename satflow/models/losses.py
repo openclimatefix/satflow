@@ -48,7 +48,9 @@ class GridCellLoss(nn.Module):
         if self.weight_fn is not None:
             difference *= self.weight_fn(targets)
         difference /= targets.size(1) * targets.size(3) * targets.size(4)  # 1/HWN
-        return difference
+        return torch.mean(
+            torch.mean(torch.mean(difference, dim=-1), dim=-1), dim=1
+        )  # Mean of Time/Width/Height
 
 
 class NowcastingLoss(nn.Module):
@@ -107,7 +109,6 @@ class FocalLoss(nn.Module):
             logit = logit.view(-1, logit.size(-1))
         target = torch.squeeze(target, 1)
         target = target.view(-1, 1)
-        # print(logit.shape, target.shape)
         #
         alpha = self.alpha
 
