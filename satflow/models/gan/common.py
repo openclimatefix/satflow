@@ -278,14 +278,20 @@ class LBlock(torch.nn.Module):
         conv2d = get_conv_layer(conv_type)
         self.conv_1x1 = conv2d(
             in_channels=input_channels,
-            out_channels=output_channels,
+            out_channels=output_channels - input_channels,
             kernel_size=1,
         )
 
-        self.first_conv_3x3 = conv2d(input_channels, out_channels=output_channels, kernel_size=3)
+        self.first_conv_3x3 = conv2d(
+            input_channels, out_channels=output_channels, kernel_size=3, padding=1, stride=1
+        )
         self.relu = torch.nn.ReLU()
         self.last_conv_3x3 = conv2d(
-            in_channels=output_channels, out_channels=output_channels, kernel_size=3
+            in_channels=output_channels,
+            out_channels=output_channels,
+            kernel_size=3,
+            padding=1,
+            stride=1,
         )
 
     def forward(self, x) -> torch.Tensor:
@@ -294,7 +300,6 @@ class LBlock(torch.nn.Module):
         x2 = self.first_conv_3x3(x)
         x2 = self.relu(x2)
         x2 = self.last_conv_3x3(x2)
-
         x = x2 + (torch.cat((x, x1), dim=1))
         return x
 
@@ -304,6 +309,7 @@ class ContextConditioningStack(torch.nn.Module):
         self,
         input_channels: int = 1,
         output_channels: int = 384,
+        num_context_steps: int = 4,
         conv_type: str = "standard",
     ):
         """
@@ -318,27 +324,27 @@ class ContextConditioningStack(torch.nn.Module):
         conv2d = get_conv_layer(conv_type)
         self.space2depth = PixelUnshuffle(downscale_factor=2)
         # Process each observation processed separately with 4 downsample blocks
-        # Concatenate across channel dimension, and foor each output, 3x3 spectrally normalized convolution to reduce
+        # Concatenate across channel dimension, and for each output, 3x3 spectrally normalized convolution to reduce
         # number of channels by 2, followed by ReLU
         # TODO Not sure if a different block for each timestep, or same block used separately
         self.d1 = DBlock(
             input_channels=4 * input_channels,
-            output_channels=8 * input_channels,
+            output_channels=((output_channels // 4) * input_channels) // num_context_steps,
             conv_type=conv_type,
         )
         self.d2 = DBlock(
-            input_channels=8 * input_channels,
-            output_channels=16 * input_channels,
+            input_channels=((output_channels // 4) * input_channels) // num_context_steps,
+            output_channels=((output_channels // 2) * input_channels) // num_context_steps,
             conv_type=conv_type,
         )
         self.d3 = DBlock(
-            input_channels=16 * input_channels,
-            output_channels=32 * input_channels,
+            input_channels=((output_channels // 2) * input_channels) // num_context_steps,
+            output_channels=(output_channels * input_channels) // num_context_steps,
             conv_type=conv_type,
         )
         self.d4 = DBlock(
-            input_channels=32 * input_channels,
-            output_channels=64 * input_channels,
+            input_channels=(output_channels * input_channels) // num_context_steps,
+            output_channels=(output_channels * 2 * input_channels) // num_context_steps,
             conv_type=conv_type,
         )
 
@@ -423,10 +429,10 @@ class LatentConditioningStack(torch.nn.Module):
         super().__init__()
         self.shape = shape
         self.use_attention = use_attention
-        self.distribution = uniform.Uniform(torch.Tensor([0.0]), torch.Tensor([1.0]))
+        self.distribution = uniform.Uniform(low=torch.Tensor([0.0]), high=torch.Tensor([1.0]))
 
-        self.conv_3x3 = torch.nn.Conv2d(in_channels=shape[2], out_channels=shape[2], kernel_size=3)
-        self.l_block1 = LBlock(input_channels=shape[2], output_channels=output_channels // 32)
+        self.conv_3x3 = torch.nn.Conv2d(in_channels=shape[0], out_channels=shape[0], kernel_size=3)
+        self.l_block1 = LBlock(input_channels=shape[0], output_channels=output_channels // 32)
         self.l_block2 = LBlock(
             input_channels=output_channels // 32, output_channels=output_channels // 16
         )
@@ -441,8 +447,18 @@ class LatentConditioningStack(torch.nn.Module):
             input_channels=output_channels // 4, output_channels=output_channels
         )
 
-    def forward(self) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        Args:
+            x: tensor on the correct device, to move over the latent distribution
+
+        Returns:
+
+        """
         z = self.distribution.sample(self.shape)
+        # Batch is at end for some reason, reshape
+        z = torch.permute(z, (3, 0, 1, 2)).type_as(x)
         z = self.conv_3x3(z)
         z = self.l_block1(z)
         z = self.l_block2(z)
