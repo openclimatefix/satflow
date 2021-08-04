@@ -390,7 +390,7 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
         x = torch.stack(representations, dim=0).sum(dim=0)  # Should be right shape? TODO Check
         # ReLU the output
         x = self.fc(x)
-        x = self.relu(x)
+        # x = self.relu(x)
         return x
 
 
@@ -466,5 +466,5 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
         x = torch.stack(representations, dim=0).sum(dim=0)  # Should be right shape? TODO Check
         # ReLU the output
         x = self.fc(x)
-        x = self.relu(x)
+        # x = self.relu(x)
         return x
