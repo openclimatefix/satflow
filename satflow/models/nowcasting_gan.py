@@ -82,7 +82,7 @@ class NowcastingGAN(pl.LightningModule):
             self.conditioning_stack, self.latent_stack, self.sampler
         )
         self.temporal_discriminator = NowcastingTemporalDiscriminator(
-            input_channels=input_channels, crop_size=output_shape // 4, conv_type=conv_type
+            input_channels=input_channels, crop_size=output_shape // 2, conv_type=conv_type
         )
         self.spatial_discriminator = NowcastingSpatialDiscriminator(
             input_channels=input_channels, num_timesteps=8, conv_type=conv_type
@@ -93,6 +93,7 @@ class NowcastingGAN(pl.LightningModule):
 
         # Important: This property activates manual optimization.
         self.automatic_optimization = False
+        torch.autograd.set_detect_anomaly(True)
 
     @classmethod
     def from_config(cls, config):
@@ -117,52 +118,58 @@ class NowcastingGAN(pl.LightningModule):
         # Optimize Discriminator #
         ##########################
         # Two discriminator steps per generator step
-
-        # First get the 6 samples to mean?
-        # TODO Make sure this is what the paper actually means, or is it run it 6 times then average output?
+        # for _ in range(2):
+        # TODO Make sure this is meant to be the mean predictions, or to run it 6 times and then take mean?
         mean_prediction = []
         for _ in range(self.num_samples):
             mean_prediction.append(self(images))
         mean_prediction = self.average_tensors(mean_prediction)
-
+        # mean_prediction = self(images)
         # Get Spatial Loss
+        # x should be the chosen 8 or so
+        # idxs = torch.randint(low=0, high=mean_prediction.size()[1], size=(8,))
+        # mean_s_prediction = mean_prediction[:,idxs,:,:,:]
+        # future_s_images = future_images[:,idxs,:,:,:]
         spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
         spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
-        spatial_loss = self.discriminator_loss(spatial_real, spatial_fake)
-
-        # Get Temporal Loss
-        temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
-        temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
-        temporal_loss = self.discriminator_loss(temporal_real, temporal_fake)
-
-        # discriminator loss is the average of these
-        d_loss = spatial_loss + temporal_loss
-        d_opt_t.zero_grad()
-        self.manual_backward(temporal_loss)
-        d_opt_t.step()
+        spatial_loss = self.discriminator_loss(spatial_real, True) + self.discriminator_loss(
+            spatial_fake, False
+        )
+        print(spatial_loss)
         d_opt_s.zero_grad()
         self.manual_backward(spatial_loss)
         d_opt_s.step()
+        # Get Temporal Loss
+        temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
+        temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
+        temporal_loss = self.discriminator_loss(temporal_real, True) + self.discriminator_loss(
+            temporal_fake, False
+        )
+
+        # discriminator loss is the average of these
+        d_loss = spatial_loss + temporal_loss
+        print(temporal_loss)
+        d_opt_t.zero_grad()
+        self.manual_backward(temporal_loss)
+        d_opt_t.step()
 
         ######################
         # Optimize Generator #
         ######################
 
         # Get Spatial Loss
-        spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
         spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
-        spatial_loss = self.discriminator_loss(spatial_real, spatial_fake)
+        spatial_loss = self.discriminator_loss(spatial_fake, True)
 
         # Get Temporal Loss
-        temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
         temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
-        temporal_loss = self.discriminator_loss(temporal_real, temporal_fake)
+        temporal_loss = self.discriminator_loss(temporal_fake, True)
 
         # Grid Cell Loss
         grid_loss = self.grid_regularizer(mean_prediction, future_images)
 
         g_loss = spatial_loss + temporal_loss - (self.grid_lambda * grid_loss)
-
+        print(grid_loss.shape)
         g_opt.zero_grad()
         self.manual_backward(g_loss)
         g_opt.step()
@@ -187,8 +194,10 @@ class NowcastingGAN(pl.LightningModule):
             )
 
     def average_tensors(self, x: List[torch.Tensor]):
-        summed_tensor = reduce(torch.Tensor.add_, x, torch.zeros_like(x[0]))
-        summed_tensor /= len(x)
+        summed_tensor = x[0]
+        for tensor in x[1:]:
+            summed_tensor = torch.add(summed_tensor, tensor)
+        summed_tensor = torch.div(summed_tensor, len(x))
         return summed_tensor
 
     def validation_step(self, batch, batch_idx):
@@ -205,16 +214,24 @@ class NowcastingGAN(pl.LightningModule):
         # Get Spatial Loss
         spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
         spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
-        spatial_loss = self.discriminator_loss(spatial_real, spatial_fake)
+        spatial_loss = self.discriminator_loss(spatial_real, True) + self.discriminator_loss(
+            spatial_fake, False
+        )
 
         # Get Temporal Loss
         temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
         temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
-        temporal_loss = self.discriminator_loss(temporal_real, temporal_fake)
+        temporal_loss = self.discriminator_loss(temporal_real, True) + self.discriminator_loss(
+            temporal_fake, False
+        )
 
         # Grid Cell Loss
         grid_loss = self.grid_regularizer(mean_prediction, future_images)
-        g_loss = spatial_loss + temporal_loss - (self.grid_lambda * grid_loss)
+
+        # Generator Loss
+        g_s = self.discriminator_loss(spatial_fake, True)
+        g_t = self.discriminator_loss(temporal_fake, True)
+        g_loss = g_s + g_t - (self.grid_lambda * grid_loss)
 
         self.log_dict(
             {

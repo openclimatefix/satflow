@@ -57,8 +57,10 @@ class NowcastingLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, real_loss, fake_loss):
-        return F.relu(1.0 - real_loss) + F.relu(1.0 + fake_loss)
+    def forward(self, x, real_flag):
+        if real_flag is True:
+            x = -x
+        return F.relu(1.0 + x).mean()
 
 
 class FocalLoss(nn.Module):
