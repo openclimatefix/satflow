@@ -118,45 +118,40 @@ class NowcastingGAN(pl.LightningModule):
         # Optimize Discriminator #
         ##########################
         # Two discriminator steps per generator step
-        # for _ in range(2):
-        # TODO Make sure this is meant to be the mean predictions, or to run it 6 times and then take mean?
-        mean_prediction = []
-        for _ in range(self.num_samples):
-            mean_prediction.append(self(images))
-        mean_prediction = self.average_tensors(mean_prediction)
-        # mean_prediction = self(images)
-        # Get Spatial Loss
-        # x should be the chosen 8 or so
-        # idxs = torch.randint(low=0, high=mean_prediction.size()[1], size=(8,))
-        # mean_s_prediction = mean_prediction[:,idxs,:,:,:]
-        # future_s_images = future_images[:,idxs,:,:,:]
-        spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
-        spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
-        spatial_loss = self.discriminator_loss(spatial_real, True) + self.discriminator_loss(
-            spatial_fake, False
-        )
-        print(spatial_loss)
-        d_opt_s.zero_grad()
-        self.manual_backward(spatial_loss)
-        d_opt_s.step()
-        # Get Temporal Loss
-        temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
-        temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
-        temporal_loss = self.discriminator_loss(temporal_real, True) + self.discriminator_loss(
-            temporal_fake, False
-        )
+        for _ in range(2):
+            # TODO Make sure this is meant to be the mean predictions, or to run it 6 times and then take mean?
+            # mean_prediction = []
+            # for _ in range(self.num_samples):
+            #    mean_prediction.append(self(images))
+            # mean_prediction = self.average_tensors(mean_prediction)
+            mean_prediction = self(images)
+            # Get Spatial Loss
+            # x should be the chosen 8 or so
+            spatial_real = self.spatial_discriminator(future_images)
+            spatial_fake = self.spatial_discriminator(mean_prediction)
+            spatial_loss = self.discriminator_loss(spatial_real, True) + self.discriminator_loss(
+                spatial_fake, False
+            )
+            # Get Temporal Loss
+            temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
+            temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
+            temporal_loss = self.discriminator_loss(temporal_real, True) + self.discriminator_loss(
+                temporal_fake, False
+            )
 
-        # discriminator loss is the average of these
-        d_loss = spatial_loss + temporal_loss
-        print(temporal_loss)
-        d_opt_t.zero_grad()
-        self.manual_backward(temporal_loss)
-        d_opt_t.step()
+            # discriminator loss is the average of these
+            d_loss = spatial_loss + temporal_loss
+            d_opt_t.zero_grad()
+            d_opt_s.zero_grad()
+            self.manual_backward(d_loss)
+            d_opt_t.step()
+            d_opt_s.step()
 
         ######################
         # Optimize Generator #
         ######################
-
+        # TODO Do the 6 samples for this?
+        mean_prediction = self(images)
         # Get Spatial Loss
         spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
         spatial_loss = self.discriminator_loss(spatial_fake, True)
@@ -169,7 +164,6 @@ class NowcastingGAN(pl.LightningModule):
         grid_loss = self.grid_regularizer(mean_prediction, future_images)
 
         g_loss = spatial_loss + temporal_loss - (self.grid_lambda * grid_loss)
-        print(grid_loss.shape)
         g_opt.zero_grad()
         self.manual_backward(g_loss)
         g_opt.step()
@@ -194,12 +188,12 @@ class NowcastingGAN(pl.LightningModule):
             )
 
     def average_tensors(self, x: List[torch.Tensor]):
-        summed_tensor = x[0]
-        for tensor in x[1:]:
-            summed_tensor = torch.add(summed_tensor, tensor)
-        summed_tensor = torch.div(summed_tensor, len(x))
+        summed_tensor = torch.stack(x, dim=0)
+        summed_tensor = torch.mean(summed_tensor, dim=0)
+        print(summed_tensor.shape)
         return summed_tensor
 
+    """
     def validation_step(self, batch, batch_idx):
         images, future_images = batch
 
@@ -243,6 +237,7 @@ class NowcastingGAN(pl.LightningModule):
             },
             prog_bar=True,
         )
+    """
 
     def configure_optimizers(self):
         b1 = self.beta1

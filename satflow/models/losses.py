@@ -48,9 +48,7 @@ class GridCellLoss(nn.Module):
         if self.weight_fn is not None:
             difference *= self.weight_fn(targets)
         difference /= targets.size(1) * targets.size(3) * targets.size(4)  # 1/HWN
-        return torch.mean(
-            torch.mean(torch.mean(difference, dim=-1), dim=-1), dim=1
-        )  # Mean of Time/Width/Height
+        return difference.mean()
 
 
 class NowcastingLoss(nn.Module):

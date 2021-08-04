@@ -363,7 +363,7 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
             conv_type=conv_type,
         )
 
-        self.fc = spectral_norm(torch.nn.Linear(2 * internal_chn * input_channels, 1))
+        self.fc = torch.nn.Linear(2 * internal_chn * input_channels, 1)
         self.relu = torch.nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -390,7 +390,7 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
         x = torch.stack(representations, dim=0).sum(dim=0)  # Should be right shape? TODO Check
         # ReLU the output
         x = self.fc(x)
-        # x = self.relu(x)
+        x = self.relu(x)
         return x
 
 
@@ -442,7 +442,7 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
         )
 
         # Spectrally normalized linear layer for binary classification
-        self.fc = spectral_norm(torch.nn.Linear(2 * internal_chn * input_channels, 1))
+        self.fc = torch.nn.Linear(2 * internal_chn * input_channels, 1)
         self.relu = torch.nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -466,5 +466,5 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
         x = torch.stack(representations, dim=0).sum(dim=0)  # Should be right shape? TODO Check
         # ReLU the output
         x = self.fc(x)
-        # x = self.relu(x)
+        x = self.relu(x)
         return x

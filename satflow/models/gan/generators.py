@@ -488,11 +488,10 @@ class NowcastingSampler(torch.nn.Module):
         )
         self.bn = torch.nn.BatchNorm2d(latent_channels // 16)
         self.relu = torch.nn.ReLU()
-        self.conv_1x1 = spectral_norm(
-            torch.nn.Conv2d(
-                in_channels=latent_channels // 16, out_channels=4 * output_channels, kernel_size=1
-            )
+        self.conv_1x1 = torch.nn.Conv2d(
+            in_channels=latent_channels // 16, out_channels=4 * output_channels, kernel_size=1
         )
+
         self.depth2space = PixelShuffle(upscale_factor=2)
 
         # Now make copies of the entire stack, one for each future timestep

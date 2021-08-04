@@ -8,7 +8,7 @@ disc_lr: 0.0002
 visualize: True
 pretrained: False
 conv_type: "standard"
-num_samples: 6
+num_samples: 3
 grid_lambda: 20.0
 beta1: 0.0
 beta2: 0.999
