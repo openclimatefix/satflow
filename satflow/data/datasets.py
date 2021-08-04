@@ -613,7 +613,7 @@ class CloudFlowDataset(SatFlowDataset):
 class PerceiverDataset(SatFlowDataset):
     def __init__(self, datasets: List[wds.WebDataset], config: dict, train: bool = True):
         super(PerceiverDataset, self).__init__(datasets, config, train)
-        self.image_input = True  # Only want Mask -> Mask training
+        self.image_input = True
 
     def add_position_encoding(self):
         pass
