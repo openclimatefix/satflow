@@ -8,7 +8,7 @@ from typing import List
 from satflow.models.base import register_model
 
 
-class Perciever(pl.LightningModule):
+class Perceiver(pl.LightningModule):
     def __init__(
         self,
         input_channels: int = 12,
