@@ -385,12 +385,13 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
             rep = self.d_last(rep)
             # Sum-pool along width and height all 8 representations, pretty sure only the last output
             rep = torch.sum(rep.view(rep.size(0), rep.size(1), -1), dim=2)
+            # rep = self.fc(rep)
             representations.append(rep)
         # The representations are summed together before the ReLU
         x = torch.stack(representations, dim=0).sum(dim=0)  # Should be right shape? TODO Check
         # ReLU the output
         x = self.fc(x)
-        x = self.relu(x)
+        # x = self.relu(x)
         return x
 
 
@@ -466,5 +467,5 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
         x = torch.stack(representations, dim=0).sum(dim=0)  # Should be right shape? TODO Check
         # ReLU the output
         x = self.fc(x)
-        x = self.relu(x)
+        # x = self.relu(x)
         return x

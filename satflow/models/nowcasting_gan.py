@@ -193,25 +193,19 @@ class NowcastingGAN(pl.LightningModule):
         print(summed_tensor.shape)
         return summed_tensor
 
-    """
     def validation_step(self, batch, batch_idx):
         images, future_images = batch
 
         # First get the 6 samples to mean?
         # TODO Make sure this is what the paper actually means, or is it run it 6 times then average output?
-        mean_prediction = []
-        for _ in range(self.num_samples):
-            mean_prediction.append(self(images))
-        # It is a list of tensors of forecasts
-        mean_prediction = self.average_tensors(mean_prediction)
-
+        mean_prediction = self(images)
         # Get Spatial Loss
-        spatial_real = self.spatial_discriminator(torch.cat((images, future_images), 1))
-        spatial_fake = self.spatial_discriminator(torch.cat((images, mean_prediction), 1))
+        # x should be the chosen 8 or so
+        spatial_real = self.spatial_discriminator(future_images)
+        spatial_fake = self.spatial_discriminator(mean_prediction)
         spatial_loss = self.discriminator_loss(spatial_real, True) + self.discriminator_loss(
             spatial_fake, False
         )
-
         # Get Temporal Loss
         temporal_real = self.temporal_discriminator(torch.cat((images, future_images), 1))
         temporal_fake = self.temporal_discriminator(torch.cat((images, mean_prediction), 1))
@@ -237,7 +231,6 @@ class NowcastingGAN(pl.LightningModule):
             },
             prog_bar=True,
         )
-    """
 
     def configure_optimizers(self):
         b1 = self.beta1
