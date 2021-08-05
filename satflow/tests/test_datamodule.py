@@ -79,8 +79,8 @@ def test_satflow_crop():
     channels = check_channels(config["config"])
     assert x.shape == (12, 13, channels, 256, 256)
     assert image.shape == (12, 24, 12, 64, 64)
-    assert not np.allclose(image[0], image[-1])
-    assert not np.allclose(x[0], x[-1])
+    assert not np.allclose(image[0].numpy(), image[-1].numpy())
+    assert not np.allclose(x[0].numpy(), x[-1].numpy())
 
 
 def test_satflow_channels():
