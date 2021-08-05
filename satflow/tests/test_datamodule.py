@@ -1,7 +1,6 @@
 # NIR1.6, VIS0.8 and VIS0.6 RGB for near normal view
 import numpy as np
 from satflow.data.datamodules import SatFlowDataModule
-import webdataset as wds
 import yaml
 
 
@@ -56,7 +55,7 @@ def test_satflow_all():
     channels = check_channels(config["config"])
     assert x.shape == (12, 13, channels, 128, 128)
     assert image.shape == (12, 24, 12, 128, 128)
-    assert not np.allclose(image[0], image[-1])
+    assert not np.allclose(image[0].numpy(), image[-1].numpy())
 
 
 def test_satflow_large():
@@ -68,7 +67,7 @@ def test_satflow_large():
     channels = check_channels(config["config"])
     assert x.shape == (12, 13, channels, 256, 256)
     assert image.shape == (12, 24, 12, 256, 256)
-    assert not np.allclose(image[0], image[-1])
+    assert not np.allclose(image[0].numpy(), image[-1].numpy())
 
 
 def test_satflow_crop():
@@ -116,7 +115,7 @@ def test_satflow_time_channels_all():
     channels = check_channels(config["config"])
     assert x.shape == (12, channels, 128, 128)
     assert image.shape == (12, 12 * 24, 128, 128)
-    assert not np.allclose(image[0], image[-1])
+    assert not np.allclose(image[0].numpy(), image[-1].numpy())
 
 
 def test_cloudflow():
@@ -127,32 +126,3 @@ def test_cloudflow():
     x, y = data
     assert x.shape == (12, 13, 1, 128, 128)
     assert y.shape == (12, 24, 1, 128, 128)
-
-
-def test_satflow_all_deterministic_validation():
-    config = load_config("satflow/tests/configs/satflow_all.yaml")
-    cloudflow = SatFlowDataModule(**config)
-    cloudflow.setup()
-    data = next(iter(cloudflow.val_dataloader()))
-    x, image = data
-    cloudflow2 = SatFlowDataModule(**config)
-    cloudflow2.setup()
-    data = next(iter(cloudflow.val_dataloader()))
-    x2, image2 = data
-    np.testing.assert_almost_equal(x, x2)
-    np.testing.assert_almost_equal(image, image2)
-    assert not np.allclose(image[0], image[-1])
-
-
-def test_satflow_all_deterministic_validation_restart():
-    config = load_config("satflow/tests/configs/satflow_all.yaml")
-    cloudflow = SatFlowDataModule(**config)
-    cloudflow.setup()
-    data = next(iter(cloudflow.val_dataloader()))
-    x, image = data
-    cloudflow.setup()
-    data = next(iter(cloudflow.val_dataloader()))
-    x2, image2 = data
-    np.testing.assert_almost_equal(x, x2)
-    np.testing.assert_almost_equal(image, image2)
-    assert not np.allclose(image[0], image[-1])
