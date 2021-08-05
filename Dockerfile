@@ -2,11 +2,11 @@
 # Run: sudo docker run -v $(pwd):/workspace/project --gpus all -it --rm <project_name>
 
 
-FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
+FROM nvidia/cuda:11.1-cudnn8-devel-ubuntu20.04
 
 
 ENV CONDA_ENV_NAME=satflow
-ENV PYTHON_VERSION=3.8
+ENV PYTHON_VERSION=3.9
 
 
 # Basic setup
@@ -25,7 +25,7 @@ RUN /bin/bash miniconda3.sh -b -p /conda \
     && echo export PATH=/conda/bin:$PATH >> .bashrc \
     && rm miniconda3.sh
 ENV PATH="/conda/bin:${PATH}"
-# RUN conda create -n ${CONDA_ENV_NAME} python=${PYTHON_VERSION} pytorch::pytorch=1.9 torchvision cudatoolkit=10.2 iris rasterio numpy cartopy satpy matplotlib hydra-core pytorch-lightning optuna eccodes -c conda-forge -c nvidia -c pytorch
+# RUN conda create -n ${CONDA_ENV_NAME} python=${PYTHON_VERSION} pytorch::pytorch=1.9 torchvision cudatoolkit=11.1 iris rasterio numpy cartopy satpy matplotlib hydra-core pytorch-lightning optuna eccodes -c conda-forge -c nvidia -c pytorch
 COPY environment.yml ./
 RUN conda env create --file environment.yml && rm environment.yml
 
@@ -38,10 +38,10 @@ RUN source activate ${CONDA_ENV_NAME} \
 
 
 # Install requirements
-COPY requirements.txt ./
-RUN source activate ${CONDA_ENV_NAME} \
-    && pip install --no-cache-dir -r requirements.txt \
-    && rm requirements.txt
+#COPY requirements.txt ./
+#RUN source activate ${CONDA_ENV_NAME} \
+#    && pip install --no-cache-dir -r requirements.txt \
+#    && rm requirements.txt
 
 
 # Set ${CONDA_ENV_NAME} to default virutal environment
