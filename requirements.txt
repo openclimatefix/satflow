@@ -7,3 +7,8 @@ pytorch-msssim==0.2.1
 neptune-client==0.10.2
 hydra-optuna-sweeper==1.1.0
 perceiver-pytorch
+python-dotenv
+rich
+axial-attention
+lightning-bolts
+neptune-pytorch-lightning
