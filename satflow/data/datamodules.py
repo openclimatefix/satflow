@@ -4,6 +4,14 @@ from typing import Optional
 import webdataset as wds
 from satflow.data.datasets import SatFlowDataset, CloudFlowDataset, FileDataset, PerceiverDataset
 import os
+from glob import glob
+
+
+def get_file_list(data_dir, pattern, start=0, end=-1):
+    if "{" in pattern:
+        return os.path.join(data_dir, pattern)
+    else:
+        return glob(os.path.join(data_dir, pattern))[start:end]
 
 
 class SatFlowDataModule(pl.LightningDataModule):
@@ -35,8 +43,9 @@ class SatFlowDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            train_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["train"]))
-            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"]))
+            get_file_list(self.data_dir, self.sources["val"])
+            train_dset = wds.WebDataset(get_file_list(self.data_dir, self.sources["train"]))
+            val_dset = wds.WebDataset(get_file_list(self.data_dir, self.sources["val"], end=60))
             if self.shuffle > 0:
                 # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
                 train_dset = train_dset.shuffle(self.shuffle)
@@ -45,7 +54,9 @@ class SatFlowDataModule(pl.LightningDataModule):
 
         # Assign test dataset for use in dataloader(s)
         if stage == "test" or stage is None:
-            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"]))
+            test_dset = wds.WebDataset(
+                get_file_list(self.data_dir, self.sources["test"], start=61)
+            )
             self.test_dataset = SatFlowDataset([test_dset], config=self.config, train=False)
 
     def train_dataloader(self):
