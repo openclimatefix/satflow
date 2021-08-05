@@ -12,3 +12,4 @@ rich
 axial-attention
 lightning-bolts
 neptune-pytorch-lightning
+pytest
