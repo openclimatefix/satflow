@@ -113,7 +113,7 @@ def test_satflow_time_channels_all():
     data = next(iter(cloudflow.train_dataloader()))
     x, image = data
     channels = check_channels(config["config"])
-    assert x.shape == (12, channels, 128, 128)
+    assert x.numpy().shape == (12, channels, 128, 128)
     assert image.shape == (12, 12 * 24, 128, 128)
     assert not np.allclose(image[0].numpy(), image[-1].numpy())
 
@@ -124,5 +124,5 @@ def test_cloudflow():
     cloudflow.setup()
     data = next(iter(cloudflow.train_dataloader()))
     x, y = data
-    assert x.shape == (12, 13, 1, 128, 128)
-    assert y.shape == (12, 24, 1, 128, 128)
+    assert x.numpy().shape == (12, 13, 1, 128, 128)
+    assert y.numpy().shape == (12, 24, 1, 128, 128)
