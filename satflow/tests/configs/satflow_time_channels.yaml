@@ -1,3 +1,12 @@
+batch_size: 12
+data_dir: "datasets/"
+shuffle: 0
+sources:
+  train: "satflow-test.tar"
+  val: "satflow-test.tar"
+  test: "satflow-test.tar"
+num_workers: 12
+pin_memory: True
 config:
   visualize: False
   num_timesteps: 12
