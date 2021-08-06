@@ -94,7 +94,7 @@ class MetNet(pl.LightningModule):
         input_channels: int = 12,
         sat_channels: int = 12,
         input_size: int = 256,
-        out_channels: int = 12,
+        output_channels: int = 12,
         hidden_dim: int = 64,
         kernel_size: int = 3,
         num_layers: int = 1,
@@ -106,7 +106,6 @@ class MetNet(pl.LightningModule):
         pretrained: bool = False,
         visualize: bool = False,
         loss: str = "mse",
-        output_channels: int = 12,
     ):
         super().__init__()
 
@@ -142,7 +141,7 @@ class MetNet(pl.LightningModule):
         )
 
         self.head = head
-        self.head = nn.Conv2d(hidden_dim, out_channels, kernel_size=(1, 1))  # Reduces to mask
+        self.head = nn.Conv2d(hidden_dim, output_channels, kernel_size=(1, 1))  # Reduces to mask
         # self.head = nn.Sequential(nn.AdaptiveAvgPool2d(1), )
 
     def encode_timestep(self, x, fstep=1):
