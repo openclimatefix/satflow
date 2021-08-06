@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def metnet_normalization(data: np.ndarry) -> np.ndarray:
+def metnet_normalization(data: np.ndarray) -> np.ndarray:
     """
     Perform the normalization used in the MetNet paper on the GOES data
     This involves subtracting by the median, dividing by the interquartile range,
