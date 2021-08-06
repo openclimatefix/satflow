@@ -3,7 +3,7 @@ import functools
 import torch
 from torch import nn as nn
 from torch.nn.modules.pixelshuffle import PixelShuffle
-from torch.nn.utils.parametrizations import spectral_norm
+from torch.nn.utils import spectral_norm
 from typing import Union, Tuple, List
 from satflow.models.gan.common import get_norm_layer, init_net, GBlock
 from satflow.models.utils import get_conv_layer
@@ -488,8 +488,10 @@ class NowcastingSampler(torch.nn.Module):
         )
         self.bn = torch.nn.BatchNorm2d(latent_channels // 16)
         self.relu = torch.nn.ReLU()
-        self.conv_1x1 = torch.nn.Conv2d(
-            in_channels=latent_channels // 16, out_channels=4 * output_channels, kernel_size=1
+        self.conv_1x1 = spectral_norm(
+            torch.nn.Conv2d(
+                in_channels=latent_channels // 16, out_channels=4 * output_channels, kernel_size=1
+            )
         )
 
         self.depth2space = PixelShuffle(upscale_factor=2)

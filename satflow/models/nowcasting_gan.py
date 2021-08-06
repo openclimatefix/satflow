@@ -190,7 +190,6 @@ class NowcastingGAN(pl.LightningModule):
     def average_tensors(self, x: List[torch.Tensor]):
         summed_tensor = torch.stack(x, dim=0)
         summed_tensor = torch.mean(summed_tensor, dim=0)
-        print(summed_tensor.shape)
         return summed_tensor
 
     def validation_step(self, batch, batch_idx):
