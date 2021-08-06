@@ -18,6 +18,7 @@ class DownSampler(nn.Module):
     def __init__(self, in_channels, output_channels: int = 256, conv_type: str = "standard"):
         super().__init__()
         conv2d = get_conv_layer(conv_type=conv_type)
+        self.output_channels = output_channels
         if conv_type == "antialiased":
             antialiased = True
         else:
@@ -124,10 +125,11 @@ class MetNet(pl.LightningModule):
             image_encoder = DownSampler(input_channels + forecast_steps)
         else:
             raise ValueError(f"Image_encoder {image_encoder} is not recognized")
-        nf = 256  # from the simple image encoder
         self.image_encoder = TimeDistributed(image_encoder)
         self.ct = ConditionTime(forecast_steps)
-        self.temporal_enc = TemporalEncoder(nf, hidden_dim, ks=kernel_size, n_layers=num_layers)
+        self.temporal_enc = TemporalEncoder(
+            image_encoder.output_channels, hidden_dim, ks=kernel_size, n_layers=num_layers
+        )
         self.temporal_agg = nn.Sequential(
             *[
                 AxialAttention(dim=hidden_dim, dim_index=1, heads=8, num_dimensions=2)
