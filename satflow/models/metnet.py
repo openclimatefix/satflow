@@ -112,7 +112,9 @@ class MetNet(pl.LightningModule):
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
         self.output_channels = output_channels
-        self.criterion = get_loss(loss, channel=output_channels, nonnegative_ssim=True)
+        self.criterion = get_loss(
+            loss, channel=output_channels, nonnegative_ssim=True, convert_range=True
+        )
         self.loss = loss
         self.lr = lr
         self.visualize = visualize
@@ -205,13 +207,6 @@ class MetNet(pl.LightningModule):
         if self.visualize:
             if np.random.random() < 0.01:
                 self.visualize_step(x, y, y_hat, batch_idx)
-        # Generally only care about the center x crop, so the model can take into account the clouds in the area without
-        # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
-        # SSIM and MS_SSIM has to be in range 0-1.0, while this is usually in -1-1.0, so need to rescale y
-        if self.loss in ["ssim", "ms_ssim"]:
-            y = (y + 1) / 2.0
-            y = y.half()
-            y_hat = (y_hat + 1) / 2.0
         loss = self.criterion(y_hat, y)
         self.log("train/loss", loss)
         frame_loss_dict = {}
@@ -225,11 +220,6 @@ class MetNet(pl.LightningModule):
         x, y = batch
         x = x.float()
         y_hat = self(x)
-        # SSIM and MS_SSIM has to be in range 0-1.0, while this is usually in -1-1.0, so need to rescale y
-        if self.loss in ["ssim", "ms_ssim"]:
-            y = (y + 1) / 2.0
-            y = y.half()
-            y_hat = (y_hat + 1) / 2.0
         val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss)
         # Save out loss per frame as well
