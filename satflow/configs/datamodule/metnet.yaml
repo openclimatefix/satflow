@@ -20,7 +20,7 @@ config:
   target_type: "cloudmask"
   num_crops: 10
   use_topo: True
-  use_latlon: False
+  use_latlon: True
   use_time: False
   time_aux: False
   use_mask: False
