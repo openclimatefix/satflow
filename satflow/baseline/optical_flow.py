@@ -1,5 +1,5 @@
 import cv2
-from satflow.data.datasets import OpticalFlowDataset
+from satflow.data.datasets import OpticalFlowDataset, SatFlowDataset
 import webdataset as wds
 import yaml
 import torch.nn.functional as F
@@ -14,7 +14,7 @@ def load_config(config_file):
 config = load_config("/satflow/configs/datamodule/optical_flow.yaml")
 dset = wds.WebDataset("/run/media/jacob/data/satflow-flow-144-tiled-{00001..00149}.tar")
 
-dataset = OpticalFlowDataset([dset], config=config)
+dataset = SatFlowDataset([dset], config=config)
 
 import matplotlib.pyplot as plt
 import torch
@@ -31,57 +31,59 @@ def warp_flow(img, flow):
 
 debug = False
 total_losses = np.array([0.0 for _ in range(48)])  # Want to break down loss by future timestep
+channel_total_losses = np.array([total_losses for _ in range(12)])
 count = 0
 baseline_losses = np.array([0.0 for _ in range(48)])  # Want to break down loss by future timestep
-overall_loss = 0.0
-overall_baseline = 0.0
+channel_baseline_losses = np.array([baseline_losses for _ in range(12)])
 
 for data in dataset:
     tmp_loss = 0
     tmp_base = 0
     count += 1
-    prev_frame, curr_frame, next_frames, image, prev_image = data
-    prev_frame = np.moveaxis(prev_frame, [0], [2])
-    curr_frame = np.moveaxis(curr_frame, [0], [2])
-    flow = cv2.calcOpticalFlowFarneback(prev_image, image, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-    warped_frame = warp_flow(curr_frame.astype(np.float32), flow)
-    warped_frame = np.expand_dims(warped_frame, axis=-1)
-    loss = F.mse_loss(
-        torch.from_numpy(warped_frame), torch.from_numpy(np.expand_dims(next_frames[0], axis=-1))
-    )
-    total_losses[0] += loss.item()
-    tmp_loss += loss.item()
-    loss = F.mse_loss(
-        torch.from_numpy(curr_frame.astype(np.float32)),
-        torch.from_numpy(np.expand_dims(next_frames[0], axis=-1)),
-    )
-    baseline_losses[0] += loss.item()
-    tmp_base += loss.item()
-
-    for i in range(1, 48):
-        warped_frame = warp_flow(warped_frame.astype(np.float32), flow)
+    past_frames, next_frames = data
+    prev_frame = past_frames[1]
+    curr_frame = past_frames[0]
+    # Do it for each of the 12 channels
+    for ch in range(12):
+        # prev_frame = np.moveaxis(prev_frame, [0], [2])
+        # curr_frame = np.moveaxis(curr_frame, [0], [2])
+        flow = cv2.calcOpticalFlowFarneback(
+            past_frames[1][ch], past_frames[0][ch], None, 0.5, 3, 15, 3, 5, 1.2, 0
+        )
+        warped_frame = warp_flow(curr_frame[ch].astype(np.float32), flow)
         warped_frame = np.expand_dims(warped_frame, axis=-1)
         loss = F.mse_loss(
             torch.from_numpy(warped_frame),
-            torch.from_numpy(np.expand_dims(next_frames[i], axis=-1)),
+            torch.from_numpy(np.expand_dims(next_frames[0][ch], axis=-1)),
         )
-        total_losses[i] += loss.item()
-        tmp_loss += loss.item()
+        channel_total_losses[ch][0] += loss.item()
         loss = F.mse_loss(
-            torch.from_numpy(curr_frame.astype(np.float32)),
-            torch.from_numpy(np.expand_dims(next_frames[i], axis=-1)),
+            torch.from_numpy(curr_frame[ch].astype(np.float32)),
+            torch.from_numpy(next_frames[0][ch]),
         )
-        baseline_losses[i] += loss.item()
-        tmp_base += loss.item()
-    tmp_base /= 48
-    tmp_loss /= 48
-    overall_loss += tmp_loss
-    overall_baseline += tmp_base
+        channel_baseline_losses[ch][0] += loss.item()
+
+        for i in range(1, 48):
+            warped_frame = warp_flow(warped_frame.astype(np.float32), flow)
+            warped_frame = np.expand_dims(warped_frame, axis=-1)
+            loss = F.mse_loss(
+                torch.from_numpy(warped_frame),
+                torch.from_numpy(np.expand_dims(next_frames[i][ch], axis=-1)),
+            )
+            channel_total_losses[ch][i] += loss.item()
+            tmp_loss += loss.item()
+            loss = F.mse_loss(
+                torch.from_numpy(curr_frame[ch].astype(np.float32)),
+                torch.from_numpy(next_frames[i][ch]),
+            )
+            channel_baseline_losses[ch][i] += loss.item()
     print(
-        f"Avg Total Loss: {np.mean(total_losses) / count} Avg Baseline Loss: {np.mean(baseline_losses) / count} \n Overall Loss: {overall_loss / count} Baseline: {overall_baseline / count}"
+        f"Avg Total Loss: {np.mean(channel_total_losses) / count} Avg Baseline Loss: {np.mean(channel_baseline_losses) / count}"
     )
     if count % 100 == 0:
-        np.save("optical_flow_mse_loss.npy", total_losses / count)
-        np.save("baseline_current_image_mse_loss.npy", baseline_losses / count)
-np.save("optical_flow_mse_loss.npy", total_losses / count)
-np.save("baseline_current_image_mse_loss.npy", baseline_losses / count)
+        np.save("optical_flow_mse_loss_channels_reverse.npy", channel_total_losses / count)
+        np.save(
+            "baseline_current_image_mse_loss_channels_reverse.npy", channel_baseline_losses / count
+        )
+np.save("optical_flow_mse_loss_reverse.npy", channel_total_losses / count)
+np.save("baseline_current_image_mse_loss_reverse.npy", channel_baseline_losses / count)

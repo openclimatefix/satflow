@@ -1,11 +1,8 @@
 # https://neptune.ai
 
 neptune:
-  _target_: pytorch_lightning.loggers.neptune.NeptuneLogger
+  _target_: neptune.new.integrations.pytorch_lightning.NeptuneLogger
   api_key: ${oc.env:NEPTUNE_API_TOKEN} # api key is loaded from environment variable
-  project_name: OpenClimateFix/forecasting-satellite-images
-  close_after_fit: True
-  offline_mode: False
-  experiment_name: null
-  experiment_id: null
+  project: OpenClimateFix/forecasting-satellite-images
+  close_after_fit: False
   prefix: ""

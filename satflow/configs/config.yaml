@@ -3,10 +3,10 @@
 # specify here default training configuration
 defaults:
   - trainer: minimal.yaml
-  - model: convlstm_model.yaml
-  - datamodule: satflow.yaml
+  - model: nowcasting_gan.yaml
+  - datamodule: nowcasting_gan_hrv.yaml
   - callbacks: default.yaml # set this to null if you don't want to use callbacks
-  - logger: tensorboard # set logger here or use command line (e.g. `python run.py logger=wandb`)
+  - logger: null # set logger here or use command line (e.g. `python run.py logger=wandb`)
 
   - experiment: null
   - hparams_search: null
