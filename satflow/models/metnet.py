@@ -165,7 +165,7 @@ class MetNet(pl.LightningModule):
             x_i = self.encode_timestep(imgs, i)
             out = self.head(x_i)
             res.append(out)
-        res = torch.stack(res, dim=1).squeeze()
+        res = torch.stack(res, dim=1)
         return res
 
     def configure_optimizers(self):
@@ -238,7 +238,7 @@ class MetNet(pl.LightningModule):
         # Add all the different timesteps for a single prediction, 0.1% of the time
         images = x[0].cpu().detach()
         images = [img for img in images]
-        image_grid = torchvision.utils.make_grid(images, nrow=self.channels_per_timestep)
+        image_grid = torchvision.utils.make_grid(images, nrow=13)
         tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
         images = y[0].cpu().detach()
         images = [img for img in images]
