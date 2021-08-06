@@ -27,6 +27,7 @@ config:
   use_image: True
   add_pixel_coords: False
   time_as_channels: False
+  metnet_normalization: True
   bands:
     [
       "HRV",
