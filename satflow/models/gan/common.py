@@ -4,7 +4,7 @@ from typing import Tuple
 import torch
 from torch.nn import init
 from torch.distributions import uniform
-from torch.nn.utils.parametrizations import spectral_norm
+from torch.nn.utils import spectral_norm
 from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
 from torch.nn.functional import interpolate
 from satflow.models.utils import get_conv_layer
@@ -240,9 +240,9 @@ class DBlock(torch.nn.Module):
         )
         if conv_type == "3d":
             # Need spectrally normalized convolutions
-            self.conv_1x1 = self.conv_1x1
-            self.first_conv_3x3 = self.first_conv_3x3
-            self.last_conv_3x3 = self.last_conv_3x3
+            self.conv_1x1 = spectral_norm(self.conv_1x1)
+            self.first_conv_3x3 = spectral_norm(self.first_conv_3x3)
+            self.last_conv_3x3 = spectral_norm(self.last_conv_3x3)
         # Downsample at end of 3x3
         self.relu = torch.nn.ReLU()
         # Concatenate to double final channels and keep reduced spatial extent
@@ -352,32 +352,40 @@ class ContextConditioningStack(torch.nn.Module):
             output_channels=(output_channels * 2 * input_channels) // num_context_steps,
             conv_type=conv_type,
         )
-        self.conv1 = conv2d(
-            in_channels=(output_channels // 4) * input_channels,
-            out_channels=(output_channels // 8) * input_channels,
-            kernel_size=3,
-            padding=1,
+        self.conv1 = spectral_norm(
+            conv2d(
+                in_channels=(output_channels // 4) * input_channels,
+                out_channels=(output_channels // 8) * input_channels,
+                kernel_size=3,
+                padding=1,
+            )
         )
 
-        self.conv2 = conv2d(
-            in_channels=(output_channels // 2) * input_channels,
-            out_channels=(output_channels // 4) * input_channels,
-            kernel_size=3,
-            padding=1,
+        self.conv2 = spectral_norm(
+            conv2d(
+                in_channels=(output_channels // 2) * input_channels,
+                out_channels=(output_channels // 4) * input_channels,
+                kernel_size=3,
+                padding=1,
+            )
         )
 
-        self.conv3 = conv2d(
-            in_channels=output_channels * input_channels,
-            out_channels=(output_channels // 2) * input_channels,
-            kernel_size=3,
-            padding=1,
+        self.conv3 = spectral_norm(
+            conv2d(
+                in_channels=output_channels * input_channels,
+                out_channels=(output_channels // 2) * input_channels,
+                kernel_size=3,
+                padding=1,
+            )
         )
 
-        self.conv4 = conv2d(
-            in_channels=output_channels * 2 * input_channels,
-            out_channels=output_channels * input_channels,
-            kernel_size=3,
-            padding=1,
+        self.conv4 = spectral_norm(
+            conv2d(
+                in_channels=output_channels * 2 * input_channels,
+                out_channels=output_channels * input_channels,
+                kernel_size=3,
+                padding=1,
+            )
         )
 
         self.relu = torch.nn.ReLU()

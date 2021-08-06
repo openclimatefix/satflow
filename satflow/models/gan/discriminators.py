@@ -1,7 +1,7 @@
 import functools
 import torch
 from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
-from torch.nn.utils.parametrizations import spectral_norm
+from torch.nn.utils import spectral_norm
 from torch import nn as nn
 from torchvision.transforms import RandomCrop
 from satflow.models.utils import get_conv_layer
@@ -363,7 +363,7 @@ class NowcastingTemporalDiscriminator(torch.nn.Module):
             conv_type=conv_type,
         )
 
-        self.fc = torch.nn.Linear(2 * internal_chn * input_channels, 1)
+        self.fc = spectral_norm(torch.nn.Linear(2 * internal_chn * input_channels, 1))
         self.relu = torch.nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -443,7 +443,7 @@ class NowcastingSpatialDiscriminator(torch.nn.Module):
         )
 
         # Spectrally normalized linear layer for binary classification
-        self.fc = torch.nn.Linear(2 * internal_chn * input_channels, 1)
+        self.fc = spectral_norm(torch.nn.Linear(2 * internal_chn * input_channels, 1))
         self.relu = torch.nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
