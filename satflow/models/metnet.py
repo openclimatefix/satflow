@@ -60,11 +60,10 @@ class MetNetPreprocessor(nn.Module):
 
         # Split off sat + mask channels into own image, and the rest, which we just take a center crop
         # For this,
-        self.mean_pool = torch.nn.AvgPool2d(kernel_size=(2, 2))
         self.sat_downsample = (
             torch.nn.PixelUnshuffle(downscale_factor=2)
             if use_space2depth
-            else torch.nn.AvgPool2d(kernel_size=(2, 2))
+            else torch.nn.AvgPool3d(kernel_size=(1, 2, 2))
         )
         self.center_crop = torchvision.transforms.CenterCrop(size=crop_size)
 
@@ -72,16 +71,15 @@ class MetNetPreprocessor(nn.Module):
         sat_channels = x[:, :, : self.sat_channels, :, :]
         other_channels = x[:, :, self.sat_channels :, :, :]
         sat_channels = self.sat_downsample(sat_channels)
-        other_channels = torchvision.transforms.CenterCrop(
-            size=other_channels.size()[-1] // 2
+        other_channels = torchvision.transforms.CenterCrop(size=other_channels.size()[-1] // 2)(
+            other_channels
         )  # center crop to same as downsample
         # In paper, satellite and radar data is concatenated here
         # We are just going to skip that bit
 
         sat_center = self.center_crop(sat_channels)
-        sat_mean = self.mean_pool(sat_channels)
+        sat_mean = F.avg_pool3d(sat_channels, (1, 2, 2))
         other_channels = self.center_crop(other_channels)
-
         # All the same size now, so concatenate together, already have time, lat/long, and elevation image
         x = torch.cat([sat_center, sat_mean, other_channels], dim=2)
         return x
@@ -208,7 +206,7 @@ class MetNet(pl.LightningModule):
         self.log("train/loss", loss)
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat[f, :, :], y[f, :, :]).item()
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
             frame_loss_dict[f"train/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
         return loss
@@ -223,7 +221,7 @@ class MetNet(pl.LightningModule):
         # Save out loss per frame as well
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat[f, :, :], y[f, :, :]).item()
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
             frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
         return val_loss
