@@ -13,9 +13,9 @@ pin_memory: True
 config:
   visualize: False
   num_timesteps: 6
-  skip_timesteps: 3
+  skip_timesteps: 1
   forecast_times: 24
-  output_shape: 64
+  output_shape: 256
   output_target: 16
   target_type: "cloudmask"
   num_crops: 10
