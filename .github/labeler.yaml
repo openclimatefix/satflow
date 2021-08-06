@@ -1,0 +1,23 @@
+# Add 'repo' label to any root file changes
+repo:
+  - "*"
+
+# Add '@domain/core' label to any change within the 'core' package
+models:
+  - satflow/models/**/*
+  - satflow/models/*
+
+data:
+  - satflow/data/**/*
+  - satflow/data/*
+
+# Add 'test' label to any change to *.spec.js files within the source dir
+test:
+  - satflow/tests/*
+
+# Add 'source' label to any change to src files within the source dir EXCEPT for the docs sub-folder
+configs:
+  - any: ["satflow/configs/**/*"]
+
+examples:
+  - satflow/examples/*

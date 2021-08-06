@@ -610,6 +610,18 @@ class CloudFlowDataset(SatFlowDataset):
         self.image_input = False  # Only want Mask -> Mask training
 
 
+class PerceiverDataset(SatFlowDataset):
+    def __init__(self, datasets: List[wds.WebDataset], config: dict, train: bool = True):
+        super(PerceiverDataset, self).__init__(datasets, config, train)
+        self.image_input = True
+
+    def add_position_encoding(self):
+        pass
+
+    def encode_images(self):
+        pass
+
+
 class OpticalFlowDataset(SatFlowDataset):
     def __iter__(self) -> Iterator[T_co]:
         # Need to make sure same time step for all of them.
