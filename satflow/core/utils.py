@@ -90,6 +90,13 @@ def extras(config: DictConfig) -> None:
     )
     log.info(f"Channels: (Add Polar Coordinates) {channels}")
     config.model.input_channels = channels
+
+    # Update number of iterations per epoch based on accumulate
+    if config.trainer.get("accumulate_grad_batches"):
+        config.trainer.limit_train_batches = (
+            config.trainer.limit_train_batches * config.trainer.accumulate_grad_batches
+        )
+
     # disable python warnings if <config.ignore_warnings=True>
     if config.get("ignore_warnings"):
         log.info("Disabling python warnings! <config.ignore_warnings=True>")
