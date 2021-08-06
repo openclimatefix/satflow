@@ -19,3 +19,7 @@ def metnet_normalization(data: np.ndarry) -> np.ndarray:
     data = (data - np.median(data)) / iqr
     # Now hyperbolic tangent
     return np.tanh(data)
+
+
+def standard_normalization(data: np.ndarray, std: np.ndarray, mean: np.ndarray) -> np.ndarray:
+    return (data - mean) / std
