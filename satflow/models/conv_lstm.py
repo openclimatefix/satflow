@@ -95,18 +95,29 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
     def visualize_step(self, x, y, y_hat, batch_idx, step="train"):
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
-        images = x[0].cpu().detach()
-        images = [img for img in images]
-        image_grid = torchvision.utils.make_grid(images, nrow=16)
-        tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
-        images = y[0].cpu().detach()
-        images = [img for img in images]
-        image_grid = torchvision.utils.make_grid(images, nrow=12)
-        tensorboard.add_image(f"{step}/Target_Image_Stack", image_grid, global_step=batch_idx)
-        images = y_hat[0].cpu().detach()
-        images = [img for img in images]
-        image_grid = torchvision.utils.make_grid(images, nrow=12)
-        tensorboard.add_image(f"{step}/Generated_Image_Stack", image_grid, global_step=batch_idx)
+        if len(x.shape) == 5:
+            # Timesteps per channel
+            images = x[0].cpu().detach()
+            for i, t in enumerate(images):  # Now would be (C, H, W)
+                t = [torch.unsqueeze(img, dim=0) for img in t]
+                image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
+                tensorboard.add_image(
+                    f"{step}/Input_Image_Stack_Frame_{i}", image_grid, global_step=batch_idx
+                )
+            images = y[0].cpu().detach()
+            for i, t in enumerate(images):  # Now would be (C, H, W)
+                t = [torch.unsqueeze(img, dim=0) for img in t]
+                image_grid = torchvision.utils.make_grid(t, nrow=self.output_channels)
+                tensorboard.add_image(
+                    f"{step}/Target_Image_Stack_Frame_{i}", image_grid, global_step=batch_idx
+                )
+            images = y_hat[0].cpu().detach()
+            for i, t in enumerate(images):  # Now would be (C, H, W)
+                t = [torch.unsqueeze(img, dim=0) for img in t]
+                image_grid = torchvision.utils.make_grid(t, nrow=self.output_channels)
+                tensorboard.add_image(
+                    f"{step}/Generated_Stack_Frame_{i}", image_grid, global_step=batch_idx
+                )
 
 
 class ConvLSTM(torch.nn.Module):

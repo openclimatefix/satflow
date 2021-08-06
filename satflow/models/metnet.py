@@ -94,7 +94,7 @@ class MetNet(pl.LightningModule):
         input_channels: int = 12,
         sat_channels: int = 12,
         input_size: int = 256,
-        out_channels: int = 12,
+        output_channels: int = 12,
         hidden_dim: int = 64,
         kernel_size: int = 3,
         num_layers: int = 1,
@@ -110,7 +110,12 @@ class MetNet(pl.LightningModule):
         super().__init__()
 
         self.forecast_steps = forecast_steps
-        self.criterion = get_loss(loss)
+        self.input_channels = input_channels
+        self.output_channels = output_channels
+        self.criterion = get_loss(
+            loss, channel=output_channels, nonnegative_ssim=True, convert_range=True
+        )
+        self.loss = loss
         self.lr = lr
         self.visualize = visualize
         self.preprocessor = MetNetPreprocessor(
@@ -138,7 +143,7 @@ class MetNet(pl.LightningModule):
         )
 
         self.head = head
-        self.head = nn.Conv2d(hidden_dim, out_channels, kernel_size=(1, 1))  # Reduces to mask
+        self.head = nn.Conv2d(hidden_dim, output_channels, kernel_size=(1, 1))  # Reduces to mask
         # self.head = nn.Sequential(nn.AdaptiveAvgPool2d(1), )
 
     def encode_timestep(self, x, fstep=1):
@@ -197,13 +202,11 @@ class MetNet(pl.LightningModule):
         x, y = batch
         x = x.float()
         y_hat = self(x)
-        y = torch.squeeze(y)
+        # y = torch.squeeze(y)
 
         if self.visualize:
             if np.random.random() < 0.01:
                 self.visualize_step(x, y, y_hat, batch_idx)
-        # Generally only care about the center x crop, so the model can take into account the clouds in the area without
-        # being penalized for that, but for now, just do general MSE loss, also only care about first 12 channels
         loss = self.criterion(y_hat, y)
         self.log("train/loss", loss)
         frame_loss_dict = {}
@@ -217,7 +220,6 @@ class MetNet(pl.LightningModule):
         x, y = batch
         x = x.float()
         y_hat = self(x)
-        y = torch.squeeze(y)
         val_loss = self.criterion(y_hat, y)
         self.log("val/loss", val_loss)
         # Save out loss per frame as well

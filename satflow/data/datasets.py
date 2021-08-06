@@ -12,6 +12,7 @@ import pickle
 import io
 import random
 import os
+from satflow.data.utils.normalization import metnet_normalization, standard_normalization
 
 
 logger = logging.getLogger("satflow.dataset")
@@ -216,6 +217,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
         self.return_target_stack = config.get("stack_targets", False)
         self.time_as_channels = config.get("time_as_channels", False)
         self.add_pixel_coords = config.get("add_pixel_coords", False)
+        self.metnet_norm = config.get("metnet_normalization", False)
 
         # Number of channels in final one
         self.num_channels = check_channels(config)
@@ -388,7 +390,7 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                     or self.num_timesteps * self.skip_timesteps + 1
                     >= available_steps - self.forecast_times
                 ):
-                    logger.warning(
+                    logger.debug(
                         f"Issue with {self.num_timesteps * self.skip_timesteps + 1} >= {available_steps - self.forecast_times} with {available_steps} available timesteps"
                     )
                     continue  # Skip this sample as it is missing timesteps, or has none
@@ -432,12 +434,26 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                                 f"After Time Changes Image/Masks Shape: {self.input_cube.shape} {self.target_cube.shape}"
                             )
                             self.input_cube[:, : self.num_bands, :, :] = (
-                                self.input_cube[:, : self.num_bands, :, :] - self.mean
-                            ) / self.std
+                                metnet_normalization(self.input_cube[:, : self.num_bands, :, :])
+                                if self.metnet_norm
+                                else standard_normalization(
+                                    self.input_cube[:, : self.num_bands, :, :],
+                                    std=self.std,
+                                    mean=self.mean,
+                                )
+                            )
                             if self.use_image:
                                 self.target_image_cube[:, : self.num_bands, :, :] = (
-                                    self.target_image_cube[:, : self.num_bands, :, :] - self.mean
-                                ) / self.std
+                                    metnet_normalization(
+                                        self.target_image_cube[:, : self.num_bands, :, :]
+                                    )
+                                    if self.metnet_norm
+                                    else standard_normalization(
+                                        self.target_image_cube[:, : self.num_bands, :, :],
+                                        std=self.std,
+                                        mean=self.mean,
+                                    )
+                                )
                             start_channel = self.num_bands + 3 if self.use_time else self.num_bands
                             start_channel = start_channel + 1 if self.use_mask else start_channel
                             logger.info(f"Start Channel: {start_channel}")

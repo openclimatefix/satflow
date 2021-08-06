@@ -6,7 +6,7 @@
 defaults:
   - override /trainer: minimal.yaml # choose trainer from 'configs/trainer/'
   - override /model: metnet.yaml
-  - override /datamodule: metnet_datamodule.yaml
+  - override /datamodule: metnet.yaml
   - override /callbacks: default.yaml
   - override /logger: null
 

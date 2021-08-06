@@ -6,21 +6,41 @@ from torch.nn import functional as F
 
 
 class SSIMLoss(nn.Module):
-    def __init__(self, **kwargs):
+    def __init__(self, convert_range: bool = False, **kwargs):
+        """
+        SSIM Loss, optionally converting input range from [-1,1] to [0,1]
+        Args:
+            convert_range:
+            **kwargs:
+        """
         super().__init__()
+        self.convert_range = convert_range
         self.ssim_module = SSIM(**kwargs)
 
-    def forward(self, X, Y):
-        return 1.0 - self.ssim_module(X, Y)
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        if self.convert_range:
+            x = torch.div(torch.add(x, 1), 2)
+            y = torch.div(torch.add(y, 1), 2)
+        return 1.0 - self.ssim_module(x, y)
 
 
 class MS_SSIMLoss(nn.Module):
-    def __init__(self, **kwargs):
+    def __init__(self, convert_range: bool = False, **kwargs):
+        """
+        Multi-Scale SSIM Loss, optionally converting input range from [-1,1] to [0,1]
+        Args:
+            convert_range:
+            **kwargs:
+        """
         super().__init__()
+        self.convert_range = convert_range
         self.ssim_module = MS_SSIM(**kwargs)
 
-    def forward(self, X, Y):
-        return 1.0 - self.ssim_module(X, Y)
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        if self.convert_range:
+            x = torch.div(torch.add(x, 1), 2)
+            y = torch.div(torch.add(y, 1), 2)
+        return 1.0 - self.ssim_module(x, y)
 
 
 class GridCellLoss(nn.Module):
