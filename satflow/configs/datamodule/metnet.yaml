@@ -1,7 +1,7 @@
 # @package _group_
 _target_: satflow.data.datamodules.SatFlowDataModule
 
-batch_size: 6
+batch_size: 2
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 shuffle: 0
 sources:
@@ -13,7 +13,7 @@ pin_memory: True
 config:
   visualize: False
   num_timesteps: 5
-  skip_timesteps: 3
+  skip_timesteps: 1
   forecast_times: 24
   output_shape: 256
   output_target: 16

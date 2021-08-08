@@ -355,6 +355,8 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
             img_cube[:, :, self.num_bands : self.num_bands + 3] = t
         if self.use_mask:
             mask = binarize_mask(load_np(sample[f"cloudmask.{idx:03d}.npy"]))
+            # Resample between -1 and 1 like the rest
+            mask = (mask * 2) - 1.0
             img_cube[:, :, -1] = mask
         return img_cube, target
 
