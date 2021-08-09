@@ -43,6 +43,13 @@ class SatFlowDataModule(pl.LightningDataModule):
                 train_dset = train_dset.shuffle(self.shuffle)
             self.train_dataset = SatFlowDataset([train_dset], config=self.config, train=True)
             self.val_dataset = SatFlowDataset([val_dset], config=self.config, train=False)
+            # This seems necessary for the reload_dataloader to not reload the training_dataloader
+            self.training_dataloader_ref = DataLoader(
+                self.train_dataset,
+                batch_size=self.batch_size,
+                pin_memory=self.pin_memory,
+                num_workers=self.num_workers,
+            )
 
         # Assign test dataset for use in dataloader(s)
         if stage == "test" or stage is None:
@@ -50,17 +57,6 @@ class SatFlowDataModule(pl.LightningDataModule):
             self.test_dataset = SatFlowDataset([test_dset], config=self.config, train=False)
 
     def train_dataloader(self):
-        if self.training_dataloader_ref:
-            return self.training_dataloader_ref
-
-        training_dataloader = DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers,
-        )
-        self.training_dataloader_ref = training_dataloader
-
         return self.training_dataloader_ref
 
     def val_dataloader(self):

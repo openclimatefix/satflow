@@ -1,9 +1,6 @@
 # @package _group_
 _target_: satflow.models.metnet.MetNet
 input_channels: 17
-output_channels: 12
-sat_channels: 13
-input_size: 64
 hidden_dim: 32
 forecast_steps: 24
 lr: 0.001
@@ -11,4 +8,6 @@ kernel_size: 3
 num_layers: 1
 num_att_layers: 1
 temporal_dropout: 0.2
-visualize: False
+output_channels: 12
+visualize: True
+loss: "ssim"

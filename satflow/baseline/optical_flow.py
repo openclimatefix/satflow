@@ -11,9 +11,7 @@ def load_config(config_file):
         return yaml.load(cfg, Loader=yaml.FullLoader)["config"]
 
 
-config = load_config(
-    "/home/jacob/Development/satflow/satflow/configs/datamodule/optical_flow_datamodule.yaml"
-)
+config = load_config("/satflow/configs/datamodule/optical_flow.yaml")
 dset = wds.WebDataset("/run/media/jacob/data/satflow-flow-144-tiled-{00001..00149}.tar")
 
 dataset = SatFlowDataset([dset], config=config)

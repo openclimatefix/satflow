@@ -9,18 +9,18 @@ max_epochs: 99999
 min_steps: 0
 max_steps: 999999999
 limit_train_batches: 2000
-limit_val_batches: 1000
+limit_val_batches: 2000
 limit_test_batches: 10000
 
 terminate_on_nan: True
 auto_lr_find: False
 auto_scale_batch_size: False
-accumulate_grad_batches: 1
+accumulate_grad_batches: 2
 precision: 32
 # stochastic_weight_avg: True
 fast_dev_run: False
 
-reload_dataloaders_every_epoch: False
+reload_dataloaders_every_epoch: True
 
 weights_summary: null
 progress_bar_refresh_rate: 10

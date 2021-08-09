@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name="satflow",
-    version="0.0.3",
+    version="0.0.4",
     packages=["satflow", "satflow.data", "satflow.models"],
     url="https://github.com/openclimatefix/satflow",
     license="MIT License",
