@@ -124,5 +124,5 @@ def test_cloudflow():
     cloudflow.setup()
     data = next(iter(cloudflow.train_dataloader()))
     x, y = data
-    assert x.numpy().shape == (12, 13, 1, 128, 128)
+    assert x.numpy().shape == (12, 13, 12, 128, 128)
     assert y.numpy().shape == (12, 24, 1, 128, 128)
