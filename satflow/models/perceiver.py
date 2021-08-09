@@ -42,7 +42,14 @@ class Perceiver(pl.LightningModule):
             self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
         )
 
+    def encode_inputs(self, x):
+        pass
+
+    def decode_outputs(self, x):
+        pass
+
     def training_step(self, batch, batch_idx):
+        x, y = batch
         pass
 
     def configure_optimizers(self):
@@ -79,3 +86,64 @@ class Perceiver(pl.LightningModule):
             tensorboard.add_image(
                 f"{step}/Generated_Image_Frame_{i}", image_grid, global_step=batch_idx
             )
+
+
+from math import pi, log
+from einops import rearrange, repeat
+
+
+def fourier_encode(x, max_freq, num_bands=4, base=2):
+    x = x.unsqueeze(-1)
+    device, dtype, orig_x = x.device, x.dtype, x
+
+    scales = torch.logspace(
+        0.0, log(max_freq / 2) / log(base), num_bands, base=base, device=device, dtype=dtype
+    )
+    scales = scales[(*((None,) * (len(x.shape) - 1)), Ellipsis)]
+
+    x = x * scales * pi
+    x = torch.cat([x.sin(), x.cos()], dim=-1)
+    x = torch.cat((x, orig_x), dim=-1)
+    return x
+
+
+class PerceiverSat(torch.nn.Module):
+    def __init__(
+        self,
+        fourier_encode_data: bool = True,
+        input_axis: int = 3,
+        num_freq_bands: int = 64,
+        input_channels: int = 3,
+        **kwargs,
+    ):
+        super().__init__()
+        self.fourier_encode_data = fourier_encode_data
+        fourier_channels = (input_axis * ((num_freq_bands * 2) + 1)) if fourier_encode_data else 0
+        input_dim = fourier_channels + input_channels
+        self.perceiver = PerceiverIO(**kwargs)
+
+    def encode_fourier(self, data):
+        pass
+
+    def forward(self, data: torch.Tensor, mask=None, queries=None):
+        b, *axis, _, device = *data.shape, data.device
+        assert len(axis) == self.input_axis, "input data must have the right number of axis"
+
+        if self.fourier_encode_data:
+            # calculate fourier encoded positions in the range of [-1, 1], for all axis
+
+            axis_pos = list(
+                map(lambda size: torch.linspace(-1.0, 1.0, steps=size, device=device), axis)
+            )
+            pos = torch.stack(torch.meshgrid(*axis_pos), dim=-1)
+            enc_pos = fourier_encode(pos, self.max_freq, self.num_freq_bands, base=self.freq_base)
+            enc_pos = rearrange(enc_pos, "... n d -> ... (n d)")
+            enc_pos = repeat(enc_pos, "... -> b ...", b=b)
+
+            data = torch.cat((data, enc_pos), dim=-1)
+
+        # concat to channels of data and flatten axis
+        data = rearrange(data, "b ... d -> b (...) d")
+
+        # After this is the PerceiverIO backbone
+        return self.perceiver.forward(data, mask, queries)

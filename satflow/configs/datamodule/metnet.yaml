@@ -8,7 +8,7 @@ sources:
   train: "satflow-flow-144-tiled-{00001..00105}.tar"
   val: "satflow-flow-144-tiled-{00106..00149}.tar"
   test: "satflow-flow-144-tiled-{00130..00149}.tar"
-num_workers: 16
+num_workers: 12
 pin_memory: True
 config:
   visualize: False

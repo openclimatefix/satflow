@@ -24,4 +24,4 @@ reload_dataloaders_every_epoch: True
 
 weights_summary: null
 progress_bar_refresh_rate: 10
-resume_from_checkpoint: "/home/jacob/Development/satflow/satflow/logs/runs/2021-08-08/18-24-02/checkpoints/epoch=08.ckpt"
+resume_from_checkpoint: "/home/jacob/Development/satflow/satflow/logs/runs/2021-08-09/09-13-09/checkpoints/epoch=09.ckpt"
