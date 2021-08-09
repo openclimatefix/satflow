@@ -38,10 +38,10 @@ RUN source activate ${CONDA_ENV_NAME} \
 
 
 # Install requirements
-#COPY requirements.txt ./
-#RUN source activate ${CONDA_ENV_NAME} \
-#    && pip install --no-cache-dir -r requirements.txt \
-#    && rm requirements.txt
+COPY requirements.txt ./
+RUN source activate ${CONDA_ENV_NAME} \
+    && pip install --no-cache-dir -r requirements.txt \
+    && rm requirements.txt
 
 
 # Set ${CONDA_ENV_NAME} to default virutal environment
