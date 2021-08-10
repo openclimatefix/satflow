@@ -114,26 +114,39 @@ class PerceiverSat(torch.nn.Module):
         input_axis: int = 3,
         num_freq_bands: int = 64,
         input_channels: int = 3,
+        encode_time: bool = False,
         **kwargs,
     ):
+        """
+        PerceiverIO made to work more specifically with timeseries images
+        Not a recurrent model, so like MetNet somewhat, can optionally give a one-hot encoded vector for the future
+        timestep
+        Args:
+            fourier_encode_data: Whether to add fourier position encoding, like in the papers default True
+            input_axis:
+            num_freq_bands: Number of frequency bands for the Fourier encoding
+            input_channels: Number of input channels
+            encode_time: Whether to encode the future timestep as a one-hot encded vector, iterates through all timesteps in forward.
+            **kwargs:
+        """
         super().__init__()
         self.fourier_encode_data = fourier_encode_data
         fourier_channels = (input_axis * ((num_freq_bands * 2) + 1)) if fourier_encode_data else 0
         input_dim = fourier_channels + input_channels
-        self.perceiver = PerceiverIO(**kwargs)
+        self.perceiver = PerceiverIO(dim=input_dim, **kwargs)
 
-    def encode_fourier(self, data):
+    def decode_output(self, data):
         pass
 
     def forward(self, data: torch.Tensor, mask=None, queries=None):
-        b, *axis, _, device = *data.shape, data.device
+        b, *axis, _ = data.size()
         assert len(axis) == self.input_axis, "input data must have the right number of axis"
 
         if self.fourier_encode_data:
             # calculate fourier encoded positions in the range of [-1, 1], for all axis
 
             axis_pos = list(
-                map(lambda size: torch.linspace(-1.0, 1.0, steps=size, device=device), axis)
+                map(lambda size: torch.linspace(-1.0, 1.0, steps=size).type_as(data), axis)
             )
             pos = torch.stack(torch.meshgrid(*axis_pos), dim=-1)
             enc_pos = fourier_encode(pos, self.max_freq, self.num_freq_bands, base=self.freq_base)
@@ -145,5 +158,9 @@ class PerceiverSat(torch.nn.Module):
         # concat to channels of data and flatten axis
         data = rearrange(data, "b ... d -> b (...) d")
 
-        # After this is the PerceiverIO backbone
-        return self.perceiver.forward(data, mask, queries)
+        # After this is the PerceiverIO backbone, still would need to decode it back to an image though
+        perceiver_output = self.perceiver.forward(data, mask, queries)
+
+        # Have to decode back into future Sat image frames
+
+        return NotImplementedError
