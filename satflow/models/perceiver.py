@@ -147,17 +147,18 @@ class PerceiverSat(torch.nn.Module):
         **kwargs,
     ):
         """
-        PerceiverIO made to work more specifically with timeseries images
-        Not a recurrent model, so like MetNet somewhat, can optionally give a one-hot encoded vector for the future
-        timestep
-        Args:
-            fourier_encode_data: Whether to add fourier position encoding, like in the papers default True
-            input_axis:
-            num_freq_bands: Number of frequency bands for the Fourier encoding
-            input_channels: Number of input channels
-            forecast_steps: Number of forecast steps to make
-            encode_time: Whether to encode the future timestep as a one-hot encded vector, iterates through all timesteps in forward.
-            **kwargs:
+                PerceiverIO made to work more specifically with timeseries images
+                Not a recurrent model, so lifrom torch.nn import Embedding
+        ke MetNet somewhat, can optionally give a one-hot encoded vector for the future
+                timestep
+                Args:
+                    fourier_encode_data: Whether to add fourier position encoding, like in the papers default True
+                    input_axis:
+                    num_freq_bands: Number of frequency bands for the Fourier encoding
+                    input_channels: Number of input channels
+                    forecast_steps: Number of forecast steps to make
+                    encode_time: Whether to encode the future timestep as a one-hot encded vector, iterates through all timesteps in forward.
+                    **kwargs:
         """
         super().__init__()
         self.fourier_encode_data = fourier_encode_data
