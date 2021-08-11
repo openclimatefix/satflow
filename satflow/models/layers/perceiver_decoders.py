@@ -1,3 +1,7 @@
+import numpy as np
+from collections import abc
+
+
 class AbstractPerceiverDecoder(hk.Module, metaclass=abc.ABCMeta):
     """Abstract Perceiver decoder."""
 
@@ -23,7 +27,7 @@ class ProjectionDecoder(AbstractPerceiverDecoder):
         super().__init__(name=name)
         self._final_avg_before_project = final_avg_before_project
         self._num_classes = num_classes
-        self.final_layer = hk.Linear(num_classes, w_init=jnp.zeros, name="logits")
+        self.final_layer = hk.Linear(num_classes, w_init=np.zeros, name="logits")
 
     def decoder_query(
         self, inputs, modality_sizes=None, inputs_without_pos=None, subsampled_points=None
@@ -35,7 +39,7 @@ class ProjectionDecoder(AbstractPerceiverDecoder):
 
     def __call__(self, query, z, *, is_training, query_mask=None):
         # b x n_z x c -> b x c
-        z = jnp.mean(z, axis=1, dtype=z.dtype)
+        z = np.mean(z, axis=1, dtype=z.dtype)
         # b x c -> b x n_logits
         logits = self.final_layer(z)
         return logits
@@ -97,12 +101,12 @@ class BasicDecoder(AbstractPerceiverDecoder):
         if subsampled_points is not None:
             # unravel_index returns a tuple (x_idx, y_idx, ...)
             # stack to get the [n, d] tensor of coordinates
-            pos = jnp.stack(jnp.unravel_index(subsampled_points, self._output_index_dim), axis=1)
+            pos = np.stack(np.unravel_index(subsampled_points, self._output_index_dim), axis=1)
             # Map these coordinates to [-1, 1]
-            pos = -1 + 2 * pos / jnp.array(self._output_index_dim)[None, :]
-            pos = jnp.broadcast_to(pos[None], [inputs.shape[0], pos.shape[0], pos.shape[1]])
+            pos = -1 + 2 * pos / np.array(self._output_index_dim)[None, :]
+            pos = np.broadcast_to(pos[None], [inputs.shape[0], pos.shape[0], pos.shape[1]])
             pos_emb = self.output_pos_enc(batch_size=inputs.shape[0], pos=pos)
-            pos_emb = jnp.reshape(pos_emb, [pos_emb.shape[0], -1, pos_emb.shape[-1]])
+            pos_emb = np.reshape(pos_emb, [pos_emb.shape[0], -1, pos_emb.shape[-1]])
         else:
             pos_emb = self.output_pos_enc(batch_size=inputs.shape[0])
         if self._concat_preprocessed_input:
@@ -111,7 +115,7 @@ class BasicDecoder(AbstractPerceiverDecoder):
                     "Value is required for inputs_without_pos if"
                     " concat_preprocessed_input is True"
                 )
-            pos_emb = jnp.concatenate([inputs_without_pos, pos_emb], axis=-1)
+            pos_emb = np.concatenate([inputs_without_pos, pos_emb], axis=-1)
 
         return pos_emb
 
@@ -125,7 +129,7 @@ class BasicDecoder(AbstractPerceiverDecoder):
         attention_mask = None
         if query_mask is not None:
             attention_mask = make_cross_attention_mask(
-                query_mask=query_mask, kv_mask=jnp.ones(z.shape[:2], dtype=jnp.int32)
+                query_mask=query_mask, kv_mask=np.ones(z.shape[:2], dtype=np.int32)
             )
         decoding_cross_attn = CrossAttention(
             dropout_prob=0.0,
@@ -238,18 +242,18 @@ class MultimodalDecoder(AbstractPerceiverDecoder):
         )
 
         def embed(modality, x):
-            x = jnp.reshape(x, [x.shape[0], np.prod(x.shape[1:-1]), x.shape[-1]])
+            x = np.reshape(x, [x.shape[0], np.prod(x.shape[1:-1]), x.shape[-1]])
             pos = position_encoding.TrainablePositionEncoding(
                 1,
                 num_channels=num_channels - x.shape[2],
                 init_scale=0.02,
                 name=f"{modality}_padding",
             )(x.shape[0])
-            pos = jnp.broadcast_to(pos, [x.shape[0], x.shape[1], num_channels - x.shape[2]])
-            return jnp.concatenate([x, pos], axis=2)
+            pos = np.broadcast_to(pos, [x.shape[0], x.shape[1], num_channels - x.shape[2]])
+            return np.concatenate([x, pos], axis=2)
 
         # Apply a predictable ordering to the modalities
-        return jnp.concatenate(
+        return np.concatenate(
             [
                 embed(modality, decoder_queries[modality])
                 for modality in sorted(self._modalities.keys())
@@ -314,7 +318,7 @@ class BasicVideoAutoencodingDecoder(AbstractPerceiverDecoder):
     def __call__(self, query, z, *, is_training, query_mask=None):
         output = self.decoder(query, z, is_training=is_training)
 
-        output = jnp.reshape(output, self._output_shape + [output.shape[-1]])
+        output = np.reshape(output, self._output_shape + [output.shape[-1]])
         return output
 
 
