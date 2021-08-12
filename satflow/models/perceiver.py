@@ -18,6 +18,8 @@ class Perceiver(pl.LightningModule):
         input_channels: int = 12,
         sat_channels: int = 12,
         forecast_steps: int = 48,
+        input_size: int = 64,
+        max_frequency: float = 4.0,
         depth: int = 6,
         num_latents: int = 256,
         cross_heads: int = 1,
@@ -39,24 +41,27 @@ class Perceiver(pl.LightningModule):
             name="timeseries",
             input_channels=input_channels,  # number of channels for each token of the input -> 12 or 13 for sat channels + mask ->
             input_axis=3,  # number of axes, 3 for video
-            num_freq_bands=6,  # number of freq bands, with original value (2 * K + 1)
-            max_freq=4.0,  # maximum frequency, hyperparameter depending on how fine the data is
+            num_freq_bands=input_size * 2
+            + 1,  # number of freq bands, with original value (2 * K + 1)
+            max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
         )
         # Use image modality for latlon, elevation, other base data?
         image_modality = InputModality(
             name="base",
             input_channels=4,  # number of channels for each token of the input, 3 for latlon + 1 topo
             input_axis=2,  # number of axes, 2 for images
-            num_freq_bands=6,  # number of freq bands, with original value (2 * K + 1)
-            max_freq=4.0,  # maximum frequency, hyperparameter depending on how fine the data is
+            num_freq_bands=input_size * 2
+            + 1,  # number of freq bands, with original value (2 * K + 1)
+            max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
         )
         # Sort audio for timestep one-hot encode? Or include under other modality?
         timestep_modality = InputModality(
             name="timestep",
             input_channels=1,  # number of channels for mono audio
             input_axis=1,  # number of axes, 2 for images
-            num_freq_bands=6,  # number of freq bands, with original value (2 * K + 1)
-            max_freq=8.0,  # maximum frequency, hyperparameter depending on how fine the data is
+            num_freq_bands=self.forecast_steps * 2
+            + 1,  # number of freq bands, with original value (2 * K + 1)
+            max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
         )
         self.model = PerceiverSat(
             modalities=[video_modality, image_modality, timestep_modality],
