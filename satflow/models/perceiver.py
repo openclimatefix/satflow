@@ -241,6 +241,8 @@ class PerceiverSat(torch.nn.Module):
         # For Sat images, we just want the images, not the other ones, so can leave it as is?
 
         # Have to decode back into future Sat image frames
-        # Perceiver for 'pixel' postprocessing does nothing, or undoes the space2depth from before
+        # Perceiver for 'pixel' postprocessing does nothing, or undoes the space2depth from before if just image
+        # If doing depth2space, should split modalities again
+        print(perceiver_output.size())
 
-        return NotImplementedError
+        return perceiver_output
