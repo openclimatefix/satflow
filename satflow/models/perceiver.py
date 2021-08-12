@@ -81,16 +81,31 @@ class Perceiver(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        pass
+
+        x = self.encode_inputs(x)
+
+        y_hat = self(x)
+
+        loss = self.criterion(y, y_hat)
+
+        return loss
 
     def configure_optimizers(self):
         pass
 
     def validation_step(self, batch, batch_idx):
-        pass
+        x, y = batch
+
+        x = self.encode_inputs(x)
+
+        y_hat = self(x)
+
+        loss = self.criterion(y, y_hat)
+
+        return loss
 
     def forward(self, x):
-        pass
+        return self.model.forward(x)
 
     def visualize_step(
         self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
