@@ -97,11 +97,12 @@ class Perceiver(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
+        batch_size = x.size(0)
         # For each future timestep:
         predictions = []
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x["forecast_time"] = self.add_timestep(x.size(0), i)
+            x["forecast_time"] = self.add_timestep(batch_size, i)
             y_hat = self(x)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
@@ -114,10 +115,11 @@ class Perceiver(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        batch_size = x.size(0)
         predictions = []
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x["forecast_time"] = self.add_timestep(x.size(0), i)
+            x["forecast_time"] = self.add_timestep(batch_size, i)
             y_hat = self(x)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
@@ -176,11 +178,8 @@ class PerceiverSat(torch.nn.Module):
         self,
         modalities: Iterable[InputModality],
         fourier_encode_data: bool = True,
-        input_axis: int = 3,
-        num_freq_bands: int = 64,
         input_channels: int = 3,
         forecast_steps: int = 48,
-        encode_time: bool = False,
         **kwargs,
     ):
         """
@@ -189,12 +188,8 @@ class PerceiverSat(torch.nn.Module):
         ke MetNet somewhat, can optionally give a one-hot encoded vector for the future
                 timestep
                 Args:
-                    fourier_encode_data: Whether to add fourier position encoding, like in the papers default True
-                    input_axis:
-                    num_freq_bands: Number of frequency bands for the Fourier encoding
                     input_channels: Number of input channels
                     forecast_steps: Number of forecast steps to make
-                    encode_time: Whether to encode the future timestep as a one-hot encded vector, iterates through all timesteps in forward.
                     **kwargs:
         """
         super().__init__()
@@ -206,8 +201,6 @@ class PerceiverSat(torch.nn.Module):
         modality_encoding_dim = sum([1 for _ in modalities])
         # input_dim is the maximum dimension over all input modalities:
         input_dim = max(modality.input_dim for modality in modalities) + modality_encoding_dim
-        fourier_channels = (input_axis * ((num_freq_bands * 2) + 1)) if fourier_encode_data else 0
-        input_dim = fourier_channels + input_channels
         self.perceiver = PerceiverIO(dim=input_dim, **kwargs)
 
     def decode_output(self, data):
