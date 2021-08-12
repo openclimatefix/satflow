@@ -56,7 +56,7 @@ class Perceiver(pl.LightningModule):
         )
         # Sort audio for timestep one-hot encode? Or include under other modality?
         timestep_modality = InputModality(
-            name="timestep",
+            name="forecast_time",
             input_channels=1,  # number of channels for mono audio
             input_axis=1,  # number of axes, 2 for images
             num_freq_bands=self.forecast_steps * 2
@@ -101,7 +101,7 @@ class Perceiver(pl.LightningModule):
         predictions = []
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x["timestep"] = self.add_timestep(x.size(0), i)
+            x["forecast_time"] = self.add_timestep(x.size(0), i)
             y_hat = self(x)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
@@ -117,7 +117,7 @@ class Perceiver(pl.LightningModule):
         predictions = []
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x["timestep"] = self.add_timestep(x.size(0), i)
+            x["forecast_time"] = self.add_timestep(x.size(0), i)
             y_hat = self(x)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
