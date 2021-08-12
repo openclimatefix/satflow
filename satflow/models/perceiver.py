@@ -74,15 +74,18 @@ class Perceiver(pl.LightningModule):
             self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
         )
 
-    def encode_inputs(self, x, timestep: int = 1):
+    def encode_inputs(self, x):
         # One hot encode the inpuuts
         video_inputs = x[:, :, : self.sat_channels, :, :]
         base_inputs = x[
             :, 0, self.sat_channels :, :, :
         ]  # Base maps should be the same for all timesteps in a sample
-        timestep_input = torch.zeros(size=(x.size(0), self.forecast_steps, 1), requires_grad=True)
+        return {"timeseries": video_inputs, "base": base_inputs}
+
+    def add_timestep(self, batch_size: int, timestep: int = 1):
+        timestep_input = torch.zeros(size=(batch_size, self.forecast_steps, 1), requires_grad=True)
         timestep_input[:, timestep] = 1
-        return {"timeseries": video_inputs, "base": base_inputs, "timestep": timestep_input}
+        return timestep_input
 
     def decode_outputs(self, x):
         pass
@@ -91,8 +94,9 @@ class Perceiver(pl.LightningModule):
         x, y = batch
         # For each future timestep:
         predictions = []
+        x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x = self.encode_inputs(x, i)
+            x["timestep"] = self.add_timestep(x.size(0), i)
             y_hat = self(x)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
@@ -106,8 +110,9 @@ class Perceiver(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         predictions = []
+        x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x = self.encode_inputs(x, i)
+            x["timestep"] = self.add_timestep(x.size(0), i)
             y_hat = self(x)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
