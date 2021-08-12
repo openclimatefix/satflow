@@ -1,8 +1,9 @@
 import numpy as np
 from collections import abc
+import torch
 
 
-class AbstractPerceiverDecoder(hk.Module, metaclass=abc.ABCMeta):
+class AbstractPerceiverDecoder(torch.nn.Module, metaclass=abc.ABCMeta):
     """Abstract Perceiver decoder."""
 
     @abc.abstractmethod
@@ -27,7 +28,7 @@ class ProjectionDecoder(AbstractPerceiverDecoder):
         super().__init__(name=name)
         self._final_avg_before_project = final_avg_before_project
         self._num_classes = num_classes
-        self.final_layer = hk.Linear(num_classes, w_init=np.zeros, name="logits")
+        self.final_layer = torch.nn.Linear(num_classes, w_init=np.zeros, name="logits")
 
     def decoder_query(
         self, inputs, modality_sizes=None, inputs_without_pos=None, subsampled_points=None
@@ -140,7 +141,7 @@ class BasicDecoder(AbstractPerceiverDecoder):
             v_channels=self._v_channels,
             use_query_residual=self._use_query_residual,
         )
-        final_layer = hk.Linear(
+        final_layer = torch.nn.Linear(
             self._output_num_channels, w_init=self._output_w_init, name="output"
         )
         output = decoding_cross_attn(

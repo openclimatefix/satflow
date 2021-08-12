@@ -237,6 +237,10 @@ class PerceiverSat(torch.nn.Module):
         # After this is the PerceiverIO backbone, still would need to decode it back to an image though
         perceiver_output = self.perceiver.forward(data, mask, queries)
 
+        # For multiple modalities, they are split after this beack into different tensors
+        # For Sat images, we just want the images, not the other ones, so can leave it as is?
+
         # Have to decode back into future Sat image frames
+        # Perceiver for 'pixel' postprocessing does nothing, or undoes the space2depth from before
 
         return NotImplementedError
