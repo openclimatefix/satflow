@@ -89,11 +89,13 @@ class Perceiver(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-
-        x = self.encode_inputs(x)
-
-        y_hat = self(x)
-
+        # For each future timestep:
+        predictions = []
+        for i in range(self.forecast_steps):
+            x = self.encode_inputs(x, i)
+            y_hat = self(x)
+            predictions.append(y_hat)
+        y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
         loss = self.criterion(y, y_hat)
 
         return loss
@@ -103,10 +105,12 @@ class Perceiver(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-
-        x = self.encode_inputs(x)
-
-        y_hat = self(x)
+        predictions = []
+        for i in range(self.forecast_steps):
+            x = self.encode_inputs(x, i)
+            y_hat = self(x)
+            predictions.append(y_hat)
+        y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
 
         loss = self.criterion(y, y_hat)
 
