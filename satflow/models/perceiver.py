@@ -16,6 +16,7 @@ class Perceiver(pl.LightningModule):
     def __init__(
         self,
         input_channels: int = 12,
+        sat_channels: int = 12,
         forecast_steps: int = 48,
         depth: int = 6,
         num_latents: int = 256,
@@ -31,30 +32,12 @@ class Perceiver(pl.LightningModule):
         latent_dim_heads: int = 64,
     ):
         super().__init__()
-        self.model = PerceiverIO(
-            dim=dim,  # dimension of sequence to be encoded
-            queries_dim=queries_dim,  # dimension of decoder queries
-            logits_dim=logits_dim,  # dimension of final logits
-            depth=depth,  # depth of net
-            num_latents=num_latents,  # number of latents, or induced set points, or centroids. different papers giving it different names
-            latent_dim=latent_dim,  # latent dimension
-            cross_heads=cross_heads,  # number of heads for cross attention. paper said 1
-            latent_heads=latent_heads,  # number of heads for latent self attention, 8
-            cross_dim_head=cross_dim_heads,  # number of dimensions per cross attention head
-            latent_dim_head=latent_dim_heads,  # number of dimensions per latent self attention head
-            weight_tie_layers=weight_tie_layers,  # whether to weight tie layers (optional, as indicated in the diagram)
-            self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
-        )
-
-    def encode_inputs(self, x):
-        image_inputs = torch.rand(size=(3, 260, 260, 3), requires_grad=True)
-        video_inputs = torch.rand(size=(3, 32, 260, 260, 3), requires_grad=True)
-        audio_inputs = torch.rand(size=(3, 48, 1), requires_grad=True)
-
+        self.forecast_steps = forecast_steps
+        self.sat_channels = sat_channels
         # Timeseries input
         video_modality = InputModality(
             name="timeseries",
-            input_channels=12,  # number of channels for each token of the input -> 12 or 13 for sat channels + mask
+            input_channels=input_channels,  # number of channels for each token of the input -> 12 or 13 for sat channels + mask ->
             input_axis=3,  # number of axes, 3 for video
             num_freq_bands=6,  # number of freq bands, with original value (2 * K + 1)
             max_freq=4.0,  # maximum frequency, hyperparameter depending on how fine the data is
@@ -75,6 +58,31 @@ class Perceiver(pl.LightningModule):
             num_freq_bands=6,  # number of freq bands, with original value (2 * K + 1)
             max_freq=8.0,  # maximum frequency, hyperparameter depending on how fine the data is
         )
+        self.model = PerceiverSat(
+            modalities=[video_modality, image_modality, timestep_modality],
+            dim=dim,  # dimension of sequence to be encoded
+            queries_dim=queries_dim,  # dimension of decoder queries
+            logits_dim=logits_dim,  # dimension of final logits
+            depth=depth,  # depth of net
+            num_latents=num_latents,  # number of latents, or induced set points, or centroids. different papers giving it different names
+            latent_dim=latent_dim,  # latent dimension
+            cross_heads=cross_heads,  # number of heads for cross attention. paper said 1
+            latent_heads=latent_heads,  # number of heads for latent self attention, 8
+            cross_dim_head=cross_dim_heads,  # number of dimensions per cross attention head
+            latent_dim_head=latent_dim_heads,  # number of dimensions per latent self attention head
+            weight_tie_layers=weight_tie_layers,  # whether to weight tie layers (optional, as indicated in the diagram)
+            self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
+        )
+
+    def encode_inputs(self, x, timestep: int = 1):
+        # One hot encode the inpuuts
+        video_inputs = x[:, :, : self.sat_channels, :, :]
+        base_inputs = x[
+            :, 0, self.sat_channels :, :, :
+        ]  # Base maps should be the same for all timesteps in a sample
+        timestep_input = torch.zeros(size=(x.size(0), self.forecast_steps, 1), requires_grad=True)
+        timestep_input[:, timestep] = 1
+        return {"timeseries": video_inputs, "base": base_inputs, "timestep": timestep_input}
 
     def decode_outputs(self, x):
         pass
