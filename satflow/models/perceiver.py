@@ -8,7 +8,8 @@ from math import pi, log
 from einops import rearrange, repeat
 from satflow.models.layers.modalities import modality_encoding, InputModality
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
-
+from satflow.models.losses import get_loss
+from satflow.models.layers import ConditionTime
 import torch_optimizer as optim
 
 
@@ -35,12 +36,14 @@ class Perceiver(pl.LightningModule):
         logits_dim: int = 100,
         queries_dim: int = 32,
         latent_dim_heads: int = 64,
+        loss="mse",
     ):
         super().__init__()
         self.forecast_steps = forecast_steps
         self.sat_channels = sat_channels
         self.lr = lr
         self.visualize = visualize
+        self.criterion = get_loss(loss)
         # Timeseries input
         video_modality = InputModality(
             name="timeseries",
@@ -84,14 +87,29 @@ class Perceiver(pl.LightningModule):
             self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
         )
 
-    def encode_inputs(self, x):
+        self.ct = ConditionTime(forecast_steps, ch_dim=3, num_dims=4)
+
+    def encode_inputs(self, x, timestep: int = 1):
         # One hot encode the inpuuts
         video_inputs = x[:, :, : self.sat_channels, :, :]
-        base_inputs = x[
-            :, 0, self.sat_channels :, :, :
-        ]  # Base maps should be the same for all timesteps in a sample
-        print(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
-        return {"timeseries": video_inputs, "base": base_inputs}
+        base_input = x[:, 0, self.sat_channels :, :, :]
+        batch_size, seq_len, n_chans, width, height = video_inputs.shape
+
+        # Stack timesteps as channels (to make a large batch)
+        new_batch_size = n_chans * seq_len
+        # Reshuffle to put channels last
+        base_input = base_input.reshape(batch_size, width, height, -1)
+        #                                 0           1       2      3
+        sat_data = video_inputs.reshape(batch_size, width, height, new_batch_size)
+        sat_data = torch.cat(
+            [sat_data, base_input], dim=-1
+        )  # Only have one copy of the basemap, instead of N copies
+        return sat_data
+        # base_inputs = x[
+        #    :, 0, self.sat_channels :, :, :
+        # ]  # Base maps should be the same for all timesteps in a sample
+        # print(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
+        # return {"timeseries": video_inputs, "base": base_inputs}
 
     def add_timestep(self, batch_size: int, timestep: int = 1):
         timestep_input = torch.zeros(size=(batch_size, self.forecast_steps, 1), requires_grad=True)
@@ -104,13 +122,12 @@ class Perceiver(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        batch_size = x.size(0)
         # For each future timestep:
         predictions = []
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
-            y_hat = self(x)
+            x_i = self.ct(x, fstep=i)
+            y_hat = self(x_i)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
         loss = self.criterion(y, y_hat)
@@ -141,13 +158,12 @@ class Perceiver(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        batch_size = x.size(0)
         predictions = []
-        print(f"Before Encode: {x.size()}")
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
-            y_hat = self(x)
+            x_i = self.ct(x, fstep=i)
+            # x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
+            y_hat = self(x_i)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
 
@@ -201,6 +217,89 @@ def fourier_encode(x, max_freq, num_bands=4, base=2):
 
 
 class PerceiverSat(torch.nn.Module):
+    def __init__(
+        self,
+        modalities: Iterable[InputModality],
+        fourier_encode_data: bool = True,
+        input_channels: int = 3,
+        forecast_steps: int = 48,
+        input_axis=2,
+        num_freq_bands=64,
+        **kwargs,
+    ):
+        """
+                PerceiverIO made to work more specifically with timeseries images
+                Not a recurrent model, so lifrom torch.nn import Embedding
+        ke MetNet somewhat, can optionally give a one-hot encoded vector for the future
+                timestep
+                Args:
+                    input_channels: Number of input channels
+                    forecast_steps: Number of forecast steps to make
+                    **kwargs:
+        """
+        super().__init__()
+        self.fourier_encode_data = fourier_encode_data
+        self.forecast_steps = forecast_steps
+        self.input_channels = input_channels
+        self.input_axis = input_axis
+        self.num_freq_bands = num_freq_bands
+        self.freq_base = 2
+        self.max_freq = 8.0
+        self.fourier_encode_data = fourier_encode_data
+        fourier_channels = (input_axis * ((num_freq_bands * 2) + 1)) if fourier_encode_data else 0
+        input_dim = fourier_channels + input_channels
+        # Pop dim
+        self.max_modality_dim = input_dim
+        kwargs.pop("dim")
+        print(f"Input dim: {input_dim}")
+        self.perceiver = PerceiverIO(dim=346, **kwargs)
+        self.conv = torch.nn.Conv2d(in_channels=32, out_channels=12, kernel_size=(1, 1))
+
+    def decode_output(self, data):
+        pass
+
+    def forward(self, data: torch.Tensor, mask=None, queries=None):
+        b, *axis, m = data.size()
+        assert len(axis) == self.input_axis, "input data must have the right number of axis"
+
+        if self.fourier_encode_data:
+            # calculate fourier encoded positions in the range of [-1, 1], for all axis
+
+            axis_pos = list(
+                map(lambda size: torch.linspace(-1.0, 1.0, steps=size).type_as(data), axis)
+            )
+            pos = torch.stack(torch.meshgrid(*axis_pos), dim=-1)
+            enc_pos = fourier_encode(pos, self.max_freq, self.num_freq_bands, base=self.freq_base)
+            enc_pos = rearrange(enc_pos, "... n d -> ... (n d)")
+            enc_pos = repeat(enc_pos, "... -> b ...", b=b)
+
+            data = torch.cat((data, enc_pos), dim=-1)
+
+        # concat to channels of data and flatten axis
+
+        data = rearrange(data, "b ... d -> b (...) d")
+        print(data.shape)
+        # After this is the PerceiverIO backbone, still would need to decode it back to an image though
+        perceiver_output = self.perceiver.forward(data, mask, queries)
+
+        # For multiple modalities, they are split after this beack into different tensors
+        # For Sat images, we just want the images, not the other ones, so can leave it as is?
+
+        # Have to decode back into future Sat image frames
+        # Perceiver for 'pixel' postprocessing does nothing, or undoes the space2depth from before if just image
+        # If doing depth2space, should split modalities again
+        print(perceiver_output.size())
+
+        # For a 2, 4096, 334 input gives 2, 256, 512 output, which could be reshaped to 64x64x32 output -> 1x1 conv down to 12 sat channels
+        image_output = perceiver_output.reshape(b, -1, *axis)
+        print(image_output.size())
+        # Downscale to 12 channel output
+        image_output = self.conv(image_output)
+        print(image_output.size())
+        return image_output
+
+
+class MultiPerceiverSat(torch.nn.Module):
     def __init__(
         self,
         modalities: Iterable[InputModality],
