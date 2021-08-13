@@ -1,14 +1,16 @@
 from perceiver_pytorch import PerceiverIO
 import torch
-from satflow.models.losses import get_loss, NowcastingLoss, GridCellLoss
 import pytorch_lightning as pl
 import torchvision
-from functools import reduce
 from typing import List, Iterable, Dict
 from satflow.models.base import register_model
 from math import pi, log
 from einops import rearrange, repeat
 from satflow.models.layers.modalities import modality_encoding, InputModality
+from torch.optim import lr_scheduler
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+
+import torch_optimizer as optim
 
 
 @register_model
@@ -19,7 +21,7 @@ class Perceiver(pl.LightningModule):
         sat_channels: int = 12,
         forecast_steps: int = 48,
         input_size: int = 64,
-        lr: float = 0.001,
+        lr: float = 5e-4,
         visualize: bool = True,
         max_frequency: float = 4.0,
         depth: int = 6,
@@ -115,7 +117,26 @@ class Perceiver(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        pass
+        # They use LAMB as the optimizer
+        optimizer = optim.Lamb(self.parameters(), lr=self.lr, betas=(0.9, 0.999))
+        scheduler = LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=10, max_epochs=100)
+        lr_dict = {
+            # REQUIRED: The scheduler instance
+            "scheduler": scheduler,
+            # The unit of the scheduler's step size, could also be 'step'.
+            # 'epoch' updates the scheduler on epoch end whereas 'step'
+            # updates it after a optimizer update.
+            "interval": "step",
+            # How many epochs/steps should pass between calls to
+            # `scheduler.step()`. 1 corresponds to updating the learning
+            # rate after every epoch/step.
+            "frequency": 1,
+            # If using the `LearningRateMonitor` callback to monitor the
+            # learning rate progress, this keyword can be used to specify
+            # a custom logged name
+            "name": None,
+        }
+        return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
