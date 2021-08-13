@@ -135,7 +135,12 @@ class Perceiver(pl.LightningModule):
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
         loss = self.criterion(y, y_hat)
-
+        self.log_dict({"train/loss": loss})
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss_dict[f"train/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict)
         return loss
 
     def configure_optimizers(self):
@@ -172,7 +177,12 @@ class Perceiver(pl.LightningModule):
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
 
         loss = self.criterion(y, y_hat)
-
+        self.log_dict({"val/loss": loss})
+        frame_loss_dict = {}
+        for f in range(self.forecast_steps):
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
+        self.log_dict(frame_loss_dict)
         return loss
 
     def forward(self, x):
