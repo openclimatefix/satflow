@@ -11,6 +11,10 @@ from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from satflow.models.losses import get_loss
 from satflow.models.layers import ConditionTime
 import torch_optimizer as optim
+import logging
+
+logger = logging.getLogger("satflow.model")
+logger.setLevel(logging.WARN)
 
 
 @register_model
@@ -108,13 +112,13 @@ class Perceiver(pl.LightningModule):
         # base_inputs = x[
         #    :, 0, self.sat_channels :, :, :
         # ]  # Base maps should be the same for all timesteps in a sample
-        # print(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
+        # logger.debug(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
         # return {"timeseries": video_inputs, "base": base_inputs}
 
     def add_timestep(self, batch_size: int, timestep: int = 1):
         timestep_input = torch.zeros(size=(batch_size, self.forecast_steps, 1), requires_grad=True)
         timestep_input[:, timestep] = 1
-        print(f"Forecast Step: {timestep_input.size()}")
+        logger.debug(f"Forecast Step: {timestep_input.size()}")
         return timestep_input
 
     def decode_outputs(self, x):
@@ -251,9 +255,9 @@ class PerceiverSat(torch.nn.Module):
         # Pop dim
         self.max_modality_dim = input_dim
         kwargs.pop("dim")
-        print(f"Input dim: {input_dim}")
+        logger.debug(f"Input dim: {input_dim}")
         self.perceiver = PerceiverIO(dim=346, **kwargs)
-        self.conv = torch.nn.Conv2d(in_channels=32, out_channels=12, kernel_size=(1, 1))
+        self.conv = torch.nn.Conv2d(in_channels=64, out_channels=12, kernel_size=(1, 1))
 
     def decode_output(self, data):
         pass
@@ -278,7 +282,7 @@ class PerceiverSat(torch.nn.Module):
         # concat to channels of data and flatten axis
 
         data = rearrange(data, "b ... d -> b (...) d")
-        print(data.shape)
+        logger.debug(data.shape)
         # After this is the PerceiverIO backbone, still would need to decode it back to an image though
         perceiver_output = self.perceiver.forward(data, mask, queries)
 
@@ -288,14 +292,14 @@ class PerceiverSat(torch.nn.Module):
         # Have to decode back into future Sat image frames
         # Perceiver for 'pixel' postprocessing does nothing, or undoes the space2depth from before if just image
         # If doing depth2space, should split modalities again
-        print(perceiver_output.size())
+        logger.debug(perceiver_output.size())
 
         # For a 2, 4096, 334 input gives 2, 256, 512 output, which could be reshaped to 64x64x32 output -> 1x1 conv down to 12 sat channels
         image_output = perceiver_output.reshape(b, -1, *axis)
-        print(image_output.size())
+        logger.debug(image_output.size())
         # Downscale to 12 channel output
         image_output = self.conv(image_output)
-        print(image_output.size())
+        logger.debug(image_output.size())
         return image_output
 
 
@@ -348,8 +352,8 @@ class MultiPerceiverSat(torch.nn.Module):
             data = multi_modality_data[modality_name]
             modality = self.modalities[modality_name]
             b, *axis, _ = data.size()
-            print(modality_name)
-            print(axis)
+            logger.debug(modality_name)
+            logger.debug(axis)
             assert len(axis) == modality.input_axis, (
                 f"input data must have the right number of  for modality {modality_name}. "
                 f"Expected {modality.input_axis} while forward argument offered {len(axis)}"
@@ -389,11 +393,11 @@ class MultiPerceiverSat(torch.nn.Module):
             data = torch.cat(to_concat, dim=-1)
             # concat to channels of data and flatten axis
             data = rearrange(data, "b ... d -> b (...) d")
-            print(modality_name)
+            logger.debug(modality_name)
             linearized_data.append(data)
 
         # Concatenate all the modalities:
-        print([t.size() for t in linearized_data])
+        logger.debug([t.size() for t in linearized_data])
         data = torch.cat(linearized_data, dim=1)
 
         # After this is the PerceiverIO backbone, still would need to decode it back to an image though
@@ -405,6 +409,6 @@ class MultiPerceiverSat(torch.nn.Module):
         # Have to decode back into future Sat image frames
         # Perceiver for 'pixel' postprocessing does nothing, or undoes the space2depth from before if just image
         # If doing depth2space, should split modalities again
-        print(perceiver_output.size())
+        logger.debug(perceiver_output.size())
 
         return perceiver_output
