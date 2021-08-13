@@ -1,5 +1,6 @@
+"""
 class Perceiver(hk.Module):
-    """The Perceiver: a scalable, fully attentional architecture."""
+    """ """
 
     def __init__(
         self,
@@ -58,7 +59,7 @@ class Perceiver(hk.Module):
 
 
 class PerceiverEncoder(hk.Module):
-    """The Perceiver Encoder: a scalable, fully attentional encoder."""
+    #The Perceiver Encoder: a scalable, fully attentional encoder.
 
     def __init__(
         self,
@@ -143,7 +144,7 @@ class PerceiverEncoder(hk.Module):
             for self_attend in self.self_attends:
                 z = self_attend(z, is_training=is_training)
         return z
-
+"""
 
 """
 Taken from https://github.com/fac2003/perceiver-multi-modality-pytorch/tree/main/perceiver_pytorch

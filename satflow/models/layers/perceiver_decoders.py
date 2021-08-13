@@ -1,6 +1,26 @@
 import numpy as np
 from collections import abc
 import torch
+from typing import Mapping
+
+
+def restructure(modality_sizes, inputs: np.ndarray) -> Mapping[str, np.ndarray]:
+    """Partitions a [B, N, C] tensor into tensors for each modality.
+    Args:
+      modality_sizes: dict specifying the size of the modality
+      inputs: input tensor
+    Returns:
+      dict mapping name of modality to its associated tensor.
+    """
+    outputs = {}
+    index = 0
+    # Apply a predictable ordering to the modalities
+    for modality in sorted(modality_sizes.keys()):
+        size = modality_sizes[modality]
+        inp = inputs[:, index : index + size]
+        index += size
+        outputs[modality] = inp
+    return outputs
 
 
 class AbstractPerceiverDecoder(torch.nn.Module, metaclass=abc.ABCMeta):
@@ -25,10 +45,10 @@ class ProjectionDecoder(AbstractPerceiverDecoder):
     """Baseline projection decoder (no cross-attention)."""
 
     def __init__(self, num_classes, final_avg_before_project=False, name="projection_decoder"):
-        super().__init__(name=name)
+        super().__init__()
         self._final_avg_before_project = final_avg_before_project
         self._num_classes = num_classes
-        self.final_layer = torch.nn.Linear(num_classes, w_init=np.zeros, name="logits")
+        self.final_layer = torch.nn.Linear(num_classes)
 
     def decoder_query(
         self, inputs, modality_sizes=None, inputs_without_pos=None, subsampled_points=None
@@ -36,7 +56,7 @@ class ProjectionDecoder(AbstractPerceiverDecoder):
         return None
 
     def output_shape(self, inputs):
-        return ((inputs.shape[0], self._num_classes), None)
+        return inputs.shape[0], self._num_classes, None
 
     def __call__(self, query, z, *, is_training, query_mask=None):
         # b x n_z x c -> b x c
@@ -314,7 +334,7 @@ class BasicVideoAutoencodingDecoder(AbstractPerceiverDecoder):
         )
 
     def output_shape(self, inputs):
-        return ([inputs.shape[0]] + self._output_shape[1:] + [self._output_num_channels], None)
+        return [inputs.shape[0]] + self._output_shape[1:] + [self._output_num_channels], None
 
     def __call__(self, query, z, *, is_training, query_mask=None):
         output = self.decoder(query, z, is_training=is_training)

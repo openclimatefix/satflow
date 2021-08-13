@@ -19,6 +19,8 @@ class Perceiver(pl.LightningModule):
         sat_channels: int = 12,
         forecast_steps: int = 48,
         input_size: int = 64,
+        lr: float = 0.001,
+        visualize: bool = True,
         max_frequency: float = 4.0,
         depth: int = 6,
         num_latents: int = 256,
@@ -36,6 +38,8 @@ class Perceiver(pl.LightningModule):
         super().__init__()
         self.forecast_steps = forecast_steps
         self.sat_channels = sat_channels
+        self.lr = lr
+        self.visualize = visualize
         # Timeseries input
         video_modality = InputModality(
             name="timeseries",
