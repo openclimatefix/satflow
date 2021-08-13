@@ -2,8 +2,8 @@
 _target_: satflow.models.perceiver.Perceiver
 input_channels: 12
 sat_channels: 12
-forecast_steps: 48
-lr: 0.001
+forecast_steps: 12
+lr: 0.0005
 input_size: 64
 max_frequency: 4.0
 depth: 6

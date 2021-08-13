@@ -7,7 +7,6 @@ from satflow.models.base import register_model
 from math import pi, log
 from einops import rearrange, repeat
 from satflow.models.layers.modalities import modality_encoding, InputModality
-from torch.optim import lr_scheduler
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 import torch_optimizer as optim
@@ -91,11 +90,13 @@ class Perceiver(pl.LightningModule):
         base_inputs = x[
             :, 0, self.sat_channels :, :, :
         ]  # Base maps should be the same for all timesteps in a sample
+        print(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
         return {"timeseries": video_inputs, "base": base_inputs}
 
     def add_timestep(self, batch_size: int, timestep: int = 1):
         timestep_input = torch.zeros(size=(batch_size, self.forecast_steps, 1), requires_grad=True)
         timestep_input[:, timestep] = 1
+        print(f"Forecast Step: {timestep_input.size()}")
         return timestep_input
 
     def decode_outputs(self, x):
@@ -108,7 +109,7 @@ class Perceiver(pl.LightningModule):
         predictions = []
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x["forecast_time"] = self.add_timestep(batch_size, i)
+            x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
             y_hat = self(x)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
@@ -142,9 +143,10 @@ class Perceiver(pl.LightningModule):
         x, y = batch
         batch_size = x.size(0)
         predictions = []
+        print(f"Before Encode: {x.size()}")
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x["forecast_time"] = self.add_timestep(batch_size, i)
+            x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
             y_hat = self(x)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
@@ -226,6 +228,9 @@ class PerceiverSat(torch.nn.Module):
         modality_encoding_dim = sum([1 for _ in modalities])
         # input_dim is the maximum dimension over all input modalities:
         input_dim = max(modality.input_dim for modality in modalities) + modality_encoding_dim
+        # Pop dim
+        self.max_modality_dim = input_dim
+        kwargs.pop("dim")
         self.perceiver = PerceiverIO(dim=input_dim, **kwargs)
 
     def decode_output(self, data):
@@ -243,7 +248,9 @@ class PerceiverSat(torch.nn.Module):
             ), f"modality {modality_name} was not defined in constructor"
             data = multi_modality_data[modality_name]
             modality = self.modalities[modality_name]
-            b, *axis, _, device = data.size()
+            b, *axis, _ = data.size()
+            print(modality_name)
+            print(axis)
             assert len(axis) == modality.input_axis, (
                 f"input data must have the right number of  for modality {modality_name}. "
                 f"Expected {modality.input_axis} while forward argument offered {len(axis)}"
@@ -274,19 +281,20 @@ class PerceiverSat(torch.nn.Module):
             modality_encodings = modality_encoding(
                 b, axis, modality_index, num_modalities
             ).type_as(data)
-
             to_concat = (
                 (data, padding, enc_pos, modality_encodings)
-                if enc_pos
+                if len(enc_pos) > 0
                 else (data, padding, modality_encodings)
             )
 
             data = torch.cat(to_concat, dim=-1)
             # concat to channels of data and flatten axis
             data = rearrange(data, "b ... d -> b (...) d")
+            print(modality_name)
             linearized_data.append(data)
 
         # Concatenate all the modalities:
+        print([t.size() for t in linearized_data])
         data = torch.cat(linearized_data, dim=1)
 
         # After this is the PerceiverIO backbone, still would need to decode it back to an image though
