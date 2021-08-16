@@ -14,7 +14,7 @@ import torch_optimizer as optim
 import logging
 
 logger = logging.getLogger("satflow.model")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARN)
 
 
 @register_model
@@ -142,11 +142,12 @@ class Perceiver(pl.LightningModule):
         batch_size = y.size(0)
         # For each future timestep:
         predictions = []
+        query = self.construct_query(x)
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
             x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
             # x_i = self.ct(x["timeseries"], fstep=i)
-            y_hat = self(x, query=y)
+            y_hat = self(x, query=query)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
         loss = self.criterion(y, y_hat)
@@ -190,7 +191,6 @@ class Perceiver(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        print(y.shape)
         batch_size = y.size(0)
         predictions = []
         query = self.construct_query(x)
