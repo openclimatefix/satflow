@@ -51,19 +51,17 @@ class Perceiver(pl.LightningModule):
         # Timeseries input
         video_modality = InputModality(
             name="timeseries",
-            input_channels=input_channels,  # number of channels for each token of the input -> 12 or 13 for sat channels + mask ->
+            input_channels=sat_channels,
             input_axis=3,  # number of axes, 3 for video
-            num_freq_bands=input_size * 2
-            + 1,  # number of freq bands, with original value (2 * K + 1)
+            num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
             max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
         )
         # Use image modality for latlon, elevation, other base data?
         image_modality = InputModality(
             name="base",
-            input_channels=4,  # number of channels for each token of the input, 3 for latlon + 1 topo
+            input_channels=input_channels - sat_channels,
             input_axis=2,  # number of axes, 2 for images
-            num_freq_bands=input_size * 2
-            + 1,  # number of freq bands, with original value (2 * K + 1)
+            num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
             max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
         )
         # Sort audio for timestep one-hot encode? Or include under other modality?
@@ -71,8 +69,7 @@ class Perceiver(pl.LightningModule):
             name="forecast_time",
             input_channels=1,  # number of channels for mono audio
             input_axis=1,  # number of axes, 2 for images
-            num_freq_bands=self.forecast_steps * 2
-            + 1,  # number of freq bands, with original value (2 * K + 1)
+            num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
             max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
         )
         self.model = MultiPerceiverSat(
@@ -406,6 +403,9 @@ class MultiPerceiverSat(torch.nn.Module):
                 enc_pos = repeat(enc_pos, "... -> b ...", b=b)
 
             # Figure out padding for this modality, given max dimension across all modalities:
+            logger.debug(
+                f"Max Size: {self.max_modality_dim} Input Dim: {modality.input_dim} Num Modality: {num_modalities}"
+            )
             padding_size = self.max_modality_dim - modality.input_dim - num_modalities
             logger.debug(f"Padding Size: {padding_size}")
 
@@ -414,13 +414,14 @@ class MultiPerceiverSat(torch.nn.Module):
             modality_encodings = modality_encoding(
                 b, axis, modality_index, num_modalities
             ).type_as(data)
-            logger.debug(f"Modality Encoding: {modality_encodings.size()}")
             to_concat = (
                 (data, padding, enc_pos, modality_encodings)
                 if len(enc_pos) > 0
                 else (data, padding, modality_encodings)
             )
-
+            logger.debug(
+                f"Data: {data.size()} Padding: {padding.size()} Enc_pos: {enc_pos.size()} Modality: {modality_encodings.size()}"
+            )
             data = torch.cat(to_concat, dim=-1)
             # concat to channels of data and flatten axis
             data = rearrange(data, "b ... d -> b (...) d")
