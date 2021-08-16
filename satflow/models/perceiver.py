@@ -14,7 +14,7 @@ import torch_optimizer as optim
 import logging
 
 logger = logging.getLogger("satflow.model")
-logger.setLevel(logging.WARN)
+logger.setLevel(logging.DEBUG)
 
 
 @register_model
@@ -75,7 +75,7 @@ class Perceiver(pl.LightningModule):
             + 1,  # number of freq bands, with original value (2 * K + 1)
             max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
         )
-        self.model = PerceiverSat(
+        self.model = MultiPerceiverSat(
             modalities=[video_modality, image_modality, timestep_modality],
             dim=dim,  # dimension of sequence to be encoded
             queries_dim=queries_dim,  # dimension of decoder queries
@@ -96,9 +96,9 @@ class Perceiver(pl.LightningModule):
     def encode_inputs(self, x, timestep: int = 1):
         # One hot encode the inpuuts
         video_inputs = x[:, :, : self.sat_channels, :, :]
-        base_input = x[:, 0, self.sat_channels :, :, :]
+        # base_input = x[:, 0, self.sat_channels :, :, :]
         batch_size, seq_len, n_chans, width, height = video_inputs.shape
-
+        """
         # Stack timesteps as channels (to make a large batch)
         new_batch_size = n_chans * seq_len
         # Reshuffle to put channels last
@@ -109,11 +109,14 @@ class Perceiver(pl.LightningModule):
             [sat_data, base_input], dim=-1
         )  # Only have one copy of the basemap, instead of N copies
         return sat_data
-        # base_inputs = x[
-        #    :, 0, self.sat_channels :, :, :
-        # ]  # Base maps should be the same for all timesteps in a sample
-        # logger.debug(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
-        # return {"timeseries": video_inputs, "base": base_inputs}
+        """
+        base_inputs = x[
+            :, 0, self.sat_channels :, :, :
+        ]  # Base maps should be the same for all timesteps in a sample
+        video_inputs = video_inputs.permute(0, 1, 3, 4, 2)  # Channel last
+        base_inputs = base_inputs.permute(0, 2, 3, 1)  # Channel last
+        logger.debug(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
+        return {"timeseries": video_inputs, "base": base_inputs}
 
     def add_timestep(self, batch_size: int, timestep: int = 1):
         timestep_input = torch.zeros(size=(batch_size, self.forecast_steps, 1), requires_grad=True)
@@ -126,12 +129,14 @@ class Perceiver(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
+        batch_size = y.size(0)
         # For each future timestep:
         predictions = []
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x_i = self.ct(x, fstep=i)
-            y_hat = self(x_i)
+            x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
+            # x_i = self.ct(x["timeseries"], fstep=i)
+            y_hat = self(x)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
         loss = self.criterion(y, y_hat)
@@ -167,12 +172,13 @@ class Perceiver(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        batch_size = y.size(0)
         predictions = []
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
-            x_i = self.ct(x, fstep=i)
-            # x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
-            y_hat = self(x_i)
+            # x_i = self.ct(x["timeseries"], fstep=i)
+            x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
+            y_hat = self(x)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
 
@@ -215,7 +221,7 @@ class Perceiver(pl.LightningModule):
             )
 
 
-def fourier_encode(x, max_freq, num_bands=4, base=2):
+def fourier_encode(x, max_freq, num_bands=4, base=2, sin_only=False):
     x = x.unsqueeze(-1)
     device, dtype, orig_x = x.device, x.dtype, x
 
@@ -225,7 +231,7 @@ def fourier_encode(x, max_freq, num_bands=4, base=2):
     scales = scales[(*((None,) * (len(x.shape) - 1)), Ellipsis)]
 
     x = x * scales * pi
-    x = torch.cat([x.sin(), x.cos()], dim=-1)
+    x = x.sin() if sin_only else torch.cat([x.sin(), x.cos()], dim=-1)
     x = torch.cat((x, orig_x), dim=-1)
     return x
 
@@ -323,14 +329,13 @@ class MultiPerceiverSat(torch.nn.Module):
         **kwargs,
     ):
         """
-                PerceiverIO made to work more specifically with timeseries images
-                Not a recurrent model, so lifrom torch.nn import Embedding
-        ke MetNet somewhat, can optionally give a one-hot encoded vector for the future
-                timestep
-                Args:
-                    input_channels: Number of input channels
-                    forecast_steps: Number of forecast steps to make
-                    **kwargs:
+        PerceiverIO made to work more specifically with timeseries images
+        Not a recurrent model, so like MetNet somewhat, can optionally give a one-hot encoded vector for the future
+        timestep
+        Args:
+            input_channels: Number of input channels
+            forecast_steps: Number of forecast steps to make
+            **kwargs:
         """
         super().__init__()
         self.fourier_encode_data = fourier_encode_data
@@ -343,8 +348,10 @@ class MultiPerceiverSat(torch.nn.Module):
         input_dim = max(modality.input_dim for modality in modalities) + modality_encoding_dim
         # Pop dim
         self.max_modality_dim = input_dim
+        print(f"Input Dim: Max Modality: {self.max_modality_dim}")
         kwargs.pop("dim")
         self.perceiver = PerceiverIO(dim=input_dim, **kwargs)
+        self.conv = torch.nn.Conv2d(in_channels=64, out_channels=12, kernel_size=(1, 1))
 
     def decode_output(self, data):
         pass
@@ -388,6 +395,7 @@ class MultiPerceiverSat(torch.nn.Module):
 
             # Figure out padding for this modality, given max dimension across all modalities:
             padding_size = self.max_modality_dim - modality.input_dim - num_modalities
+            logger.debug(f"Padding Size: {padding_size}")
 
             padding = torch.zeros(size=data.size()[0:-1] + (padding_size,)).type_as(data)
             # concat to channels of data and flatten axis
