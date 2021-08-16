@@ -15,7 +15,7 @@ latent_dim: 256
 weight_tie_layers: False
 self_per_cross_attention: 2
 dim: 32
-logits_dim: 100
+logits_dim: null
 queries_dim: 32
 latent_dim_heads: 64
 visualize: False

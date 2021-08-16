@@ -126,8 +126,11 @@ class Perceiver(pl.LightningModule):
         return {"timeseries": video_inputs, "base": base_inputs}
 
     def add_timestep(self, batch_size: int, timestep: int = 1):
-        timestep_input = torch.zeros(size=(batch_size, self.forecast_steps, 1), requires_grad=True)
-        timestep_input[:, timestep] = 1
+        times = (torch.eye(self.forecast_steps)[timestep]).unsqueeze(-1).unsqueeze(-1)
+        ones = torch.ones(1, 1, 1)
+        timestep_input = times * ones
+        timestep_input = timestep_input.squeeze(-1)
+        timestep_input = repeat(timestep_input, "... -> b ...", b=batch_size)
         logger.debug(f"Forecast Step: {timestep_input.size()}")
         return timestep_input
 
@@ -143,7 +146,7 @@ class Perceiver(pl.LightningModule):
         for i in range(self.forecast_steps):
             x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
             # x_i = self.ct(x["timeseries"], fstep=i)
-            y_hat = self(x)
+            y_hat = self(x, query=y)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
         loss = self.criterion(y, y_hat)
@@ -177,18 +180,27 @@ class Perceiver(pl.LightningModule):
         }
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
+    def construct_query(self, x):
+        y_query = x[:, -1, 0, :, :]  # Only want sat channels, the output
+        # y_query = torch.permute(y_query, (0, 2, 3, 1)) # Channel Last
+        # Need to reshape to 3 dimensions, TxHxW or HxWxC
+        # y_query = rearrange(y_query, "b h w d -> b (h w) d")
+        logger.debug(f"Query Shape: {y_query.shape}")
+        return y_query
+
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        print(y.shape)
         batch_size = y.size(0)
         predictions = []
+        query = self.construct_query(x)
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
             # x_i = self.ct(x["timeseries"], fstep=i)
             x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
-            y_hat = self(x)
+            y_hat = self(x, query=query)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
-
         loss = self.criterion(y, y_hat)
         self.log_dict({"val/loss": loss})
         frame_loss_dict = {}
@@ -198,8 +210,8 @@ class Perceiver(pl.LightningModule):
         self.log_dict(frame_loss_dict)
         return loss
 
-    def forward(self, x):
-        return self.model.forward(x)
+    def forward(self, x, mask=None, query=None):
+        return self.model.forward(x, mask=mask, queries=query)
 
     def visualize_step(
         self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
@@ -333,6 +345,7 @@ class MultiPerceiverSat(torch.nn.Module):
         modalities: Iterable[InputModality],
         fourier_encode_data: bool = True,
         input_channels: int = 3,
+        output_channels: int = 12,
         forecast_steps: int = 48,
         sin_only: bool = False,
         **kwargs,
@@ -351,6 +364,7 @@ class MultiPerceiverSat(torch.nn.Module):
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
         self.sin_only = sin_only
+        self.output_channels = output_channels
         self.modalities = {modality.name: modality for modality in modalities}
         # we encode modality with one hot encoding, so need one dim per modality:
         modality_encoding_dim = sum([1 for _ in modalities])
@@ -363,8 +377,9 @@ class MultiPerceiverSat(torch.nn.Module):
         self.max_modality_dim = input_dim
         logger.debug(f"Max Modality Dim: {self.max_modality_dim}")
         kwargs.pop("dim")
+        # Want toe logit_dim to be the same as the channels * width or height
+        kwargs["logits_dim"] = 32 * self.output_channels
         self.perceiver = PerceiverIO(dim=input_dim, **kwargs)
-        self.conv = torch.nn.Conv2d(in_channels=64, out_channels=12, kernel_size=(1, 1))
 
     def decode_output(self, data):
         pass
@@ -441,6 +456,7 @@ class MultiPerceiverSat(torch.nn.Module):
         data = torch.cat(linearized_data, dim=1)
 
         # After this is the PerceiverIO backbone, still would need to decode it back to an image though
+        # Should include the query shape here for the output we want, could be learned embeddings, repeated input frames of the same shape that is desired, etc.
         perceiver_output = self.perceiver.forward(data, mask, queries)
 
         # For multiple modalities, they are split after this beack into different tensors
@@ -451,4 +467,9 @@ class MultiPerceiverSat(torch.nn.Module):
         # If doing depth2space, should split modalities again
         logger.debug(perceiver_output.size())
 
+        # Reshape to the correct output
+        perceiver_output = rearrange(
+            perceiver_output, "b h (w c) -> b c h w", c=self.output_channels
+        )
+        logger.debug(f"Perceiver Finished Output: {perceiver_output.size()}")
         return perceiver_output

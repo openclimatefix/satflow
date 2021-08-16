@@ -2,6 +2,7 @@ import numpy as np
 from collections import abc
 import torch
 from typing import Mapping
+from satflow.models.layers import position_encoding
 
 
 def restructure(modality_sizes, inputs: np.ndarray) -> Mapping[str, np.ndarray]:
@@ -87,7 +88,7 @@ class BasicDecoder(AbstractPerceiverDecoder):
         final_project=True,
         **position_encoding_kwargs,
     ):
-        super().__init__(name=name)
+        super().__init__()
         self._position_encoding_type = position_encoding_type
 
         # If `none`, the decoder will not construct any position encodings.
@@ -179,7 +180,7 @@ class ClassificationDecoder(AbstractPerceiverDecoder):
     """
 
     def __init__(self, num_classes, name="classification_decoder", **decoder_kwargs):
-        super().__init__(name=name)
+        super().__init__()
 
         self._num_classes = num_classes
         self.decoder = BasicDecoder(
@@ -310,7 +311,7 @@ class BasicVideoAutoencodingDecoder(AbstractPerceiverDecoder):
         name="basic_video_autoencoding_decoder",
         **decoder_kwargs,
     ):
-        super().__init__(name=name)
+        super().__init__()
         if len(output_shape) != 4:  # B, T, H, W
             raise ValueError(f"Expected rank 4 output_shape, got {output_shape}.")
         # Build the decoder components:
