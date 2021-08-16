@@ -232,6 +232,7 @@ def fourier_encode(x, max_freq, num_bands=4, base=2, sin_only=False):
 
     x = x * scales * pi
     x = x.sin() if sin_only else torch.cat([x.sin(), x.cos()], dim=-1)
+    logger.debug(f"Fourier Channels Shape: {x.size()} Sin Only: {sin_only}")
     x = torch.cat((x, orig_x), dim=-1)
     return x
 
@@ -326,6 +327,7 @@ class MultiPerceiverSat(torch.nn.Module):
         fourier_encode_data: bool = True,
         input_channels: int = 3,
         forecast_steps: int = 48,
+        sin_only: bool = False,
         **kwargs,
     ):
         """
@@ -341,14 +343,20 @@ class MultiPerceiverSat(torch.nn.Module):
         self.fourier_encode_data = fourier_encode_data
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
+        self.sin_only = sin_only
         self.modalities = {modality.name: modality for modality in modalities}
         # we encode modality with one hot encoding, so need one dim per modality:
         modality_encoding_dim = sum([1 for _ in modalities])
         # input_dim is the maximum dimension over all input modalities:
+        logger.debug(
+            f"Max Modality Input Dim: {max(modality.input_dim for modality in modalities)} Encoding Dim: {modality_encoding_dim}"
+        )
         input_dim = max(modality.input_dim for modality in modalities) + modality_encoding_dim
+        # fourier_channels = (input_dim * ((max(modality.num_freq_bands for modality in modalities) * 2) + 1)) if fourier_encode_data else 0
+        # input_dim = fourier_channels + input_channels # Gives the max possible number of inputs, could be overstating it though
         # Pop dim
         self.max_modality_dim = input_dim
-        print(f"Input Dim: Max Modality: {self.max_modality_dim}")
+        logger.debug(f"Max Modality Dim: {self.max_modality_dim}")
         kwargs.pop("dim")
         self.perceiver = PerceiverIO(dim=input_dim, **kwargs)
         self.conv = torch.nn.Conv2d(in_channels=64, out_channels=12, kernel_size=(1, 1))
@@ -386,12 +394,16 @@ class MultiPerceiverSat(torch.nn.Module):
                 )
                 pos = torch.stack(torch.meshgrid(*axis_pos), dim=-1)
                 enc_pos = fourier_encode(
-                    pos, modality.max_freq, modality.num_freq_bands, modality.freq_base
+                    pos,
+                    modality.max_freq,
+                    modality.num_freq_bands,
+                    modality.freq_base,
+                    sin_only=self.sin_only,
                 )
+                logger.debug(f"Encoding Shape: {enc_pos.size()}")
                 enc_pos = rearrange(enc_pos, "... n d -> ... (n d)")
+                logger.debug(f"Encoding Shape After Rearranging: {enc_pos.size()}")
                 enc_pos = repeat(enc_pos, "... -> b ...", b=b)
-
-                data = torch.cat((data, enc_pos), dim=-1)
 
             # Figure out padding for this modality, given max dimension across all modalities:
             padding_size = self.max_modality_dim - modality.input_dim - num_modalities
@@ -402,6 +414,7 @@ class MultiPerceiverSat(torch.nn.Module):
             modality_encodings = modality_encoding(
                 b, axis, modality_index, num_modalities
             ).type_as(data)
+            logger.debug(f"Modality Encoding: {modality_encodings.size()}")
             to_concat = (
                 (data, padding, enc_pos, modality_encodings)
                 if len(enc_pos) > 0
@@ -411,7 +424,7 @@ class MultiPerceiverSat(torch.nn.Module):
             data = torch.cat(to_concat, dim=-1)
             # concat to channels of data and flatten axis
             data = rearrange(data, "b ... d -> b (...) d")
-            logger.debug(modality_name)
+            logger.debug(f"{modality_name} Size: {data.size()}")
             linearized_data.append(data)
 
         # Concatenate all the modalities:
