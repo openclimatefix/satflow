@@ -165,11 +165,15 @@ class InputModality:
     num_freq_bands: int
     max_freq: float
     freq_base: int = 2
+    sin_only: bool = False
+    fourier_encode: bool = True
 
     @property
     def input_dim(self) -> int:
         # Calculate the dimension of this modality.
-        input_dim = self.input_axis * ((self.num_freq_bands * 2) + 1) + self.input_channels
+        fourier_channels = self.input_axis * ((self.num_freq_bands * 2) + 1)
+        fourier_channels = fourier_channels // 2 if self.sin_only else fourier_channels
+        input_dim = fourier_channels + self.input_channels
         return input_dim
 
 

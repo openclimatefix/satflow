@@ -41,6 +41,8 @@ class Perceiver(pl.LightningModule):
         queries_dim: int = 32,
         latent_dim_heads: int = 64,
         loss="mse",
+        sin_only: bool = False,
+        encode_fourier: bool = True,
     ):
         super().__init__()
         self.forecast_steps = forecast_steps
@@ -55,6 +57,8 @@ class Perceiver(pl.LightningModule):
             input_axis=3,  # number of axes, 3 for video
             num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
             max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+            sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
+            fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
         )
         # Use image modality for latlon, elevation, other base data?
         image_modality = InputModality(
@@ -63,6 +67,8 @@ class Perceiver(pl.LightningModule):
             input_axis=2,  # number of axes, 2 for images
             num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
             max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+            sin_only=sin_only,
+            fourier_encode=encode_fourier,
         )
         # Sort audio for timestep one-hot encode? Or include under other modality?
         timestep_modality = InputModality(
@@ -71,6 +77,8 @@ class Perceiver(pl.LightningModule):
             input_axis=1,  # number of axes, 2 for images
             num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
             max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+            sin_only=sin_only,
+            fourier_encode=encode_fourier,
         )
         self.model = MultiPerceiverSat(
             modalities=[video_modality, image_modality, timestep_modality],
@@ -86,6 +94,8 @@ class Perceiver(pl.LightningModule):
             latent_dim_head=latent_dim_heads,  # number of dimensions per latent self attention head
             weight_tie_layers=weight_tie_layers,  # whether to weight tie layers (optional, as indicated in the diagram)
             self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
+            sin_only=sin_only,
+            fourier_encode_data=encode_fourier,
         )
 
         self.ct = ConditionTime(forecast_steps, ch_dim=3, num_dims=4)
@@ -349,8 +359,6 @@ class MultiPerceiverSat(torch.nn.Module):
             f"Max Modality Input Dim: {max(modality.input_dim for modality in modalities)} Encoding Dim: {modality_encoding_dim}"
         )
         input_dim = max(modality.input_dim for modality in modalities) + modality_encoding_dim
-        # fourier_channels = (input_dim * ((max(modality.num_freq_bands for modality in modalities) * 2) + 1)) if fourier_encode_data else 0
-        # input_dim = fourier_channels + input_channels # Gives the max possible number of inputs, could be overstating it though
         # Pop dim
         self.max_modality_dim = input_dim
         logger.debug(f"Max Modality Dim: {self.max_modality_dim}")
