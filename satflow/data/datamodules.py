@@ -4,6 +4,7 @@ from typing import Optional
 import webdataset as wds
 from satflow.data.datasets import SatFlowDataset, CloudFlowDataset, FileDataset, PerceiverDataset
 import os
+from glob import glob
 
 
 class SatFlowDataModule(pl.LightningDataModule):
@@ -43,12 +44,14 @@ class SatFlowDataModule(pl.LightningDataModule):
             self.train_dataset = SatFlowDataset([train_dset], config=self.config, train=True)
             self.val_dataset = SatFlowDataset([val_dset], config=self.config, train=False)
             # This seems necessary for the reload_dataloader to not reload the training_dataloader
-            self.training_dataloader_ref = DataLoader(
-                self.train_dataset,
-                batch_size=self.batch_size,
-                pin_memory=self.pin_memory,
-                num_workers=self.num_workers,
-            )
+            if self.training_dataloader_ref is None:
+                training_dataloader = DataLoader(
+                    self.train_dataset,
+                    batch_size=self.batch_size,
+                    pin_memory=self.pin_memory,
+                    num_workers=self.num_workers,
+                )
+                self.training_dataloader_ref = training_dataloader
 
         # Assign test dataset for use in dataloader(s)
         if stage == "test" or stage is None:

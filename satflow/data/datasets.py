@@ -373,6 +373,9 @@ class SatFlowDataset(thd.IterableDataset, wds.Shorthands, wds.Composable):
                 np.random.seed(42)
                 # Have to set Python random seed for Albumentations
                 random.seed(a=42)
+                # Reduce number of repeat examples from each source, gives more variety in the inputs
+                self.num_crops = 5
+                self.num_times = 4
             for source in sources:
                 try:
                     sample = next(source)
