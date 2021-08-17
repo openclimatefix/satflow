@@ -1,0 +1,33 @@
+# @package _group_
+_target_: satflow.models.perceiver.Perceiver
+input_channels: 12
+sat_channels: 12
+forecast_steps: 12
+lr: 0.0005
+input_size: 32
+max_frequency: 4.0
+depth: 6
+num_latents: 256
+cross_heads: 1
+latent_heads: 8
+cross_dim_heads: 8
+latent_dim: 256
+weight_tie_layers: False
+self_per_cross_attention: 2
+dim: 32
+logits_dim: null
+queries_dim: 32
+latent_dim_heads: 64
+visualize: False
+preprocessor_type: "conv"
+encoder_kwargs:
+  spatial_downsample: 4
+  temporal_downsample: 1
+  output_channels: 64
+  conv_after_patching: False
+  conv2d_use_batchnorm: True
+postprocessor_type: "conv"
+decoder_kwargs:
+  spatial_upsample: 4
+  temporal_upsample: 1
+  output_channels: 12

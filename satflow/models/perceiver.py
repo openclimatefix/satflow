@@ -54,6 +54,25 @@ class Perceiver(pl.LightningModule):
         self.lr = lr
         self.visualize = visualize
         self.criterion = get_loss(loss)
+
+        # Preprocessor, if desired, on top of the other processing done
+        if preprocessor_type is not None:
+            if preprocessor_type not in ("conv", "patches", "pixels", "conv1x1", "metnet"):
+                raise ValueError("Invalid prep_type!")
+            if preprocessor_type == "metnet":
+                # MetNet processing
+                self.preprocessor = MetNetPreprocessor(
+                    sat_channels=sat_channels, crop_size=input_size
+                )
+            else:
+                self.preprocessor = ImageEncoder(
+                    input_channels=sat_channels, prep_type=preprocessor_type, **encoder_kwargs
+                )
+        else:
+            self.preprocessor = None
+
+        # The preprocessor will change the number of channels in the input
+
         # Timeseries input
         video_modality = InputModality(
             name="timeseries",
@@ -103,25 +122,16 @@ class Perceiver(pl.LightningModule):
             output_shape=input_size,  # Shape of output to make the correct sized logits dim, needed so reshaping works
         )
 
-        self.ct = ConditionTime(forecast_steps, ch_dim=3, num_dims=4)
-
-        # Preprocessor, if desired, on top of the other processing done
-        if preprocessor_type not in ("conv", "patches", "pixels", "conv1x1", "metnet"):
-            raise ValueError("Invalid prep_type!")
-        if preprocessor_type == "metnet":
-            # MetNet processing
-            self.preprocessor = MetNetPreprocessor(sat_channels=sat_channels, crop_size=input_size)
-        else:
-            self.preprocessor = ImageEncoder(
-                input_channels=sat_channels, prep_type=preprocessor_type, **encoder_kwargs
+        if postprocessor_type is not None:
+            if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
+                raise ValueError("Invalid postprocessor_type!")
+            self.postprocessor = ImageDecoder(
+                postprocess_type=postprocessor_type, **decoder_kwargs
             )
-
-        if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
-            raise ValueError("Invalid postprocessor_type!")
-        self.postprocessor = ImageDecoder(postprocess_type=postprocessor_type, **decoder_kwargs)
+        else:
+            self.postprocessor = None
 
     def encode_inputs(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        # One hot encode the inpuuts
         video_inputs = x[:, :, : self.sat_channels, :, :]
         base_inputs = x[
             :, 0, self.sat_channels :, :, :
