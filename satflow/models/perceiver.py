@@ -468,6 +468,9 @@ class MultiPerceiverSat(torch.nn.Module):
         logger.debug(perceiver_output.size())
 
         # Reshape to the correct output
+        # This is how it is done in the official implementation, do a decoder query with cross attention, then just reshape the output
+        # For timeseries, this is given as a query with T*H*W shape
+        # For Flow Decoder, this is the same, except has a rescale factor
         perceiver_output = rearrange(
             perceiver_output, "b h (w c) -> b c h w", c=self.output_channels
         )
