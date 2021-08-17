@@ -231,6 +231,7 @@ class ImageDecoder(torch.nn.Module):
         spatial_upsample: int = 1,
         temporal_upsample: int = 1,
         output_channels: int = -1,
+        input_channels: int = 12,
         input_reshape_size=None,
     ):
         super().__init__()
@@ -254,6 +255,7 @@ class ImageDecoder(torch.nn.Module):
             if output_channels == -1:
                 raise ValueError("Expected value for n_outputs")
             self.conv1x1 = torch.nn.Conv2d(
+                in_channels=input_channels,
                 out_channels=output_channels,
                 kernel_size=(1, 1),
                 # spatial_downsample is unconstrained for 1x1 convolutions.
@@ -268,12 +270,15 @@ class ImageDecoder(torch.nn.Module):
                     return int(np.round(np.log(x) / np.log(2)))
 
                 self.convnet = Conv3DUpsample(
+                    input_channels=input_channels,
                     output_channels=output_channels,
                     num_temporal_upsamples=int_log2(temporal_upsample),
                     num_space_upsamples=int_log2(spatial_upsample),
                 )
             else:
-                self.convnet = Conv2DUpsample(output_channels=output_channels)
+                self.convnet = Conv2DUpsample(
+                    input_channels=input_channels, output_channels=output_channels
+                )
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         if self.input_reshape_size is not None:

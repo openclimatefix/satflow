@@ -28,6 +28,6 @@ encoder_kwargs:
   conv2d_use_batchnorm: True
 postprocessor_type: "conv"
 decoder_kwargs:
-  spatial_upsample: 4
+  spatial_upsample: 1
   temporal_upsample: 1
   output_channels: 12
