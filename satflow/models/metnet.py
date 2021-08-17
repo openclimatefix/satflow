@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from satflow.models.base import register_model
+from satflow.models.base import register_model, BaseModel
 from satflow.models.utils import get_conv_layer
 from satflow.models.losses import get_loss
 from satflow.models.layers import ConvGRU2, TimeDistributed, ConditionTime, MetNetPreprocessor
@@ -43,7 +43,7 @@ class DownSampler(nn.Module):
 
 
 @register_model
-class MetNet(pl.LightningModule):
+class MetNet(BaseModel):
     def __init__(
         self,
         image_encoder: str = "downsampler",
@@ -63,17 +63,17 @@ class MetNet(pl.LightningModule):
         visualize: bool = False,
         loss: str = "mse",
     ):
-        super().__init__()
-
+        super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
+        self.lr = lr
+        self.pretrained = pretrained
+        self.visualize = visualize
         self.output_channels = output_channels
         self.criterion = get_loss(
             loss, channel=output_channels, nonnegative_ssim=True, convert_range=True
         )
         self.loss = loss
-        self.lr = lr
-        self.visualize = visualize
         self.preprocessor = MetNetPreprocessor(
             sat_channels=sat_channels, crop_size=input_size, use_space2depth=True
         )
@@ -154,37 +154,21 @@ class MetNet(pl.LightningModule):
         }
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
-    def training_step(self, batch, batch_idx):
+    def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
         x = x.float()
         y_hat = self(x)
-        # y = torch.squeeze(y)
 
         if self.visualize:
             if np.random.random() < 0.01:
                 self.visualize_step(x, y, y_hat, batch_idx)
         loss = self.criterion(y_hat, y)
-        self.log("train/loss", loss)
+        self.log(f"{'train' if is_training else 'val'}/loss", loss)
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
             frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
-            frame_loss_dict[f"train/frame_{f}_loss"] = frame_loss
+            frame_loss_dict[f"{'train' if is_training else 'val'}/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        x, y = batch
-        x = x.float()
-        y_hat = self(x)
-        val_loss = self.criterion(y_hat, y)
-        self.log("val/loss", val_loss)
-        # Save out loss per frame as well
-        frame_loss_dict = {}
-        for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
-            frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
-        self.log_dict(frame_loss_dict)
-        return val_loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -192,22 +176,6 @@ class MetNet(pl.LightningModule):
         y = torch.squeeze(y)
         loss = F.mse_loss(y_hat, y)
         return loss
-
-    def visualize_step(self, x, y, y_hat, batch_idx, step="train"):
-        tensorboard = self.logger.experiment[0]
-        # Add all the different timesteps for a single prediction, 0.1% of the time
-        images = x[0].cpu().detach()
-        images = [img for img in images]
-        image_grid = torchvision.utils.make_grid(images, nrow=13)
-        tensorboard.add_image(f"{step}/Input_Image_Stack", image_grid, global_step=batch_idx)
-        images = y[0].cpu().detach()
-        images = [img for img in images]
-        image_grid = torchvision.utils.make_grid(images, nrow=12)
-        tensorboard.add_image(f"{step}/Target_Image_Stack", image_grid, global_step=batch_idx)
-        images = y_hat[0].cpu().detach()
-        images = [img for img in images]
-        image_grid = torchvision.utils.make_grid(images, nrow=12)
-        tensorboard.add_image(f"{step}/Generated_Image_Stack", image_grid, global_step=batch_idx)
 
 
 class TemporalEncoder(nn.Module):

@@ -1,6 +1,7 @@
 from typing import Any, Dict, Type
 import torch.nn
 import pytorch_lightning as pl
+import torchvision
 
 REGISTERED_MODELS = {}
 
@@ -73,3 +74,54 @@ def create_model(model_name, pretrained=False, checkpoint_path="", **kwargs):
         model.load_state_dict(state_dict)
 
     return model
+
+
+class BaseModel(pl.LightningModule):
+    def __init__(
+        self,
+        pretrained: bool = False,
+        forecast_steps: int = 48,
+        input_channels: int = 12,
+        lr: float = 0.001,
+        visualize: bool = False,
+    ):
+        self.forecast_steps = forecast_steps
+        self.input_channels = input_channels
+        self.lr = lr
+        self.pretrained = pretrained
+        self.visualize = visualize
+
+    def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
+        pass
+
+    def training_step(self, batch, batch_idx):
+        return self._train_or_validate_step(batch, batch_idx, is_training=True)
+
+    def validation_step(self, batch, batch_idx):
+        return self._train_or_validate_step(batch, batch_idx, is_training=False)
+
+    def visualize_step(
+        self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
+    ) -> None:
+        # the logger you used (in this case tensorboard)
+        tensorboard = self.logger.experiment[0]
+        # Timesteps per channel
+        images = x[0].cpu().detach()
+        future_images = y[0].cpu().detach()
+        generated_images = y_hat[0].cpu().detach()
+        for i, t in enumerate(images):  # Now would be (C, H, W)
+            t = [torch.unsqueeze(img, dim=0) for img in t]
+            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
+            tensorboard.add_image(
+                f"{step}/Input_Image_Stack_Frame_{i}", image_grid, global_step=batch_idx
+            )
+            t = [torch.unsqueeze(img, dim=0) for img in future_images[i]]
+            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
+            tensorboard.add_image(
+                f"{step}/Target_Image_Frame_{i}", image_grid, global_step=batch_idx
+            )
+            t = [torch.unsqueeze(img, dim=0) for img in generated_images[i]]
+            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
+            tensorboard.add_image(
+                f"{step}/Generated_Image_Frame_{i}", image_grid, global_step=batch_idx
+            )

@@ -3,7 +3,7 @@ import torch
 import pytorch_lightning as pl
 import torchvision
 from typing import List, Iterable, Dict, Optional, Any
-from satflow.models.base import register_model
+from satflow.models.base import register_model, BaseModel
 from math import pi, log
 from einops import rearrange, repeat
 from satflow.models.layers.modalities import modality_encoding, InputModality
@@ -18,7 +18,7 @@ logger.setLevel(logging.WARN)
 
 
 @register_model
-class Perceiver(pl.LightningModule):
+class Perceiver(BaseModel):
     def __init__(
         self,
         input_channels: int = 12,
@@ -47,12 +47,15 @@ class Perceiver(pl.LightningModule):
         postprocessor_type: Optional[str] = None,
         encoder_kwargs: Optional[Dict[str, Any]] = None,
         decoder_kwargs: Optional[Dict[str, Any]] = None,
+        pretrained: bool = False,
     ):
-        super().__init__()
+        super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
-        self.sat_channels = sat_channels
+        self.input_channels = input_channels
         self.lr = lr
+        self.pretrained = pretrained
         self.visualize = visualize
+        self.sat_channels = sat_channels
         self.criterion = get_loss(loss)
 
         # Preprocessor, if desired, on top of the other processing done
@@ -168,7 +171,7 @@ class Perceiver(pl.LightningModule):
     def decode_outputs(self, x):
         pass
 
-    def training_step(self, batch, batch_idx):
+    def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
         batch_size = y.size(0)
         # For each future timestep:
@@ -184,11 +187,11 @@ class Perceiver(pl.LightningModule):
         if self.postprocessor is not None:
             y_hat = self.postprocessor(y_hat)
         loss = self.criterion(y, y_hat)
-        self.log_dict({"train/loss": loss})
+        self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
             frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
-            frame_loss_dict[f"train/frame_{f}_loss"] = frame_loss
+            frame_loss_dict[f"{'train' if is_training else 'val'}/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
         return loss
 
@@ -224,57 +227,8 @@ class Perceiver(pl.LightningModule):
         logger.debug(f"Query Shape: {y_query.shape}")
         return y_query
 
-    def validation_step(self, batch, batch_idx):
-        x, y = batch
-        batch_size = y.size(0)
-        predictions = []
-        query = self.construct_query(x)
-        x = self.encode_inputs(x)
-        for i in range(self.forecast_steps):
-            # x_i = self.ct(x["timeseries"], fstep=i)
-            x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
-            y_hat = self(x, query=query)
-            predictions.append(y_hat)
-        y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
-        if self.postprocessor is not None:
-            y_hat = self.postprocessor(y_hat)
-        loss = self.criterion(y, y_hat)
-        self.log_dict({"val/loss": loss})
-        frame_loss_dict = {}
-        for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
-            frame_loss_dict[f"val/frame_{f}_loss"] = frame_loss
-        self.log_dict(frame_loss_dict)
-        return loss
-
     def forward(self, x, mask=None, query=None):
         return self.model.forward(x, mask=mask, queries=query)
-
-    def visualize_step(
-        self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
-    ) -> None:
-        # the logger you used (in this case tensorboard)
-        tensorboard = self.logger.experiment[0]
-        # Timesteps per channel
-        images = x[0].cpu().detach()
-        future_images = y[0].cpu().detach()
-        generated_images = y_hat[0].cpu().detach()
-        for i, t in enumerate(images):  # Now would be (C, H, W)
-            t = [torch.unsqueeze(img, dim=0) for img in t]
-            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
-            tensorboard.add_image(
-                f"{step}/Input_Image_Stack_Frame_{i}", image_grid, global_step=batch_idx
-            )
-            t = [torch.unsqueeze(img, dim=0) for img in future_images[i]]
-            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
-            tensorboard.add_image(
-                f"{step}/Target_Image_Frame_{i}", image_grid, global_step=batch_idx
-            )
-            t = [torch.unsqueeze(img, dim=0) for img in generated_images[i]]
-            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
-            tensorboard.add_image(
-                f"{step}/Generated_Image_Frame_{i}", image_grid, global_step=batch_idx
-            )
 
 
 def fourier_encode(x, max_freq, num_bands=4, base=2, sin_only=False):
