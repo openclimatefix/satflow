@@ -1,10 +1,10 @@
 # @package _group_
 _target_: satflow.models.perceiver.Perceiver
-input_channels: 12
+input_channels: 16
 sat_channels: 12
 forecast_steps: 12
 lr: 0.0005
-input_size: 16
+input_size: 32
 max_frequency: 4.0
 depth: 6
 num_latents: 256
@@ -16,7 +16,7 @@ weight_tie_layers: False
 self_per_cross_attention: 2
 dim: 32
 logits_dim: null
-queries_dim: 16
+queries_dim: 32
 latent_dim_heads: 64
 visualize: False
 preprocessor_type: "metnet"

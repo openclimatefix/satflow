@@ -14,7 +14,7 @@ import torch_optimizer as optim
 import logging
 
 logger = logging.getLogger("satflow.model")
-logger.setLevel(logging.WARN)
+logger.setLevel(logging.DEBUG)
 
 
 @register_model
@@ -62,13 +62,13 @@ class Perceiver(pl.LightningModule):
             if preprocessor_type == "metnet":
                 # MetNet processing
                 self.preprocessor = MetNetPreprocessor(
-                    sat_channels=sat_channels, crop_size=input_size
+                    sat_channels=sat_channels, crop_size=input_size, split_input=False
                 )
                 video_input_channels = (
                     8 * sat_channels
                 )  # This is only done on the sat channel inputs
                 # If doing it on the base map, then need
-                image_input_channels = 8 * (input_channels - sat_channels)
+                image_input_channels = 4 * (input_channels - sat_channels)
             else:
                 self.preprocessor = ImageEncoder(
                     input_channels=sat_channels, prep_type=preprocessor_type, **encoder_kwargs
