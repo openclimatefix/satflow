@@ -58,6 +58,13 @@ class Perceiver(BaseModel):
         self.sat_channels = sat_channels
         self.criterion = get_loss(loss)
 
+        # Warn if using frequency is smaller than Nyquist Frequency
+        if max_frequency < input_size / 2:
+            print(
+                f"Max frequency is less than Nyquist frequency, currently set to {max_frequency} while "
+                f"the Nyquist frequency for input of size {input_size} is {input_size / 2}"
+            )
+
         # Preprocessor, if desired, on top of the other processing done
         if preprocessor_type is not None:
             if preprocessor_type not in ("conv", "patches", "pixels", "conv1x1", "metnet"):
@@ -91,7 +98,7 @@ class Perceiver(BaseModel):
             input_channels=video_input_channels,
             input_axis=3,  # number of axes, 3 for video
             num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
-            max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+            max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
             sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
             fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
         )
