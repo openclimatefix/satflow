@@ -64,19 +64,28 @@ class Perceiver(pl.LightningModule):
                 self.preprocessor = MetNetPreprocessor(
                     sat_channels=sat_channels, crop_size=input_size
                 )
+                video_input_channels = (
+                    8 * sat_channels
+                )  # This is only done on the sat channel inputs
+                # If doing it on the base map, then need
+                image_input_channels = 8 * (input_channels - sat_channels)
             else:
                 self.preprocessor = ImageEncoder(
                     input_channels=sat_channels, prep_type=preprocessor_type, **encoder_kwargs
                 )
+                video_input_channels = self.preprocessor.output_channels
+                image_input_channels = self.preprocessor.output_channels
         else:
             self.preprocessor = None
+            video_input_channels = sat_channels
+            image_input_channels = input_channels - sat_channels
 
         # The preprocessor will change the number of channels in the input
 
         # Timeseries input
         video_modality = InputModality(
             name="timeseries",
-            input_channels=sat_channels,
+            input_channels=video_input_channels,
             input_axis=3,  # number of axes, 3 for video
             num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
             max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
@@ -86,7 +95,7 @@ class Perceiver(pl.LightningModule):
         # Use image modality for latlon, elevation, other base data?
         image_modality = InputModality(
             name="base",
-            input_channels=input_channels - sat_channels,
+            input_channels=image_input_channels,
             input_axis=2,  # number of axes, 2 for images
             num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
             max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
@@ -126,7 +135,7 @@ class Perceiver(pl.LightningModule):
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
                 raise ValueError("Invalid postprocessor_type!")
             self.postprocessor = ImageDecoder(
-                postprocess_type=postprocessor_type, **decoder_kwargs
+                postprocess_type=postprocessor_type, input_channels=sat_channels, **decoder_kwargs
             )
         else:
             self.postprocessor = None
@@ -136,6 +145,12 @@ class Perceiver(pl.LightningModule):
         base_inputs = x[
             :, 0, self.sat_channels :, :, :
         ]  # Base maps should be the same for all timesteps in a sample
+
+        # Run the preprocessors here when encoding the inputs
+        if self.preprocessor is not None:
+            # Expects Channel first
+            video_inputs = self.preprocessor(video_inputs)
+            base_inputs = self.preprocessor(base_inputs)
         video_inputs = video_inputs.permute(0, 1, 3, 4, 2)  # Channel last
         base_inputs = base_inputs.permute(0, 2, 3, 1)  # Channel last
         logger.debug(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
@@ -166,6 +181,8 @@ class Perceiver(pl.LightningModule):
             y_hat = self(x, query=query)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
+        if self.postprocessor is not None:
+            y_hat = self.postprocessor(y_hat)
         loss = self.criterion(y, y_hat)
         self.log_dict({"train/loss": loss})
         frame_loss_dict = {}
@@ -217,6 +234,8 @@ class Perceiver(pl.LightningModule):
             y_hat = self(x, query=query)
             predictions.append(y_hat)
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
+        if self.postprocessor is not None:
+            y_hat = self.postprocessor(y_hat)
         loss = self.criterion(y, y_hat)
         self.log_dict({"val/loss": loss})
         frame_loss_dict = {}

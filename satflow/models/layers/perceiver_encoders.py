@@ -144,6 +144,7 @@ class ImageEncoder(torch.nn.Module):
         self.prep_type = prep_type
         self.temporal_downsample = temporal_downsample
         self.spatial_downsample = spatial_downsample
+        self.output_channels = output_channels
 
         if prep_type not in ("conv", "patches", "pixels", "conv1x1"):
             raise ValueError("Invalid prep_type!")
@@ -175,7 +176,7 @@ class ImageEncoder(torch.nn.Module):
                 stride=(spatial_downsample, spatial_downsample),
             )
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.prep_type == "conv":
             if len(x.shape) == 5:
                 # Timeseries, do it to each timestep independently
