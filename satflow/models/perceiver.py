@@ -2,7 +2,7 @@ from perceiver_pytorch import PerceiverIO
 import torch
 import pytorch_lightning as pl
 import torchvision
-from typing import List, Iterable, Dict
+from typing import List, Iterable, Dict, Optional, Any
 from satflow.models.base import register_model
 from math import pi, log
 from einops import rearrange, repeat
@@ -43,6 +43,10 @@ class Perceiver(pl.LightningModule):
         loss="mse",
         sin_only: bool = False,
         encode_fourier: bool = True,
+        preprocessor_type: Optional[str] = None,
+        postprocessor_type: Optional[str] = None,
+        encoder_kwargs: Optional[Dict[str, Any]] = None,
+        decoder_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.forecast_steps = forecast_steps
@@ -100,6 +104,21 @@ class Perceiver(pl.LightningModule):
         )
 
         self.ct = ConditionTime(forecast_steps, ch_dim=3, num_dims=4)
+
+        # Preprocessor, if desired, on top of the other processing done
+        if preprocessor_type not in ("conv", "patches", "pixels", "conv1x1", "metnet"):
+            raise ValueError("Invalid prep_type!")
+        if preprocessor_type == "metnet":
+            # MetNet processing
+            self.preprocessor = MetNetPreprocessor(sat_channels=sat_channels, crop_size=input_size)
+        else:
+            self.preprocessor = ImageEncoder(
+                input_channels=sat_channels, prep_type=preprocessor_type, **encoder_kwargs
+            )
+
+        if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
+            raise ValueError("Invalid postprocessor_type!")
+        self.postprocessor = ImageDecoder(postprocess_type=postprocessor_type, **decoder_kwargs)
 
     def encode_inputs(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         # One hot encode the inpuuts
