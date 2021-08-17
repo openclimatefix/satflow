@@ -5,7 +5,13 @@ import torch.nn.functional as F
 
 
 class MetNetPreprocessor(nn.Module):
-    def __init__(self, sat_channels: int = 12, crop_size: int = 256, use_space2depth: bool = True):
+    def __init__(
+        self,
+        sat_channels: int = 12,
+        crop_size: int = 256,
+        use_space2depth: bool = True,
+        split_input: bool = True,
+    ):
         """
         Performs the MetNet preprocessing of mean pooling Sat channels, followed by
         concatenating the center crop and mean pool
@@ -20,6 +26,7 @@ class MetNetPreprocessor(nn.Module):
         """
         super().__init__()
         self.sat_channels = sat_channels
+        self.split_input = split_input
 
         # Split off sat + mask channels into own image, and the rest, which we just take a center crop
         # For this,
@@ -31,18 +38,27 @@ class MetNetPreprocessor(nn.Module):
         self.center_crop = torchvision.transforms.CenterCrop(size=crop_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        sat_channels = x[:, :, : self.sat_channels, :, :]
-        other_channels = x[:, :, self.sat_channels :, :, :]
+        if self.split_input:
+            sat_channels = x[:, :, : self.sat_channels, :, :]
+            other_channels = x[:, :, self.sat_channels :, :, :]
+            other_channels = torchvision.transforms.CenterCrop(
+                size=other_channels.size()[-1] // 2
+            )(
+                other_channels
+            )  # center crop to same as downsample
+            other_channels = self.center_crop(other_channels)
+        else:
+            sat_channels = x
         sat_channels = self.sat_downsample(sat_channels)
-        other_channels = torchvision.transforms.CenterCrop(size=other_channels.size()[-1] // 2)(
-            other_channels
-        )  # center crop to same as downsample
         # In paper, satellite and radar data is concatenated here
         # We are just going to skip that bit
 
         sat_center = self.center_crop(sat_channels)
         sat_mean = F.avg_pool3d(sat_channels, (1, 2, 2))
-        other_channels = self.center_crop(other_channels)
         # All the same size now, so concatenate together, already have time, lat/long, and elevation image
-        x = torch.cat([sat_center, sat_mean, other_channels], dim=2)
+        x = (
+            torch.cat([sat_center, sat_mean, other_channels], dim=2)
+            if self.split_input
+            else torch.cat([sat_center, sat_mean], dim=2)
+        )
         return x

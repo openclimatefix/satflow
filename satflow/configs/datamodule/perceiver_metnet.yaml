@@ -15,8 +15,8 @@ config:
   num_timesteps: 5
   skip_timesteps: 1
   forecast_times: 12
-  output_shape: 256
-  output_target: 16
+  output_shape: 128
+  output_target: 32
   target_type: "cloudmask"
   num_crops: 10
   num_times: 10
