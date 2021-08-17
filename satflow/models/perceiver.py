@@ -14,7 +14,7 @@ import torch_optimizer as optim
 import logging
 
 logger = logging.getLogger("satflow.model")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARN)
 
 
 @register_model
@@ -215,6 +215,8 @@ class Perceiver(pl.LightningModule):
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
     def construct_query(self, x):
+        if self.preprocessor is not None:
+            x = self.preprocessor(x)
         y_query = x[:, -1, 0, :, :]  # Only want sat channels, the output
         # y_query = torch.permute(y_query, (0, 2, 3, 1)) # Channel Last
         # Need to reshape to 3 dimensions, TxHxW or HxWxC
