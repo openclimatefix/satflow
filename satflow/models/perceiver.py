@@ -9,7 +9,7 @@ from einops import rearrange, repeat
 from satflow.models.layers.modalities import modality_encoding, InputModality
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from satflow.models.losses import get_loss
-from satflow.models.layers import ConditionTime
+from satflow.models.layers import ConditionTime, ImageEncoder, ImageDecoder, MetNetPreprocessor
 import torch_optimizer as optim
 import logging
 
@@ -96,27 +96,14 @@ class Perceiver(pl.LightningModule):
             self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
             sin_only=sin_only,
             fourier_encode_data=encode_fourier,
+            output_shape=input_size,  # Shape of output to make the correct sized logits dim, needed so reshaping works
         )
 
         self.ct = ConditionTime(forecast_steps, ch_dim=3, num_dims=4)
 
-    def encode_inputs(self, x, timestep: int = 1):
+    def encode_inputs(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         # One hot encode the inpuuts
         video_inputs = x[:, :, : self.sat_channels, :, :]
-        # base_input = x[:, 0, self.sat_channels :, :, :]
-        batch_size, seq_len, n_chans, width, height = video_inputs.shape
-        """
-        # Stack timesteps as channels (to make a large batch)
-        new_batch_size = n_chans * seq_len
-        # Reshuffle to put channels last
-        base_input = base_input.reshape(batch_size, width, height, -1)
-        #                                 0           1       2      3
-        sat_data = video_inputs.reshape(batch_size, width, height, new_batch_size)
-        sat_data = torch.cat(
-            [sat_data, base_input], dim=-1
-        )  # Only have one copy of the basemap, instead of N copies
-        return sat_data
-        """
         base_inputs = x[
             :, 0, self.sat_channels :, :, :
         ]  # Base maps should be the same for all timesteps in a sample
@@ -125,7 +112,7 @@ class Perceiver(pl.LightningModule):
         logger.debug(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
         return {"timeseries": video_inputs, "base": base_inputs}
 
-    def add_timestep(self, batch_size: int, timestep: int = 1):
+    def add_timestep(self, batch_size: int, timestep: int = 1) -> torch.Tensor:
         times = (torch.eye(self.forecast_steps)[timestep]).unsqueeze(-1).unsqueeze(-1)
         ones = torch.ones(1, 1, 1)
         timestep_input = times * ones
@@ -268,14 +255,13 @@ class PerceiverSat(torch.nn.Module):
         **kwargs,
     ):
         """
-                PerceiverIO made to work more specifically with timeseries images
-                Not a recurrent model, so lifrom torch.nn import Embedding
-        ke MetNet somewhat, can optionally give a one-hot encoded vector for the future
-                timestep
-                Args:
-                    input_channels: Number of input channels
-                    forecast_steps: Number of forecast steps to make
-                    **kwargs:
+        PerceiverIO made to work more specifically with timeseries images
+        Not a recurrent model, so like MetNet somewhat, can optionally give a one-hot encoded vector for the future
+        timestep
+        Args:
+            input_channels: Number of input channels
+            forecast_steps: Number of forecast steps to make
+            **kwargs:
         """
         super().__init__()
         self.fourier_encode_data = fourier_encode_data
@@ -348,6 +334,7 @@ class MultiPerceiverSat(torch.nn.Module):
         output_channels: int = 12,
         forecast_steps: int = 48,
         sin_only: bool = False,
+        output_shape: int = 32,
         **kwargs,
     ):
         """
@@ -378,7 +365,7 @@ class MultiPerceiverSat(torch.nn.Module):
         logger.debug(f"Max Modality Dim: {self.max_modality_dim}")
         kwargs.pop("dim")
         # Want toe logit_dim to be the same as the channels * width or height
-        kwargs["logits_dim"] = 32 * self.output_channels
+        kwargs["logits_dim"] = output_shape * self.output_channels
         self.perceiver = PerceiverIO(dim=input_dim, **kwargs)
 
     def decode_output(self, data):
