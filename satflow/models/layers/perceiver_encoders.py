@@ -233,7 +233,7 @@ class ImageDecoder(torch.nn.Module):
         output_channels: int = -1,
         input_reshape_size=None,
     ):
-        super().__init__(name=name)
+        super().__init__()
 
         if postprocess_type not in ("conv", "patches", "pixels", "raft", "conv1x1"):
             raise ValueError("Invalid postproc_type!")
