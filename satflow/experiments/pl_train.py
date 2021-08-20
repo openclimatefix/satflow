@@ -12,6 +12,7 @@ from pytorch_lightning import (
 from pytorch_lightning.loggers import LightningLoggerBase
 from pytorch_lightning.profiler import AdvancedProfiler, PyTorchProfiler
 from satflow.core import utils
+from satflow.core.callbacks import NeptuneModelLogger
 from pytorch_lightning.callbacks import LearningRateMonitor
 
 log = utils.get_logger(__name__)
@@ -45,7 +46,7 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Init Lightning callbacks
     lr_monitor = LearningRateMonitor(logging_interval="step")
-    callbacks: List[Callback] = [lr_monitor]
+    callbacks: List[Callback] = [lr_monitor, NeptuneModelLogger()]
     if "callbacks" in config:
         for _, cb_conf in config["callbacks"].items():
             if "_target_" in cb_conf:
