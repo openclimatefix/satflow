@@ -5,7 +5,7 @@ import numpy as np
 import math
 
 
-class Conv2DDownsample(torch.nn.Module):
+class Conv2DDownsample(torch.nn.Sequential):
     def __init__(
         self,
         num_layers: int = 1,
@@ -15,47 +15,26 @@ class Conv2DDownsample(torch.nn.Module):
     ):
         """
         Constructs a Conv2DDownsample model
-
         Args:
             num_layers: Number of conv -> maxpool layers
             output_channels: Number of output channels
             input_channels: Number of input channels to first layer
             use_batchnorm: Whether to use Batch Norm
         """
-        super().__init__()
-        self.layers = torch.nn.ModuleList()
-        conv1 = torch.nn.Conv2d(
-            in_channels=input_channels,
-            out_channels=output_channels,
-            kernel_size=(7, 7),
-            stride=(2, 2),
-            bias=False,
-            padding="same",
-        )
-        self.layers.append(conv1)
-        if use_batchnorm:
-            self.layers.append(torch.nn.BatchNorm2d(num_features=output_channels))
-        self.layers.append(torch.nn.ReLU())
-        self.layers.append(torch.nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding="same"))
-        for _ in range(num_layers - 1):
-            conv = torch.nn.Conv2d(
-                in_channels=output_channels,
-                out_channels=output_channels,
-                kernel_size=(7, 7),
-                stride=(2, 2),
-                bias=False,
-                padding="same",
-            )
-            self.layers.append(conv)
-            if use_batchnorm:
-                self.layers.append(torch.nn.BatchNorm2d(num_features=output_channels))
-            self.layers.append(torch.nn.ReLU())
-            self.layers.append(
-                torch.nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding="same")
-            )
 
-    def forward(self, x):
-        return self.layers.forward(x)
+        layers = [self.make_layer(input_channels, output_channels, batch=use_batchnorm)]
+        for _ in range(num_layers - 1):
+            layers += [self.make_layer(output_channels, output_channels, batch=use_batchnorm)]
+
+        super().__init__(*layers)
+
+    def make_layer(self, c_in, c_out, ks=7, stride=2, padding=7 // 2, batch=True):
+        "Make Conv->Batch->Relu->MaxPool stack"
+        layers = [torch.nn.Conv2d(c_in, c_out, ks, stride, padding, bias=False)]
+        if batch:
+            layers += [torch.nn.BatchNorm2d(c_out)]
+        layers += [torch.nn.ReLU(), torch.nn.MaxPool2d(3, stride=2, padding=3 // 2)]
+        return torch.nn.Sequential(*layers)
 
 
 class Conv2DUpsample(torch.nn.Module):
