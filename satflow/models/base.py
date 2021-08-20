@@ -85,11 +85,16 @@ class BaseModel(pl.LightningModule):
         lr: float = 0.001,
         visualize: bool = False,
     ):
+        super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
         self.lr = lr
         self.pretrained = pretrained
         self.visualize = visualize
+
+    @classmethod
+    def from_config(cls, config):
+        raise NotImplementedError
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         pass
@@ -100,11 +105,14 @@ class BaseModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         return self._train_or_validate_step(batch, batch_idx, is_training=False)
 
+    def forward(self, x, **kwargs) -> Any:
+        return self.model.forward(x, **kwargs)
+
     def visualize_step(
         self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
     ) -> None:
         # the logger you used (in this case tensorboard)
-        tensorboard = self.logger.experiment[0]
+        tensorboard = self.logger.experiment
         # Timesteps per channel
         images = x[0].cpu().detach()
         future_images = y[0].cpu().detach()
