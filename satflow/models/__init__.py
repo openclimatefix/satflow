@@ -6,3 +6,5 @@ from .pix2pix import Pix2Pix
 from .runet import R2U_Net, RUnet
 from .attention_unet import R2AttU_Net, AttU_Net
 from .cloudgan import CloudGAN
+from .nowcasting_gan import NowcastingGAN
+from .perceiver import Perceiver

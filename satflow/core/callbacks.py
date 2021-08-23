@@ -15,13 +15,11 @@ class NeptuneModelLogger(Callback):
         super().__init__()
 
     def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        try:
-            trainer.logger.experiment.log_artifact(
-                os.path.join(trainer.log_dir, "checkpoints", "last.ckpt"),
-                "model_checkpoints/last.ckpt",
-            )
-        except:
-            pass
+        print(trainer.log_dir)
+        trainer.logger.experiment.log_artifact(
+            os.path.join(trainer.log_dir, "checkpoints", "last.ckpt"),
+            "model_checkpoints/last.ckpt",
+        )
 
     def on_fit_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         try:
