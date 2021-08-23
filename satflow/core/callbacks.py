@@ -1,4 +1,5 @@
 from pytorch_lightning import Callback, LightningModule, Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint
 import os
 
 
@@ -15,17 +16,23 @@ class NeptuneModelLogger(Callback):
         super().__init__()
 
     def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        print(trainer.log_dir)
-        trainer.logger.experiment.log_artifact(
-            os.path.join(trainer.log_dir, "checkpoints", "last.ckpt"),
-            "model_checkpoints/last.ckpt",
-        )
+        try:
+            trainer.logger.experiment[0]["model_checkpoints/last.ckpt"].upload(
+                os.path.join(trainer.default_root_dir, "checkpoints", "last.ckpt")
+            )
+        except:
+            print(
+                f"No file to upload at {os.path.join(trainer.default_root_dir, 'checkpoints', 'last.ckpt')}"
+            )
+            pass
 
     def on_fit_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         try:
-            trainer.logger.experiment.log_artifact(
-                os.path.join(trainer.log_dir, "checkpoints", "best.ckpt"),
-                "model_checkpoints/best.ckpt",
+            trainer.logger.experiment[0]["model_checkpoints/best.ckpt"].upload(
+                os.path.join(trainer.default_root_dir, "checkpoints", "best.ckpt"),
             )
         except:
+            print(
+                f"No file to upload at {os.path.join(trainer.default_root_dir, 'checkpoints', 'best.ckpt')}"
+            )
             pass
