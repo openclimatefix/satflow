@@ -82,12 +82,14 @@ class BaseModel(pl.LightningModule):
         pretrained: bool = False,
         forecast_steps: int = 48,
         input_channels: int = 12,
+        output_channels: int = 12,
         lr: float = 0.001,
         visualize: bool = False,
     ):
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
+        self.output_channels = output_channels
         self.lr = lr
         self.pretrained = pretrained
         self.visualize = visualize
@@ -114,22 +116,16 @@ class BaseModel(pl.LightningModule):
         # the logger you used (in this case tensorboard)
         tensorboard = self.logger.experiment
         # Timesteps per channel
-        images = x[0].cpu().detach()
+        images = x[0].cpu().detach()  # T, C, H, W
         future_images = y[0].cpu().detach()
         generated_images = y_hat[0].cpu().detach()
         for i, t in enumerate(images):  # Now would be (C, H, W)
             t = [torch.unsqueeze(img, dim=0) for img in t]
             image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
-            tensorboard.add_image(
-                f"{step}/Input_Image_Stack_Frame_{i}", image_grid, global_step=batch_idx
-            )
+            tensorboard.log(f"{step}/Input_Frame_{i}", image_grid, global_step=batch_idx)
             t = [torch.unsqueeze(img, dim=0) for img in future_images[i]]
-            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
-            tensorboard.add_image(
-                f"{step}/Target_Image_Frame_{i}", image_grid, global_step=batch_idx
-            )
+            image_grid = torchvision.utils.make_grid(t, nrow=self.output_channels)
+            tensorboard.log(f"{step}/Target_Frame_{i}", image_grid, global_step=batch_idx)
             t = [torch.unsqueeze(img, dim=0) for img in generated_images[i]]
-            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
-            tensorboard.add_image(
-                f"{step}/Generated_Image_Frame_{i}", image_grid, global_step=batch_idx
-            )
+            image_grid = torchvision.utils.make_grid(t, nrow=self.output_channels)
+            tensorboard.log(f"{step}/Predicted_Frame_{i}", image_grid, global_step=batch_idx)
