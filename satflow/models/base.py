@@ -2,6 +2,8 @@ from typing import Any, Dict, Type
 import torch.nn
 import pytorch_lightning as pl
 import torchvision
+from neptune.new import Run
+from neptune.new.types import File
 
 REGISTERED_MODELS = {}
 
@@ -114,18 +116,28 @@ class BaseModel(pl.LightningModule):
         self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
     ) -> None:
         # the logger you used (in this case tensorboard)
-        tensorboard = self.logger.experiment
+        tensorboard = self.logger.experiment[0]
         # Timesteps per channel
-        images = x[0].cpu().detach()  # T, C, H, W
-        future_images = y[0].cpu().detach()
-        generated_images = y_hat[0].cpu().detach()
+        images = x[0].cpu().detach().float()  # T, C, H, W
+        future_images = y[0].cpu().detach().float()
+        generated_images = y_hat[0].cpu().detach().float()
         for i, t in enumerate(images):  # Now would be (C, H, W)
             t = [torch.unsqueeze(img, dim=0) for img in t]
-            image_grid = torchvision.utils.make_grid(t, nrow=self.input_channels)
-            tensorboard.log(f"{step}/Input_Frame_{i}", image_grid, global_step=batch_idx)
+            image_grid = torchvision.utils.make_grid(
+                t, nrow=self.input_channels // 2, normalize=True
+            )
+            # Neptune needs it to be H x W x C, so have to permute
+            image_grid = image_grid.permute(1, 2, 0)
+            tensorboard[f"{step}/Input_Frame_{i}"].log(File.as_image(image_grid.numpy()))
             t = [torch.unsqueeze(img, dim=0) for img in future_images[i]]
-            image_grid = torchvision.utils.make_grid(t, nrow=self.output_channels)
-            tensorboard.log(f"{step}/Target_Frame_{i}", image_grid, global_step=batch_idx)
+            image_grid = torchvision.utils.make_grid(
+                t, nrow=self.output_channels // 2, normalize=True
+            )
+            image_grid = image_grid.permute(1, 2, 0)
+            tensorboard[f"{step}/Target_Frame_{i}"].log(File.as_image(image_grid.numpy()))
             t = [torch.unsqueeze(img, dim=0) for img in generated_images[i]]
-            image_grid = torchvision.utils.make_grid(t, nrow=self.output_channels)
-            tensorboard.log(f"{step}/Predicted_Frame_{i}", image_grid, global_step=batch_idx)
+            image_grid = torchvision.utils.make_grid(
+                t, nrow=self.output_channels // 2, normalize=True
+            )
+            image_grid = image_grid.permute(1, 2, 0)
+            tensorboard[f"{step}/Predicted_Frame_{i}"].log(File.as_image(image_grid.numpy()))
