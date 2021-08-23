@@ -1,7 +1,6 @@
 from perceiver_pytorch import PerceiverIO
 import torch
-import pytorch_lightning as pl
-import torchvision
+import numpy as np
 from typing import List, Iterable, Dict, Optional, Any
 from satflow.models.base import register_model, BaseModel
 from math import pi, log
@@ -184,6 +183,8 @@ class Perceiver(BaseModel):
         # For each future timestep:
         predictions = []
         query = self.construct_query(x)
+        if self.visualize:
+            vis_x = x.cpu()
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
             x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
@@ -193,6 +194,12 @@ class Perceiver(BaseModel):
         y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
         if self.postprocessor is not None:
             y_hat = self.postprocessor(y_hat)
+        if self.visualize:
+            # Only visualize sometimes
+            if np.random.random() < 0.01:
+                self.visualize_step(
+                    vis_x, y, y_hat, batch_idx, step=f"{'train' if is_training else 'val'}"
+                )
         loss = self.criterion(y, y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
         frame_loss_dict = {}
