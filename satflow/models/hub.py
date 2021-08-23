@@ -84,6 +84,6 @@ def load_model_config_from_hf(model_id: str):
 
 def load_state_dict_from_hf(model_id: str):
     assert has_hf_hub(True)
-    cached_file = _download_from_hf(model_id, "pytorch_model.bin")
+    cached_file = _download_from_hf(model_id, "pytorch_model.pth")
     state_dict = torch.load(cached_file, map_location="cpu")
     return state_dict
