@@ -2,8 +2,17 @@ from typing import Any, Dict, Type
 import torch.nn
 import pytorch_lightning as pl
 import torchvision
-from neptune.new import Run
 from neptune.new.types import File
+from satflow.models.hub import load_model_config_from_hf
+
+try:
+    from huggingface_hub import hf_hub_url
+
+    _HF_AVAILABLE = True
+except:
+    print("Warning: HuggingFace Hub is not installed, so being able to pull from Hub is disabled")
+    _HF_AVAILABLE = False
+    pass
 
 REGISTERED_MODELS = {}
 
@@ -28,7 +37,7 @@ def split_model_name(model_name):
         return "", model_split[0]
     else:
         source_name, model_name = model_split
-        assert source_name in ("timm", "hf_hub")
+        assert source_name in ("satflow", "hf_hub")
         return source_name, model_name
 
 
@@ -65,6 +74,12 @@ def create_model(model_name, pretrained=False, checkpoint_path="", **kwargs):
     # should default to None in command line args/cfg. Remove them if they are present and not set so that
     # non-supporting models don't break and default args remain in effect.
     kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
+    if source_name == "hf_hub":
+        # For model names specified in the form `hf_hub:path/architecture_name#revision`,
+        # load model weights + default_cfg from Hugging Face hub.
+        hf_default_cfg, model_name = load_model_config_from_hf(model_name)
+        kwargs["external_default_cfg"] = hf_default_cfg
 
     if model_name in REGISTERED_MODELS:
         model = get_model(model_name)(pretrained=pretrained, **kwargs)
