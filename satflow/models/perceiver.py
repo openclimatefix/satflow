@@ -196,8 +196,8 @@ class Perceiver(BaseModel):
         if self.postprocessor is not None:
             y_hat = self.postprocessor(y_hat)
         if self.visualize:
-            # Only visualize sometimes
-            if np.random.random() < 0.01:
+            # Only visualize the second batch of train/val
+            if batch_idx == 1:
                 self.visualize_step(
                     vis_x, y, y_hat, batch_idx, step=f"{'train' if is_training else 'val'}"
                 )
