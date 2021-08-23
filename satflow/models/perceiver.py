@@ -55,6 +55,7 @@ class Perceiver(BaseModel):
         self.pretrained = pretrained
         self.visualize = visualize
         self.sat_channels = sat_channels
+        self.output_channels = sat_channels
         self.criterion = get_loss(loss)
 
         # Warn if using frequency is smaller than Nyquist Frequency
@@ -204,7 +205,7 @@ class Perceiver(BaseModel):
         self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss = self.criterion(y_hat[:, f, :, :, :], y[:, f, :, :, :]).item()
             frame_loss_dict[f"{'train' if is_training else 'val'}/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
         return loss
@@ -282,7 +283,7 @@ class MultiPerceiverSat(torch.nn.Module):
             forecast_steps: Number of forecast steps to make
             **kwargs:
         """
-        super().__init__()
+        super(MultiPerceiverSat, self).__init__()
         self.fourier_encode_data = fourier_encode_data
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
