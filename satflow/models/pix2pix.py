@@ -29,6 +29,7 @@ class Pix2Pix(pl.LightningModule):
         lr_epochs: int = 10,
         lambda_l1: float = 100.0,
         channels_per_timestep: int = 12,
+        pretrained: bool = False,
     ):
         super().__init__()
         self.lr = lr

@@ -19,6 +19,7 @@ class RUnet(pl.LightningModule):
         lr: float = 0.001,
         visualize: bool = False,
         conv_type: str = "standard",
+        pretrained: bool = False,
     ):
         self.input_channels = input_channels
         self.forecast_steps = forecast_steps

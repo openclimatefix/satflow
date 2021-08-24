@@ -17,6 +17,7 @@ class AttentionUnet(pl.LightningModule):
         lr: float = 0.001,
         visualize: bool = False,
         conv_type: str = "standard",
+        pretrained: bool = False,
     ):
         super().__init__()
         self.lr = lr
