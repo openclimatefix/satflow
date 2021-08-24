@@ -5,15 +5,6 @@ import torchvision
 from neptune.new.types import File
 from satflow.models.hub import load_model_config_from_hf
 
-try:
-    from huggingface_hub import hf_hub_url
-
-    _HF_AVAILABLE = True
-except:
-    print("Warning: HuggingFace Hub is not installed, so being able to pull from Hub is disabled")
-    _HF_AVAILABLE = False
-    pass
-
 REGISTERED_MODELS = {}
 
 
@@ -79,7 +70,8 @@ def create_model(model_name, pretrained=False, checkpoint_path="", **kwargs):
         # For model names specified in the form `hf_hub:path/architecture_name#revision`,
         # load model weights + default_cfg from Hugging Face hub.
         hf_default_cfg, model_name = load_model_config_from_hf(model_name)
-        kwargs["external_default_cfg"] = hf_default_cfg
+        # Want to set the kwargs to correct values
+        kwargs.update(hf_default_cfg)
 
     if model_name in REGISTERED_MODELS:
         model = get_model(model_name)(pretrained=pretrained, **kwargs)
