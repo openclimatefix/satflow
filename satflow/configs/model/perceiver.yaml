@@ -1,6 +1,6 @@
 # @package _group_
 _target_: satflow.models.perceiver.Perceiver
-input_channels: 12
+input_channels: 16
 sat_channels: 12
 forecast_steps: 12
 lr: 0.0005
