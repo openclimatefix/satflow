@@ -87,3 +87,36 @@ def load_state_dict_from_hf(model_id: str):
     cached_file = _download_from_hf(model_id, "pytorch_model.pth")
     state_dict = torch.load(cached_file, map_location="cpu")
     return state_dict
+
+
+def load_pretrained(model, default_cfg=None, in_chans=12, strict=True):
+    """Load pretrained checkpoint
+
+    Taken from https://github.com/rwightman/pytorch-image-models/blob/acd6c687fd1c0507128f0ce091829b233c8560b9/timm/models/helpers.py
+
+    Args:
+        model (nn.Module) : PyTorch model module
+        default_cfg (Optional[Dict]): default configuration for pretrained weights / target dataset
+        in_chans (int): in_chans for model
+        strict (bool): strict load of checkpoint
+    """
+    default_cfg = default_cfg or getattr(model, "default_cfg", None) or {}
+    pretrained_path = default_cfg.get("checkpoint_path", None)
+    hf_hub_id = default_cfg.get("hf_hub", None)
+    if not pretrained_path and not hf_hub_id:
+        _logger.warning("No pretrained weights exist for this model. Using random initialization.")
+        return
+    if hf_hub_id and has_hf_hub(necessary=not pretrained_path):
+        _logger.info(f"Loading pretrained weights from Hugging Face hub ({hf_hub_id})")
+        state_dict = load_state_dict_from_hf(hf_hub_id)
+    else:
+        state_dict = torch.load(pretrained_path, map_location="cpu")
+
+    input_convs = default_cfg.get("first_conv", None)
+    if input_convs is not None and in_chans != default_cfg.get("input_channels", None):
+        strict = False
+        _logger.warning(
+            f"Unable to convert pretrained weights because of mismatch in input channels, using random init for first layer."
+        )
+
+    model.load_state_dict(state_dict, strict=strict)

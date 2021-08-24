@@ -3,7 +3,7 @@ import torch.nn
 import pytorch_lightning as pl
 import torchvision
 from neptune.new.types import File
-from satflow.models.hub import load_model_config_from_hf
+from satflow.models.hub import load_model_config_from_hf, load_pretrained
 
 REGISTERED_MODELS = {}
 
@@ -46,7 +46,7 @@ def safe_model_name(model_name, remove_source=True):
     return make_safe(model_name)
 
 
-def create_model(model_name, pretrained=False, checkpoint_path="", **kwargs):
+def create_model(model_name, pretrained=False, checkpoint_path=None, **kwargs):
     """Create a model
 
     Almost entirely taken from timm https://github.com/rwightman/pytorch-image-models
@@ -77,19 +77,21 @@ def create_model(model_name, pretrained=False, checkpoint_path="", **kwargs):
         hf_default_cfg, model_name = load_model_config_from_hf(model_name)
         # Want to set the kwargs to correct values
         # Should ignore this after we get it in the model_name
-        # TODO Change models to load using this ID
-        hf_default_cfg.pop("hf_hub")
-        hf_default_cfg.pop("architecture")
         kwargs.update(hf_default_cfg)
+        kwargs.pop("hf_hub")
+        kwargs.pop("architecture")
 
     if model_name in REGISTERED_MODELS:
         model = get_model(model_name)(pretrained=pretrained, **kwargs)
     else:
         raise RuntimeError("Unknown model (%s)" % model_name)
 
-    if checkpoint_path:
-        state_dict = torch.load(checkpoint_path, map_location="cpu")
-        model.load_state_dict(state_dict)
+    if checkpoint_path or pretrained:
+        kwargs["checkpoint_path"] = checkpoint_path
+        # Readd hf_hub here
+        if source_name == "hf_hub":
+            kwargs["hf_hub"] = hf_default_cfg.get("hf_hub")
+        load_pretrained(model, default_cfg=kwargs, in_chans=kwargs["input_channels"])
 
     return model
 
