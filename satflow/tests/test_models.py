@@ -92,3 +92,13 @@ def test_create_model(model_name):
     # TODO Load options from all configs and make sure they work
     model = create_model(model_name)
     pass
+
+
+def test_load_hf():
+    """
+    Current only HF model is PerceiverIO, change in future to do all ones
+    Returns:
+
+    """
+    model = create_model("hf_hub:jacobbieker/Perceiver")
+    pass

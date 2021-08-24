@@ -76,6 +76,10 @@ def create_model(model_name, pretrained=False, checkpoint_path="", **kwargs):
         # load model weights + default_cfg from Hugging Face hub.
         hf_default_cfg, model_name = load_model_config_from_hf(model_name)
         # Want to set the kwargs to correct values
+        # Should ignore this after we get it in the model_name
+        # TODO Change models to load using this ID
+        hf_default_cfg.pop("hf_hub")
+        hf_default_cfg.pop("architecture")
         kwargs.update(hf_default_cfg)
 
     if model_name in REGISTERED_MODELS:
