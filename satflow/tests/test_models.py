@@ -49,7 +49,7 @@ def test_nowcasting_gan_creation():
 
 
 def test_metnet_creation():
-    config = load_config("/home/jacob/Development/satflow/satflow/configs/model/metnet.yaml")
+    config = load_config("satflow/configs/model/metnet.yaml")
     config.pop("_target_")  # This is only for Hydra
     model = MetNet(**config)
     # MetNet expects original HxW to be 4x the input size
