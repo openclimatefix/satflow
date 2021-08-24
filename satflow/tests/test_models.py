@@ -49,10 +49,13 @@ def test_nowcasting_gan_creation():
 
 
 def test_metnet_creation():
-    config = load_config("satflow/configs/model/metnet.yaml")
+    config = load_config("/home/jacob/Development/satflow/satflow/configs/model/metnet.yaml")
     config.pop("_target_")  # This is only for Hydra
     model = MetNet(**config)
-    x = torch.randn((2, 12, config["input_channels"], config["input_size"], config["input_size"]))
+    # MetNet expects original HxW to be 4x the input size
+    x = torch.randn(
+        (2, 12, config["input_channels"], config["input_size"] * 4, config["input_size"] * 4)
+    )
     model.eval()
     with torch.no_grad():
         out = model(x)
