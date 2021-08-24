@@ -22,6 +22,11 @@ def get_model(name: str) -> Type[pl.LightningModule]:
     return REGISTERED_MODELS[name]
 
 
+def list_models():
+    global REGISTERED_MODELS
+    return REGISTERED_MODELS.keys()
+
+
 def split_model_name(model_name):
     model_split = model_name.split(":", 1)
     if len(model_split) == 1:
