@@ -21,12 +21,12 @@ class RUnet(pl.LightningModule):
         conv_type: str = "standard",
         pretrained: bool = False,
     ):
+        super().__init__()
         self.input_channels = input_channels
         self.forecast_steps = forecast_steps
         self.module = R2U_Net(
             img_ch=input_channels, output_ch=forecast_steps, t=recurrent_steps, conv_type=conv_type
         )
-        super().__init__()
         self.lr = lr
         self.input_channels = input_channels
         self.forecast_steps = forecast_steps
