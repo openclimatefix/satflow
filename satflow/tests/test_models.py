@@ -33,6 +33,7 @@ def test_perceiver_creation():
         config["sat_channels"] * config["input_size"],
         config["input_size"],
     )
+    assert not torch.isnan(out).any(), "Output included NaNs"
 
 
 def test_nowcasting_gan_creation():
@@ -53,6 +54,7 @@ def test_nowcasting_gan_creation():
         config["output_shape"],
         config["output_shape"],
     )
+    assert not torch.isnan(out).any(), "Output included NaNs"
 
 
 def test_metnet_creation():
@@ -74,6 +76,7 @@ def test_metnet_creation():
         config["input_size"] // 4,
         config["input_size"] // 4,
     )
+    assert not torch.isnan(out).any(), "Output included NaNs"
 
 
 @pytest.mark.parametrize("model_name", list_models())
