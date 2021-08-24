@@ -1,6 +1,6 @@
 import numpy as np
 from satflow.models import MetNet, Perceiver, NowcastingGAN
-from satflow.models.base import list_models
+from satflow.models.base import list_models, create_model
 import yaml
 import torch
 import pytest
@@ -86,4 +86,6 @@ def test_create_model(model_name):
     Returns:
 
     """
+    # TODO Load options from all configs and make sure they work
+    model = create_model(model_name)
     pass
