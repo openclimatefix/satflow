@@ -106,6 +106,7 @@ class AttentionRUnet(pl.LightningModule):
         visualize: bool = False,
         loss: Union[str, torch.nn.Module] = "mse",
         lr: float = 0.001,
+        pretrained: bool = False,
     ):
         super().__init__()
         self.lr = lr
