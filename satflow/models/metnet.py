@@ -75,7 +75,7 @@ class MetNet(BaseModel):
         )
         self.loss = loss
         self.preprocessor = MetNetPreprocessor(
-            sat_channels=sat_channels, crop_size=input_size, use_space2depth=True
+            sat_channels=sat_channels, crop_size=input_size, use_space2depth=True, split_input=True
         )
         # Update number of input_channels with output from MetNetPreprocessor
         new_channels = sat_channels * 4  # Space2Depth
