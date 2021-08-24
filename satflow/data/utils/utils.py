@@ -4,10 +4,16 @@ import re
 
 import affine
 import numpy as np
-import numpy.lib
 import yaml
-from pyresample import load_area
-from satpy import Scene
+
+try:
+    from pyresample import load_area
+    from satpy import Scene
+
+    _SAT_LIBS = True
+except:
+    print("No pyresample or satpy")
+    _SAT_LIBS = False
 
 
 def eumetsat_filename_to_datetime(inner_tar_name):
@@ -70,6 +76,8 @@ def map_satellite_to_mercator(
     :param save_loc: Save location
     :return:
     """
+    if not _SAT_LIBS:
+        raise EnvironmentError("Pyresample or Satpy are not installed, please install them first")
     areas = load_area("/home/bieker/Development/satflow/satflow/resources/areas.yaml")
     filenames = {}
     if native_satellite is not None:
