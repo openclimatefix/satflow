@@ -32,6 +32,7 @@ class CloudGAN(pl.LightningModule):
         l1_loss: str = "l1",
         channels_per_timestep: int = 12,
         condition_time: bool = False,
+        pretrained: bool = False,
     ):
         """
         Creates CloudGAN, based off of https://www.climatechange.ai/papers/icml2021/54

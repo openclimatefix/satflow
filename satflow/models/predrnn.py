@@ -148,7 +148,7 @@ class RNN(nn.Module):
 
 @register_model
 class PredRNN(pl.LightningModule):
-    def __init__(self, num_layers, num_hidden, configs):
+    def __init__(self, num_layers, num_hidden, configs, pretrained: bool = False):
         super().__init__()
         self.configs = configs
 
