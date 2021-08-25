@@ -126,8 +126,7 @@ def load_pretrained(model, default_cfg=None, in_chans=12, strict=True):
             model.load_from_checkpoint(pretrained_path, **default_cfg)
             return model
         state_dict = torch.load(pretrained_path, map_location="cpu")
-    input_convs = default_cfg.get("first_conv", None)
-    if input_convs is not None and in_chans != default_cfg.get("input_channels", None):
+    if in_chans != default_cfg.get("input_channels", None):
         strict = False
         _logger.warning(
             f"Unable to convert pretrained weights because of mismatch in input channels, using random init for first layer."
