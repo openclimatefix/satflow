@@ -100,7 +100,7 @@ def test_load_hf():
     Returns:
 
     """
-    model = create_model("hf_hub:jacobbieker/Perceiver")
+    model = create_model("hf_hub:openclimatefix/perceiver-io")
     pass
 
 
@@ -110,5 +110,5 @@ def test_load_hf_pretrained():
     Returns:
 
     """
-    model = create_model("hf_hub:jacobbieker/Perceiver", pretrained=True)
+    model = create_model("hf_hub:openclimatefix/perceiver-io", pretrained=True)
     pass

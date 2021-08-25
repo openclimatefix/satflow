@@ -25,7 +25,7 @@ hydra:
     direction: minimize
 
     # number of experiments that will be executed
-    n_trials: 20
+    n_trials: 50
 
     # choose Optuna hyperparameter sampler
     # learn more here: https://optuna.readthedocs.io/en/stable/reference/samplers.html
@@ -56,3 +56,9 @@ hydra:
       model.hidden_dim:
         type: categorical
         choices: [8, 16, 32, 64]
+      model.num_layers:
+        type: categorical
+        choices: [1, 2]
+      model.num_att_layers:
+        type: categorical
+        choices: [1, 2]

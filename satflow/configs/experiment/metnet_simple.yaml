@@ -17,9 +17,9 @@ seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 10
+  max_epochs: 10 # Warmup is the first 10 epochs
   min_steps: 200
-  max_steps: 20000
+  max_steps: 200000
   limit_train_batches: 500
   limit_val_batches: 1000
-  limit_test_batches: 1000
+  limit_test_batches: 100
