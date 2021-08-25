@@ -111,6 +111,9 @@ def load_pretrained(model, default_cfg=None, in_chans=12, strict=True):
     default_cfg = default_cfg or getattr(model, "default_cfg", None) or {}
     pretrained_path = default_cfg.pop("checkpoint_path", None)
     hf_hub_id = default_cfg.pop("hf_hub", None)
+    if not is_lightning_module:
+        # The model is passed uninitialized, so if not having to do the PL thing, should initialize here
+        model = model(**default_cfg)
     if not pretrained_path and not hf_hub_id:
         _logger.warning("No pretrained weights exist for this model. Using random initialization.")
         return model

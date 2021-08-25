@@ -91,8 +91,10 @@ def create_model(model_name, pretrained=False, checkpoint_path=None, **kwargs):
         # Readd hf_hub here
         if source_name == "hf_hub":
             kwargs["hf_hub"] = hf_default_cfg.get("hf_hub")
-        load_pretrained(model, default_cfg=kwargs, in_chans=kwargs["input_channels"])
-
+        model = load_pretrained(model, default_cfg=kwargs, in_chans=kwargs["input_channels"])
+    else:
+        # Initialize model here as LightingModules need a special way of loading checkpoints, this initializes randomly
+        model = model(**kwargs)
     return model
 
 
