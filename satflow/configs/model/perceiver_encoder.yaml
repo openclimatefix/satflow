@@ -1,4 +1,3 @@
-# @package _group_
 _target_: satflow.models.perceiver.Perceiver
 input_channels: 12
 sat_channels: 12

@@ -1,4 +1,3 @@
-# @package _group_
 _target_: satflow.models.nowcasting_gan.NowcastingGAN
 forecast_steps: 12
 input_channels: 1

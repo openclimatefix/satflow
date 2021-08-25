@@ -18,7 +18,7 @@ hydra:
   sweeper:
     _target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
     storage: null
-    study_name: metnet
+    study_name: perceiver
     n_jobs: 1
 
     # 'minimize' or 'maximize' the objective
@@ -56,12 +56,34 @@ hydra:
         type: float
         low: 0.0001
         high: 0.2
-      model.hidden_dim:
+      model.depth:
         type: categorical
-        choices: [8, 16, 32, 64]
-      model.num_layers:
-        type: categorical
-        choices: [1, 2]
-      model.num_att_layers:
+        choices: [6, 4, 8, 2]
+      model.cross_heads:
         type: categorical
         choices: [1, 2]
+      model.latent_heads:
+        type: categorical
+        choices: [2, 4, 8, 16]
+      model.cross_dim_heads:
+        type: categorical
+        choices: [1, 2, 4, 8]
+      model.self_per_cross_attention:
+        type: categorical
+        choices: [1, 2, 4, 8]
+      model.num_latents:
+        type: categorical
+        choices: [64, 128, 256, 512, 1024]
+      model.latent_dim:
+        type: categorical
+        choices: [64, 128, 256, 512, 1024]
+      model.max_frequency:
+        type: float
+        low: 2.0
+        high: 32.0
+      model.weight_tie_layers:
+        type: categorical
+        choices: [false, true]
+      model.preprocessor_type:
+        type: categorical
+        choices: ["metnet"]
