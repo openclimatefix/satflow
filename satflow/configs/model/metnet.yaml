@@ -1,8 +1,8 @@
 # @package _group_
 _target_: satflow.models.metnet.MetNet
-input_channels: 17
+input_channels: 16
 output_channels: 12
-sat_channels: 13
+sat_channels: 12
 input_size: 64
 hidden_dim: 32
 forecast_steps: 24
