@@ -17,6 +17,7 @@ class SatFlowDataModule(pl.LightningDataModule):
         data_dir: str = "./",
         num_workers: int = 1,
         pin_memory: bool = True,
+        prefetch_factor: int = 2,
     ):
         super().__init__()
         self.data_dir = data_dir
@@ -26,6 +27,7 @@ class SatFlowDataModule(pl.LightningDataModule):
         self.sources = sources
         self.num_workers = num_workers
         self.pin_memory = pin_memory
+        self.prefetch_factor = prefetch_factor
 
         self.training_dataloader_ref = None
 
@@ -50,6 +52,7 @@ class SatFlowDataModule(pl.LightningDataModule):
                     batch_size=self.batch_size,
                     pin_memory=self.pin_memory,
                     num_workers=self.num_workers,
+                    prefetch_factor=self.prefetch_factor,
                 )
                 self.training_dataloader_ref = training_dataloader
 
@@ -67,6 +70,7 @@ class SatFlowDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
+            prefetch_factor=self.prefetch_factor,
         )
 
     def test_dataloader(self):
@@ -75,6 +79,7 @@ class SatFlowDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
             num_workers=self.num_workers,
+            prefetch_factor=self.prefetch_factor,
         )
 
 
