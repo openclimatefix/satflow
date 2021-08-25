@@ -159,10 +159,10 @@ class MetNet(BaseModel):
         y_hat = self(x)
 
         if self.visualize:
-            if np.random.random() < 0.01:
-                self.visualize_step(x, y, y_hat, batch_idx)
+            if batch_idx == 1:
+                self.visualize_step(x, y, y_hat, batch_idx, step="train" if is_training else "val")
         loss = self.criterion(y_hat, y)
-        self.log(f"{'train' if is_training else 'val'}/loss", loss)
+        self.log(f"{'train' if is_training else 'val'}/loss", loss, prog_bar=True)
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
             frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
@@ -172,8 +172,7 @@ class MetNet(BaseModel):
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        y = torch.squeeze(y)
-        loss = F.mse_loss(y_hat, y)
+        loss = self.criterion(y_hat, y)
         return loss
 
 

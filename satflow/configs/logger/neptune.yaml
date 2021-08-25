@@ -6,4 +6,4 @@ neptune:
   project: OpenClimateFix/forecasting-satellite-images
   close_after_fit: False
   prefix: ""
-  name: "MetNet-Sat"
+  name: "Sat"
