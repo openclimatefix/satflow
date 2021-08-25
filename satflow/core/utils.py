@@ -139,6 +139,8 @@ def print_config(
         "model",
         "datamodule",
         "callbacks",
+        "logger",
+        "hparams_search"
         # "logger",
         # "seed",
     ),

@@ -6,7 +6,7 @@ defaults:
   - model: nowcasting_gan.yaml
   - datamodule: nowcasting_gan_hrv.yaml
   - callbacks: default.yaml # set this to null if you don't want to use callbacks
-  - logger: null # set logger here or use command line (e.g. `python run.py logger=wandb`)
+  - logger: neptune.yaml # set logger here or use command line (e.g. `python run.py logger=wandb`)
 
   - experiment: null
   - hparams_search: null
@@ -14,8 +14,8 @@ defaults:
   - hydra: default.yaml
 
   # enable color logging
-  # - override hydra/hydra_logging: colorlog
-  # - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+  - override hydra/job_logging: colorlog
 
 # path to original working directory
 # hydra hijacks working directory by changing it to the current log directory,

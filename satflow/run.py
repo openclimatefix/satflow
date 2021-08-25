@@ -1,3 +1,6 @@
+import os
+
+os.environ["HYDRA_FULL_ERROR"] = "1"
 import dotenv
 import hydra
 from omegaconf import DictConfig

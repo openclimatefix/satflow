@@ -1,4 +1,3 @@
-# @package _group_
 _target_: satflow.models.metnet.MetNet
 input_channels: 16
 output_channels: 12
