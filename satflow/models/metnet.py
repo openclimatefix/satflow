@@ -10,7 +10,6 @@ from satflow.models.layers import ConvGRU2, TimeDistributed, ConditionTime, MetN
 from axial_attention import AxialAttention
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 import numpy as np
-import torchvision
 import antialiased_cnns
 
 
