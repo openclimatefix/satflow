@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from functools import partial
-from typing import Union
+from typing import Union, Optional
 
 import pytorch_lightning
 import torch
@@ -96,7 +96,12 @@ def cache_file_from_hf(model_id: str):
     return cached_file
 
 
-def load_pretrained(model, default_cfg=None, in_chans=12, strict=True):
+def load_pretrained(
+    model: Union[torch.nn.Module, pytorch_lightning.LightningModule],
+    default_cfg: Optional[dict] = None,
+    in_chans: int = 12,
+    strict: bool = True,
+) -> Union[torch.nn.Module, pytorch_lightning.LightningModule]:
     """Load pretrained checkpoint
 
     Taken from https://github.com/rwightman/pytorch-image-models/blob/acd6c687fd1c0507128f0ce091829b233c8560b9/timm/models/helpers.py
@@ -111,6 +116,11 @@ def load_pretrained(model, default_cfg=None, in_chans=12, strict=True):
     default_cfg = default_cfg or getattr(model, "default_cfg", None) or {}
     pretrained_path = default_cfg.pop("checkpoint_path", None)
     hf_hub_id = default_cfg.pop("hf_hub", None)
+    if in_chans != default_cfg.get("input_channels", None):
+        strict = False
+        _logger.warning(
+            f"Unable to convert pretrained weights because of mismatch in input channels, using random init for first layer."
+        )
     if not is_lightning_module:
         # The model is passed uninitialized, so if not having to do the PL thing, should initialize here
         model = model(**default_cfg)
@@ -121,19 +131,14 @@ def load_pretrained(model, default_cfg=None, in_chans=12, strict=True):
         _logger.info(f"Loading pretrained weights from Hugging Face hub ({hf_hub_id})")
         if is_lightning_module:
             checkpoint = cache_file_from_hf(hf_hub_id)
-            model.load_from_checkpoint(checkpoint, **default_cfg)
+            model.load_from_checkpoint(checkpoint, strict=strict, **default_cfg)
             return model
         state_dict = load_state_dict_from_hf(hf_hub_id)
     else:
         if is_lightning_module:
-            model.load_from_checkpoint(pretrained_path, **default_cfg)
+            model.load_from_checkpoint(pretrained_path, strict=strict, **default_cfg)
             return model
         state_dict = torch.load(pretrained_path, map_location="cpu")
-    if in_chans != default_cfg.get("input_channels", None):
-        strict = False
-        _logger.warning(
-            f"Unable to convert pretrained weights because of mismatch in input channels, using random init for first layer."
-        )
 
     model.load_state_dict(state_dict, strict=strict)
     return model
