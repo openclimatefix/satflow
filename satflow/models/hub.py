@@ -97,7 +97,7 @@ def cache_file_from_hf(model_id: str):
 
 
 def load_pretrained(
-    model: Union[torch.nn.Module, pytorch_lightning.LightningModule],
+    model,
     default_cfg: Optional[dict] = None,
     in_chans: int = 12,
     strict: bool = True,
