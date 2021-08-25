@@ -11,6 +11,14 @@ def load_config(config_file):
         return yaml.load(cfg, Loader=yaml.FullLoader)
 
 
+TRAIN_SOURCES = {
+    "train": "satflow-test.tar",
+    "val": "satflow-test.tar",
+    "test": "satflow-test.tar",
+}
+DATA_DIR = "datasets/"
+
+
 def test_metnet_e2e():
     config = load_config("satflow/configs/model/metnet.yaml")
     config.pop("_target_")  # This is only for Hydra
@@ -18,6 +26,8 @@ def test_metnet_e2e():
 
     data_config = load_config("satflow/configs/datamodule/metnet.yaml")
     data_config.pop("_target_")
+    data_config["sources"] = TRAIN_SOURCES
+    data_config["data_dir"] = DATA_DIR
     datamodule = SatFlowDataModule(**data_config)
     datamodule.setup()
     x, y = next(iter(datamodule.train_dataloader()))
