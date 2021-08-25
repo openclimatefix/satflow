@@ -102,3 +102,13 @@ def test_load_hf():
     """
     model = create_model("hf_hub:jacobbieker/Perceiver")
     pass
+
+
+def test_load_hf_pretrained():
+    """
+    Current only HF model is PerceiverIO, change in future to do all ones
+    Returns:
+
+    """
+    model = create_model("hf_hub:jacobbieker/Perceiver", pretrained=True)
+    pass

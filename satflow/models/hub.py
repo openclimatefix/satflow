@@ -8,6 +8,7 @@ import os
 from functools import partial
 from typing import Union
 
+import pytorch_lightning
 import torch
 
 try:
@@ -89,29 +90,42 @@ def load_state_dict_from_hf(model_id: str):
     return state_dict
 
 
+def cache_file_from_hf(model_id: str):
+    assert has_hf_hub(True)
+    cached_file = _download_from_hf(model_id, "pytorch_model.pth")
+    return cached_file
+
+
 def load_pretrained(model, default_cfg=None, in_chans=12, strict=True):
     """Load pretrained checkpoint
 
     Taken from https://github.com/rwightman/pytorch-image-models/blob/acd6c687fd1c0507128f0ce091829b233c8560b9/timm/models/helpers.py
 
     Args:
-        model (nn.Module) : PyTorch model module
+        model (nn.Module) : PyTorch model module, or LightningModule
         default_cfg (Optional[Dict]): default configuration for pretrained weights / target dataset
         in_chans (int): in_chans for model
         strict (bool): strict load of checkpoint
     """
+    is_lightning_module = issubclass(model, pytorch_lightning.LightningModule)
     default_cfg = default_cfg or getattr(model, "default_cfg", None) or {}
-    pretrained_path = default_cfg.get("checkpoint_path", None)
-    hf_hub_id = default_cfg.get("hf_hub", None)
+    pretrained_path = default_cfg.pop("checkpoint_path", None)
+    hf_hub_id = default_cfg.pop("hf_hub", None)
     if not pretrained_path and not hf_hub_id:
         _logger.warning("No pretrained weights exist for this model. Using random initialization.")
-        return
+        return model
     if hf_hub_id and has_hf_hub(necessary=not pretrained_path):
         _logger.info(f"Loading pretrained weights from Hugging Face hub ({hf_hub_id})")
+        if is_lightning_module:
+            checkpoint = cache_file_from_hf(hf_hub_id)
+            model.load_from_checkpoint(checkpoint, **default_cfg)
+            return model
         state_dict = load_state_dict_from_hf(hf_hub_id)
     else:
+        if is_lightning_module:
+            model.load_from_checkpoint(pretrained_path, **default_cfg)
+            return model
         state_dict = torch.load(pretrained_path, map_location="cpu")
-
     input_convs = default_cfg.get("first_conv", None)
     if input_convs is not None and in_chans != default_cfg.get("input_channels", None):
         strict = False
@@ -120,3 +134,4 @@ def load_pretrained(model, default_cfg=None, in_chans=12, strict=True):
         )
 
     model.load_state_dict(state_dict, strict=strict)
+    return model

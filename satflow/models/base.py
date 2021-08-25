@@ -82,7 +82,7 @@ def create_model(model_name, pretrained=False, checkpoint_path=None, **kwargs):
         kwargs.pop("architecture")
 
     if model_name in REGISTERED_MODELS:
-        model = get_model(model_name)(pretrained=pretrained, **kwargs)
+        model = get_model(model_name)
     else:
         raise RuntimeError("Unknown model (%s)" % model_name)
 
