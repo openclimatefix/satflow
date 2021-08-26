@@ -17,5 +17,5 @@ dim: 32
 logits_dim: null
 queries_dim: 32
 latent_dim_heads: 64
-visualize: True
+visualize: False
 preprocessor_type: "metnet"
