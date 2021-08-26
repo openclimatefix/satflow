@@ -1,6 +1,6 @@
 _target_: satflow.data.datamodules.SatFlowDataModule
 
-batch_size: 8
+batch_size: 4
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 shuffle: 0
 sources:
@@ -14,7 +14,7 @@ config:
   visualize: False
   num_timesteps: 3
   skip_timesteps: 1
-  forecast_times: 24
+  forecast_times: 12
   output_shape: 128
   output_target: 32
   target_type: "cloudmask"
