@@ -7,6 +7,23 @@ import os
 from glob import glob
 
 
+def is_streaming(pattern):
+    """
+    Determine whether Webdataset is being streamed in or not
+
+    Very simple for now and kinda hacky
+    Args:
+        pattern:
+
+    Returns:
+
+    """
+    if "pipe" in pattern:
+        return True
+    else:
+        return False
+
+
 class SatFlowDataModule(pl.LightningDataModule):
     def __init__(
         self,
@@ -38,8 +55,16 @@ class SatFlowDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None):
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            train_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["train"]))
-            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"]))
+            train_dset = wds.WebDataset(
+                self.sources["train"]
+                if is_streaming(self.sources["train"])
+                else os.path.join(self.data_dir, self.sources["train"])
+            )
+            val_dset = wds.WebDataset(
+                self.sources["val"]
+                if is_streaming(self.sources["val"])
+                else os.path.join(self.data_dir, self.sources["val"])
+            )
             if self.shuffle > 0:
                 # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
                 train_dset = train_dset.shuffle(self.shuffle)
@@ -58,7 +83,11 @@ class SatFlowDataModule(pl.LightningDataModule):
 
         # Assign test dataset for use in dataloader(s)
         if stage == "test" or stage is None:
-            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"]))
+            test_dset = wds.WebDataset(
+                self.sources["test"]
+                if is_streaming(self.sources["test"])
+                else os.path.join(self.data_dir, self.sources["test"])
+            )
             self.test_dataset = SatFlowDataset([test_dset], config=self.config, train=False)
 
     def train_dataloader(self):
