@@ -373,7 +373,6 @@ class MultiPerceiverSat(torch.nn.Module):
             # concat to channels of data and flatten axis
             data = rearrange(data, "b ... d -> b (...) d")
             logger.debug(f"{modality_name} Size: {data.size()}")
-            print(f"{modality_name} Size: {data.size()}")
             linearized_data.append(data)
 
         # Concatenate all the modalities:
