@@ -1,6 +1,6 @@
 _target_: satflow.data.datamodules.SatFlowDataModule
 
-batch_size: 2
+batch_size: 8
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 shuffle: 0
 sources:

@@ -1,6 +1,6 @@
 _target_: satflow.data.datamodules.SatFlowDataModule
 
-batch_size: 2
+batch_size: 8
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 shuffle: 0
 sources:
@@ -9,6 +9,7 @@ sources:
   test: "pipe:aws s3 cp s3://solar-pv-nowcasting-data/webdataset/satflow-test-{00000..00057}.tar -"
 num_workers: 12
 pin_memory: True
+prefetch_factor: 4
 config:
   visualize: False
   num_timesteps: 3
@@ -17,8 +18,8 @@ config:
   output_shape: 128
   output_target: 32
   target_type: "cloudmask"
-  num_crops: 10
-  num_times: 10
+  num_crops: 5
+  num_times: 4
   use_topo: True
   use_latlon: True
   use_time: False

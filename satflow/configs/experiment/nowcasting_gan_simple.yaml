@@ -6,7 +6,7 @@
 defaults:
   - override /trainer: minimal.yaml # choose trainer from 'configs/trainer/'
   - override /model: nowcasting_gan.yaml
-  - override /datamodule: nowcasting_gan_hrv.yaml
+  - override /datamodule: nowcasting_gan_hrv_aws.yaml
   - override /callbacks: default.yaml
   - override /logger: neptune.yaml
 
