@@ -48,23 +48,23 @@ hydra:
         choices: [2]
       datamodule.config.num_timesteps:
         type: categorical
-        choices: [1, 3, 6, 9]
+        choices: [1, 3, 6]
       datamodule.config.skip_timesteps:
         type: categorical
         choices: [1, 2, 3]
       model.lr:
         type: float
         low: 0.0001
-        high: 0.2
+        high: 0.02
       model.depth:
         type: categorical
-        choices: [6, 4, 8, 2]
+        choices: [6, 4, 2]
       model.cross_heads:
         type: categorical
         choices: [1, 2]
       model.latent_heads:
         type: categorical
-        choices: [2, 4, 8, 16]
+        choices: [2, 4, 8]
       model.cross_dim_heads:
         type: categorical
         choices: [1, 2, 4, 8]
@@ -81,9 +81,6 @@ hydra:
         type: float
         low: 2.0
         high: 32.0
-      model.weight_tie_layers:
-        type: categorical
-        choices: [false, true]
       model.preprocessor_type:
         type: categorical
         choices: ["metnet"]
