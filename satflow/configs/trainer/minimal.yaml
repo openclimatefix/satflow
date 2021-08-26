@@ -1,4 +1,3 @@
-# @package _group_
 _target_: pytorch_lightning.Trainer
 
 # set `1` to train on GPU, `0` to train on CPU only
@@ -12,7 +11,7 @@ limit_train_batches: 2000
 limit_val_batches: 2000
 limit_test_batches: 10000
 
-terminate_on_nan: True
+terminate_on_nan: False
 auto_lr_find: False
 auto_scale_batch_size: False
 accumulate_grad_batches: 1
