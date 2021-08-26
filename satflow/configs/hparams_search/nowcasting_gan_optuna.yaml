@@ -17,7 +17,7 @@ hydra:
   # learn more here: https://hydra.cc/docs/next/plugins/optuna_sweeper
   sweeper:
     _target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
-    storage: null
+    storage: "sqlite:///nowcasting_gan.db"
     study_name: nowcasting_gan
     n_jobs: 1
 
