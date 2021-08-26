@@ -98,7 +98,7 @@ class SatFlowDataModule(pl.LightningDataModule):
             self.val_dataset,
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
-            num_workers=self.num_workers - 4,
+            num_workers=self.num_workers // 2,
             prefetch_factor=self.prefetch_factor,
         )
 
@@ -107,7 +107,7 @@ class SatFlowDataModule(pl.LightningDataModule):
             self.test_dataset,
             batch_size=self.batch_size,
             pin_memory=self.pin_memory,
-            num_workers=self.num_workers - 4,
+            num_workers=self.num_workers // 2,
             prefetch_factor=self.prefetch_factor,
         )
 
