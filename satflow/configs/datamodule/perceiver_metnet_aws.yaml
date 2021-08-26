@@ -7,7 +7,7 @@ sources:
   train: "pipe:aws s3 cp s3://solar-pv-nowcasting-data/webdataset/satflow-train-{00000..00214}.tar -"
   val: "pipe:aws s3 cp s3://solar-pv-nowcasting-data/webdataset/satflow-val-{00000..00060}.tar -"
   test: "pipe:aws s3 cp s3://solar-pv-nowcasting-data/webdataset/satflow-test-{00000..00057}.tar -"
-num_workers: 16
+num_workers: 12
 pin_memory: True
 prefetch_factor: 2
 config:
@@ -18,8 +18,8 @@ config:
   output_shape: 128
   output_target: 32
   target_type: "cloudmask"
-  num_crops: 5
-  num_times: 4
+  num_crops: 10
+  num_times: 10
   use_topo: True
   use_latlon: True
   use_time: False
