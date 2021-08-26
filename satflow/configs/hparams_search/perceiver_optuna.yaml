@@ -73,10 +73,10 @@ hydra:
         choices: [1, 2, 4, 8]
       model.num_latents:
         type: categorical
-        choices: [64, 128, 256, 512, 1024]
+        choices: [64, 128, 256, 512]
       model.latent_dim:
         type: categorical
-        choices: [64, 128, 256, 512, 1024]
+        choices: [64, 128, 256, 512]
       model.max_frequency:
         type: float
         low: 2.0
