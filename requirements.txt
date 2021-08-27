@@ -16,3 +16,4 @@ affine==2.3.0
 git+https://github.com/webdataset/webdataset
 torch_optimizer
 huggingface_hub
+boto3
