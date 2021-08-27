@@ -17,7 +17,7 @@ hydra:
   # learn more here: https://hydra.cc/docs/next/plugins/optuna_sweeper
   sweeper:
     _target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
-    storage: null #"sqlite:///perceiver.db"
+    storage: "sqlite:///perceiver.db"
     study_name: perceiver
     n_jobs: 1
 
@@ -31,7 +31,7 @@ hydra:
     # learn more here: https://optuna.readthedocs.io/en/stable/reference/samplers.html
     sampler:
       _target_: optuna.samplers.TPESampler
-      seed: 12345
+      seed: null
       consider_prior: true
       prior_weight: 1.0
       consider_magic_clip: true
