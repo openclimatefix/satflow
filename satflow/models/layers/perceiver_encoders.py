@@ -46,6 +46,7 @@ class Conv2DUpsample(torch.nn.Module):
             output_channels: Number of output channels
         """
 
+        super().__init__()
         self.transpose_conv1 = torch.nn.ConvTranspose2d(
             in_channels=input_channels,
             out_channels=output_channels * 2,
@@ -82,6 +83,7 @@ class Conv3DUpsample(torch.nn.Module):
             num_space_upsamples:
         """
 
+        super().__init__()
         temporal_stride = 2
         space_stride = 2
         num_upsamples = max(num_space_upsamples, num_temporal_upsamples)

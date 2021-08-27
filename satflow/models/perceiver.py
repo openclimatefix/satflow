@@ -92,6 +92,13 @@ class Perceiver(BaseModel):
 
         # The preprocessor will change the number of channels in the input
 
+        # TODO Query dim should be determined programatically, in paper for Optical Flow the query has 450 channels
+        # Query input is the [2x convolutional features, 3D FFs] concatenated, which is same for Encoder as well
+        # Might be squeezing output to too small a space to have it be 32, seems like it should be same as input_dim
+        # Although still needs to reshape to correct size, which has less features, but can postprocess for that
+        # But seems like including FF for query is also important, then output of query goes through postprocessor to
+        # get back to the original image size
+
         # Timeseries input
         video_modality = InputModality(
             name="timeseries",
@@ -233,6 +240,10 @@ class Perceiver(BaseModel):
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
     def construct_query(self, x):
+        # key, value: B x N x K; query: B x M x K
+        # Attention maps -> B x N x M
+        # Output -> B x M x K
+        # So want query to be B X (T*H*W) X C to reshape to B x T x C x H x W
         if self.preprocessor is not None:
             x = self.preprocessor(x)
         y_query = x[:, -1, 0, :, :]  # Only want sat channels, the output
@@ -312,7 +323,6 @@ class MultiPerceiverSat(torch.nn.Module):
         batch_sizes = set()
         num_modalities = len(multi_modality_data)
         linearized_data = []
-        linearized_data_per_layer: Dict[int, List[torch.Tensor]] = {}
 
         for modality_index, modality_name in enumerate(sorted(multi_modality_data.keys())):
             assert (
