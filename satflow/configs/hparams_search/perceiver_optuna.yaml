@@ -58,7 +58,7 @@ hydra:
         high: 0.02
       model.depth:
         type: categorical
-        choices: [6, 4, 2]
+        choices: [8, 6, 4, 2]
       model.cross_heads:
         type: categorical
         choices: [1, 2]
