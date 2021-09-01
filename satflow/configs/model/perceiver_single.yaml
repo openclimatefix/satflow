@@ -19,4 +19,6 @@ queries_dim: 128
 latent_dim_heads: 64
 visualize: False
 preprocessor_type: "metnet"
-use_input_as_query: False
+use_input_as_query: True
+use_learnable_query: False
+output_shape: [3, 32, 32]

@@ -14,7 +14,7 @@ import torch_optimizer as optim
 import logging
 
 logger = logging.getLogger("satflow.model")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARN)
 
 
 @register_model
@@ -143,10 +143,11 @@ class Perceiver(BaseModel):
             cross_dim_head=cross_dim_heads,  # number of dimensions per cross attention head
             latent_dim_head=latent_dim_heads,  # number of dimensions per latent self attention head
             weight_tie_layers=weight_tie_layers,  # whether to weight tie layers (optional, as indicated in the diagram)
-            self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
+            # self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
             sin_only=sin_only,
             fourier_encode_data=encode_fourier,
             output_shape=input_size,  # Shape of output to make the correct sized logits dim, needed so reshaping works
+            decoder_ff=True,  # Optional decoder FF
         )
 
         if postprocessor_type is not None:
@@ -282,6 +283,7 @@ class SinglePassPerceiver(BaseModel):
         logits_dim: int = 100,
         queries_dim: int = 32,
         use_input_as_query: bool = False,
+        use_learnable_query: bool = False,
         latent_dim_heads: int = 64,
         loss="mse",
         sin_only: bool = False,
@@ -291,6 +293,7 @@ class SinglePassPerceiver(BaseModel):
         encoder_kwargs: Optional[Dict[str, Any]] = None,
         decoder_kwargs: Optional[Dict[str, Any]] = None,
         pretrained: bool = False,
+        output_shape=None,
     ):
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
@@ -381,7 +384,9 @@ class SinglePassPerceiver(BaseModel):
             # self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention (New PerceiverIO only uses 1, might want to readd)
             sin_only=sin_only,
             fourier_encode_data=encode_fourier,
-            output_shape=input_size,  # Shape of output to make the correct sized logits dim, needed so reshaping works
+            output_shape=input_size
+            if output_shape is None
+            else output_shape,  # Shape of output to make the correct sized logits dim, needed so reshaping works
             use_input_as_query=use_input_as_query,
         )
 
@@ -562,17 +567,18 @@ class MultiPerceiverSat(torch.nn.Module):
         if isinstance(output_shape, int):
             kwargs["logits_dim"] = output_shape * self.output_channels
         else:
+            output_shape = (int(output_shape[0]), int(output_shape[1]), int(output_shape[2]))
             # Need it to be able to be reshaped, (T*H*W)
             # Uses logits dim to project down to number of channels - 12 here, query dim would be number of elements T*H*W
-            kwargs["logits_dim"] = (
-                output_shape[0] * output_shape[1] * output_shape[2] * self.output_channels
-            )
+            kwargs["logits_dim"] = output_shape[0] * output_shape[1] * output_shape[2]
+            kwargs["logits_dim"] = None
         if use_input_as_query:
-            kwargs["query_dim"] = input_dim  # Use input as query, same as paper for optical flow
-        self.query_dim = kwargs["query_dim"]
+            kwargs["queries_dim"] = input_dim  # Use input as query, same as paper for optical flow
+        self.query_dim = kwargs["queries_dim"]
         if use_learnable_query:
             self.learnable_query = torch.nn.Linear(self.query_dim, self.query_dim)
             self.distribution = uniform.Uniform(low=torch.Tensor([0.0]), high=torch.Tensor([1.0]))
+            self.query_future_size = output_shape[0] * output_shape[1] * output_shape[2]
             # Like GAN sorta, random input, learn important parts in linear layer T*H*W shape,
             # need to add Fourier features too though
         # Query Dim should be number of channels?
@@ -657,7 +663,10 @@ class MultiPerceiverSat(torch.nn.Module):
             queries = data
         if self.use_learnable_query:
             # Create learnable query, also adds somewhat ensemble on multiple forward passes
-            z = self.distribution.sample((data.shape[0], self.query_dim)).type_as(data)
+            # Middle is the shape of the future timesteps and such
+            z = self.distribution.sample(
+                (data.shape[0], self.query_future_size, self.query_dim)
+            ).type_as(data)
             queries = self.learnable_query(z)
         perceiver_output = self.perceiver.forward(data, mask, queries)
 
