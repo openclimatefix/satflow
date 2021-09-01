@@ -67,6 +67,7 @@ class SSIMLossDynamic(nn.Module):
         # Subtract 'now' image to get what changes for both x and y
         x = x - curr_image
         y = y - curr_image
+        # TODO: Mask out loss from pixels that don't change
         return 1.0 - self.ssim_module(x, y)
 
 
