@@ -43,6 +43,50 @@ class MS_SSIMLoss(nn.Module):
         return 1.0 - self.ssim_module(x, y)
 
 
+class SSIMLossDynamic(nn.Module):
+    def __init__(self, convert_range: bool = False, **kwargs):
+        """
+        SSIM Loss on only dynamic part of the images, optionally converting input range from [-1,1] to [0,1]
+
+        In Mathieu et al. to stop SSIM regressing towards the mean and predicting only the background, they only
+        run SSIM on the dynamic parts of the image. We can accomplish that by subtracting the current image from the future ones
+
+        Args:
+            convert_range:
+            **kwargs:
+        """
+        super().__init__()
+        self.convert_range = convert_range
+        self.ssim_module = MS_SSIM(**kwargs)
+
+    def forward(self, curr_image: torch.Tensor, x: torch.Tensor, y: torch.Tensor):
+        if self.convert_range:
+            curr_image = torch.div(torch.add(curr_image, 1), 2)
+            x = torch.div(torch.add(x, 1), 2)
+            y = torch.div(torch.add(y, 1), 2)
+        # Subtract 'now' image to get what changes for both x and y
+        x = x - curr_image
+        y = y - curr_image
+        return 1.0 - self.ssim_module(x, y)
+
+
+def tv_loss(img, tv_weight):
+    """
+    Taken from https://github.com/chongyangma/cs231n/blob/master/assignments/assignment3/style_transfer_pytorch.py
+    Compute total variation loss.
+    Inputs:
+    - img: PyTorch Variable of shape (1, 3, H, W) holding an input image.
+    - tv_weight: Scalar giving the weight w_t to use for the TV loss.
+    Returns:
+    - loss: PyTorch Variable holding a scalar giving the total variation loss
+      for img weighted by tv_weight.
+    """
+    w_variance = torch.sum(torch.pow(img[:, :, :, :-1] - img[:, :, :, 1:], 2))
+    h_variance = torch.sum(torch.pow(img[:, :, :-1, :] - img[:, :, 1:, :], 2))
+    loss = tv_weight * (h_variance + w_variance)
+    return loss
+
+
 class GridCellLoss(nn.Module):
     """
     Grid Cell Regularizer loss from Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
