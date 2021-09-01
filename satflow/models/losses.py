@@ -13,7 +13,7 @@ class SSIMLoss(nn.Module):
             convert_range:
             **kwargs:
         """
-        super().__init__()
+        super(SSIMLoss, self).__init__()
         self.convert_range = convert_range
         self.ssim_module = SSIM(**kwargs)
 
@@ -32,7 +32,7 @@ class MS_SSIMLoss(nn.Module):
             convert_range:
             **kwargs:
         """
-        super().__init__()
+        super(MS_SSIMLoss, self).__init__()
         self.convert_range = convert_range
         self.ssim_module = MS_SSIM(**kwargs)
 
@@ -55,7 +55,7 @@ class SSIMLossDynamic(nn.Module):
             convert_range:
             **kwargs:
         """
-        super().__init__()
+        super(SSIMLossDynamic, self).__init__()
         self.convert_range = convert_range
         self.ssim_module = MS_SSIM(**kwargs)
 
@@ -90,11 +90,38 @@ def tv_loss(img, tv_weight):
 
 class TotalVariationLoss(nn.Module):
     def __init__(self, tv_weight: float = 1.0):
-        super().__init__()
+        super(TotalVariationLoss, self).__init__()
         self.tv_weight = tv_weight
 
     def forward(self, x: torch.Tensor):
         return tv_loss(x, self.tv_weight)
+
+
+class GradientDifferenceLoss(nn.Module):
+    """"""
+
+    def __init__(self, alpha: int = 2):
+        super(GradientDifferenceLoss, self).__init__()
+        self.alpha = alpha
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        t1 = torch.pow(
+            torch.abs(
+                torch.abs(x[:, :, :, 1:, :] - x[:, :, :, :-1, :])
+                - torch.abs(y[:, :, :, 1:, :] - y[:, :, :, :-1, :])
+            ),
+            self.alpha,
+        )
+        t2 = torch.pow(
+            torch.abs(
+                torch.abs(x[:, :, :, :, :-1] - x[:, :, :, :, 1:])
+                - torch.abs(y[:, :, :, :, :-1] - y[:, :, :, :, 1:])
+            ),
+            self.alpha,
+        )
+        loss = t1 + t2
+        print(loss.shape)
+        return loss
 
 
 class GridCellLoss(nn.Module):
@@ -245,6 +272,8 @@ def get_loss(loss: str = "mse", **kwargs) -> torch.nn.Module:
         "tv",
         "total_variation",
         "ssim_dynamic",
+        "gdl",
+        "gradient_difference_loss",
     ]
     if loss == "mse":
         criterion = F.mse_loss
@@ -261,7 +290,9 @@ def get_loss(loss: str = "mse", **kwargs) -> torch.nn.Module:
     elif loss in ["l1"]:
         criterion = torch.nn.L1Loss()
     elif loss in ["tv", "total_variation"]:
-        criterion = TotalVariationLoss()
+        criterion = TotalVariationLoss(tv_weight=kwargs.get("tv_weight", 1))
+    elif loss in ["gdl", "gradient_difference_loss"]:
+        criterion = GradientDifferenceLoss(alpha=kwargs.get("alpha", 2))
     else:
         raise ValueError(f"loss {loss} not recognized")
     return criterion
