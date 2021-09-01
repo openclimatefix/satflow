@@ -12,6 +12,7 @@ latent_heads: 8
 cross_dim_heads: 8
 latent_dim: 256
 weight_tie_layers: False
+decoder_ff: True
 dim: 32
 logits_dim: null
 queries_dim: 32

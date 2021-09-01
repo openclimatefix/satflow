@@ -35,7 +35,7 @@ class Perceiver(BaseModel):
         cross_dim_heads: int = 8,
         latent_dim: int = 512,
         weight_tie_layers: bool = False,
-        self_per_cross_attention: int = 2,
+        decoder_ff: bool = True,
         dim: int = 32,
         logits_dim: int = 100,
         queries_dim: int = 32,
@@ -147,7 +147,7 @@ class Perceiver(BaseModel):
             sin_only=sin_only,
             fourier_encode_data=encode_fourier,
             output_shape=input_size,  # Shape of output to make the correct sized logits dim, needed so reshaping works
-            decoder_ff=True,  # Optional decoder FF
+            decoder_ff=decoder_ff,  # Optional decoder FF
         )
 
         if postprocessor_type is not None:
