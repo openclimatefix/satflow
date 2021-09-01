@@ -88,6 +88,15 @@ def tv_loss(img, tv_weight):
     return loss
 
 
+class TotalVariationLoss(nn.Module):
+    def __init__(self, tv_weight: float = 1.0):
+        super().__init__()
+        self.tv_weight = tv_weight
+
+    def forward(self, x: torch.Tensor):
+        return tv_loss(x, self.tv_weight)
+
+
 class GridCellLoss(nn.Module):
     """
     Grid Cell Regularizer loss from Skillful Nowcasting, see https://arxiv.org/pdf/2104.00954.pdf
@@ -244,8 +253,12 @@ def get_loss(loss: str = "mse", **kwargs) -> torch.nn.Module:
         criterion = SSIMLoss(data_range=1.0, size_average=True, **kwargs)
     elif loss in ["ms_ssim"]:
         criterion = MS_SSIMLoss(data_range=1.0, size_average=True, **kwargs)
+    elif loss in ["ssim_dynamic"]:
+        criterion = SSIMLossDynamic(data_range=1.0, size_average=True, **kwargs)
     elif loss in ["l1"]:
         criterion = torch.nn.L1Loss()
+    elif loss in ["tv", "total_variation"]:
+        criterion = TotalVariationLoss()
     else:
         raise ValueError(f"loss {loss} not recognized")
     return criterion
