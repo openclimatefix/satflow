@@ -242,6 +242,9 @@ def get_loss(loss: str = "mse", **kwargs) -> torch.nn.Module:
         "ssim",
         "ms_ssim",
         "l1",
+        "tv",
+        "total_variation",
+        "ssim_dynamic",
     ]
     if loss == "mse":
         criterion = F.mse_loss
