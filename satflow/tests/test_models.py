@@ -73,6 +73,9 @@ def test_create_model(model_name):
     pass
 
 
+@pytest.mark.skip(
+    "Perceiver has changed in SatFlow, doesn't have the same options as the one on HF"
+)
 def test_load_hf():
     """
     Current only HF model is PerceiverIO, change in future to do all ones
@@ -83,6 +86,9 @@ def test_load_hf():
     pass
 
 
+@pytest.mark.skip(
+    "Perceiver has changed in SatFlow, doesn't have the same options as the one on HF"
+)
 def test_load_hf_pretrained():
     """
     Current only HF model is PerceiverIO, change in future to do all ones
