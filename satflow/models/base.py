@@ -13,6 +13,9 @@ MODEL_CARD_MARKDOWN = """---
 license: mit
 tags:
 - satflow
+- forecasting
+- timeseries
+- remote-sensing
 ---
 
 # {model_name}
