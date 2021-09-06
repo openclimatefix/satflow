@@ -13,7 +13,7 @@ config:
   visualize: False
   num_timesteps: 3
   skip_timesteps: 1
-  forecast_times: 12
+  forecast_times: 24
   output_shape: 128
   target_type: "cloudmask"
   num_crops: 10

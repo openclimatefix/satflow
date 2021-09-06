@@ -1,5 +1,5 @@
 _target_: satflow.models.nowcasting_gan.NowcastingGAN
-forecast_steps: 12
+forecast_steps: 24
 input_channels: 1
 output_shape: 128
 gen_lr: 0.00005

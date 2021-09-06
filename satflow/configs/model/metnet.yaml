@@ -1,6 +1,6 @@
 _target_: satflow.models.metnet.MetNet
 input_channels: 16
-output_channels: 12
+output_channels: 1
 sat_channels: 12
 input_size: 64
 hidden_dim: 32

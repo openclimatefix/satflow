@@ -17,7 +17,7 @@ hydra:
   # learn more here: https://hydra.cc/docs/next/plugins/optuna_sweeper
   sweeper:
     _target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
-    storage: "sqlite:///metnet.db"
+    storage: null #"sqlite:///metnet.db"
     study_name: metnet
     n_jobs: 1
 
@@ -25,7 +25,7 @@ hydra:
     direction: minimize
 
     # number of experiments that will be executed
-    n_trials: 50
+    n_trials: 20
 
     # choose Optuna hyperparameter sampler
     # learn more here: https://optuna.readthedocs.io/en/stable/reference/samplers.html
@@ -48,20 +48,20 @@ hydra:
         choices: [2]
       datamodule.config.num_timesteps:
         type: categorical
-        choices: [1, 3, 6]
+        choices: [3, 6]
       datamodule.config.skip_timesteps:
         type: categorical
-        choices: [1, 2, 3]
+        choices: [1]
       model.lr:
         type: float
         low: 0.0001
         high: 0.2
       model.hidden_dim:
         type: categorical
-        choices: [8, 16, 32, 64]
+        choices: [32, 64, 128]
       model.num_layers:
         type: categorical
-        choices: [1, 2]
+        choices: [1, 2, 3]
       model.num_att_layers:
         type: categorical
-        choices: [1, 2]
+        choices: [1, 2, 3]

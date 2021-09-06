@@ -11,6 +11,7 @@ from axial_attention import AxialAttention
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 import numpy as np
 import antialiased_cnns
+from metnet import MetNet
 
 
 class DownSampler(nn.Module):
@@ -42,7 +43,7 @@ class DownSampler(nn.Module):
 
 
 @register_model
-class MetNet(BaseModel):
+class LitMetNet(BaseModel):
     def __init__(
         self,
         image_encoder: str = "downsampler",
@@ -72,63 +73,23 @@ class MetNet(BaseModel):
         self.criterion = get_loss(
             loss, channel=output_channels, nonnegative_ssim=True, convert_range=True
         )
-        self.loss = loss
-        self.preprocessor = MetNetPreprocessor(
-            sat_channels=sat_channels, crop_size=input_size, use_space2depth=True, split_input=True
+        self.model = MetNet(
+            image_encoder=image_encoder,
+            input_channels=input_channels,
+            sat_channels=sat_channels,
+            input_size=input_size,
+            output_channels=output_channels,
+            hidden_dim=hidden_dim,
+            kernel_size=kernel_size,
+            num_layers=num_layers,
+            num_att_layers=num_att_layers,
+            head=head,
+            forecast_steps=forecast_steps,
+            temporal_dropout=temporal_dropout,
         )
-        # Update number of input_channels with output from MetNetPreprocessor
-        new_channels = sat_channels * 4  # Space2Depth
-        new_channels *= 2  # Concatenate two of them together
-        input_channels = input_channels - sat_channels + new_channels
-        self.drop = nn.Dropout(temporal_dropout)
-        if image_encoder in ["downsampler", "default"]:
-            image_encoder = DownSampler(input_channels + forecast_steps)
-        else:
-            raise ValueError(f"Image_encoder {image_encoder} is not recognized")
-        self.image_encoder = TimeDistributed(image_encoder)
-        self.ct = ConditionTime(forecast_steps)
-        self.temporal_enc = TemporalEncoder(
-            image_encoder.output_channels, hidden_dim, ks=kernel_size, n_layers=num_layers
-        )
-        self.temporal_agg = nn.Sequential(
-            *[
-                AxialAttention(dim=hidden_dim, dim_index=1, heads=8, num_dimensions=2)
-                for _ in range(num_att_layers)
-            ]
-        )
-
-        self.head = head
-        self.head = nn.Conv2d(hidden_dim, output_channels, kernel_size=(1, 1))  # Reduces to mask
-        # self.head = nn.Sequential(nn.AdaptiveAvgPool2d(1), )
-
-    def encode_timestep(self, x, fstep=1):
-
-        # Preprocess Tensor
-        x = self.preprocessor(x)
-
-        # Condition Time
-        x = self.ct(x, fstep)
-
-        ##CNN
-        x = self.image_encoder(x)
-
-        # Temporal Encoder
-        _, state = self.temporal_enc(self.drop(x))
-        return self.temporal_agg(state)
 
     def forward(self, imgs):
-        """It takes a rank 5 tensor
-        - imgs [bs, seq_len, channels, h, w]
-        """
-
-        # Compute all timesteps, probably can be parallelized
-        res = []
-        for i in range(self.forecast_steps):
-            x_i = self.encode_timestep(imgs, i)
-            out = self.head(x_i)
-            res.append(out)
-        res = torch.stack(res, dim=1)
-        return res
+        return self.model(imgs)
 
     def configure_optimizers(self):
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
