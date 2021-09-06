@@ -15,4 +15,5 @@ torchvision>=0.10.0
 affine==2.3.0
 git+https://github.com/webdataset/webdataset
 torch_optimizer
-huggingface_hub
+huggingface_hub>=0.0.16
+einops==0.3.2
