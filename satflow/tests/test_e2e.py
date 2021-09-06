@@ -1,5 +1,5 @@
 import numpy as np
-from satflow.models import MetNet, Perceiver, NowcastingGAN
+from satflow.models import LitMetNet, Perceiver
 from satflow.models.base import list_models, create_model
 from satflow.data.datamodules import SatFlowDataModule
 import yaml
@@ -22,7 +22,7 @@ DATA_DIR = "datasets/"
 def test_metnet_e2e():
     config = load_config("satflow/configs/model/metnet.yaml")
     config.pop("_target_")  # This is only for Hydra
-    model = MetNet(**config)
+    model = LitMetNet(**config)
     num_params = sum([x.numel() for x in model.parameters()])
 
     data_config = load_config("satflow/configs/datamodule/metnet.yaml")
