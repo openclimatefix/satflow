@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import torchvision
 from neptune.new.types import File
 from satflow.models.hub import load_model_config_from_hf, load_pretrained
+from huggingface_hub import PyTorchModelHubMixin
 
 REGISTERED_MODELS = {}
 
@@ -98,7 +99,7 @@ def create_model(model_name, pretrained=False, checkpoint_path=None, **kwargs):
     return model
 
 
-class BaseModel(pl.LightningModule):
+class BaseModel(pl.LightningModule, PyTorchModelHubMixin):
     def __init__(
         self,
         pretrained: bool = False,
