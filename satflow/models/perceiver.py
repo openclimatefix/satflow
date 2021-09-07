@@ -1,5 +1,7 @@
 from perceiver_pytorch import PerceiverIO, MultiPerceiver
 from perceiver_pytorch.modalities import InputModality, modality_encoding
+from perceiver_pytorch.encoders import ImageEncoder
+from perceiver_pytorch.decoders import ImageDecoder
 import torch
 from torch.distributions import uniform
 from typing import List, Iterable, Dict, Optional, Any, Union, Tuple
