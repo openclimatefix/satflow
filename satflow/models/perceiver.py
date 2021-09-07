@@ -1,12 +1,12 @@
 from perceiver_pytorch import PerceiverIO, MultiPerceiver
 from perceiver_pytorch.modalities import InputModality, modality_encoding
+from perceiver_pytorch.perceiver_pytorch import fourier_encode
 from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.decoders import ImageDecoder
 import torch
 from torch.distributions import uniform
-from typing import List, Iterable, Dict, Optional, Any, Union, Tuple
+from typing import Iterable, Dict, Optional, Any, Union, Tuple
 from satflow.models.base import register_model, BaseModel
-from math import pi, log
 from einops import rearrange, repeat
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from satflow.models.losses import get_loss
@@ -131,7 +131,7 @@ class Perceiver(BaseModel):
             sin_only=sin_only,
             fourier_encode=encode_fourier,
         )
-        self.model = MultiPerceiverSat(
+        self.model = MultiPerceiver(
             modalities=[video_modality, image_modality, timestep_modality],
             dim=dim,  # dimension of sequence to be encoded
             queries_dim=queries_dim,  # dimension of decoder queries
@@ -145,7 +145,7 @@ class Perceiver(BaseModel):
             latent_dim_head=latent_dim_heads,  # number of dimensions per latent self attention head
             weight_tie_layers=weight_tie_layers,  # whether to weight tie layers (optional, as indicated in the diagram)
             # self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
-            sin_only=sin_only,
+            sine_only=sin_only,
             fourier_encode_data=encode_fourier,
             output_shape=input_size,  # Shape of output to make the correct sized logits dim, needed so reshaping works
             decoder_ff=decoder_ff,  # Optional decoder FF
@@ -369,7 +369,7 @@ class SinglePassPerceiver(BaseModel):
             sin_only=sin_only,
             fourier_encode=encode_fourier,
         )
-        self.model = MultiPerceiverSat(
+        self.model = MultiPerceiver(
             modalities=[video_modality, image_modality],
             dim=dim,  # dimension of sequence to be encoded
             queries_dim=queries_dim,  # dimension of decoder queries
@@ -383,7 +383,7 @@ class SinglePassPerceiver(BaseModel):
             latent_dim_head=latent_dim_heads,  # number of dimensions per latent self attention head
             weight_tie_layers=weight_tie_layers,  # whether to weight tie layers (optional, as indicated in the diagram)
             # self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention (New PerceiverIO only uses 1, might want to readd)
-            sin_only=sin_only,
+            sine_only=sin_only,
             fourier_encode_data=encode_fourier,
             output_shape=input_size
             if output_shape is None
@@ -505,32 +505,9 @@ class SinglePassPerceiver(BaseModel):
         return self.model.forward(x, mask=mask, queries=query)
 
 
-def fourier_encode(x, max_freq, num_bands=4, base=2, sin_only=False):
-    x = x.unsqueeze(-1)
-    device, dtype, orig_x = x.device, x.dtype, x
-
-    scales = torch.logspace(
-        0.0, log(max_freq / 2) / log(base), num_bands, base=base, device=device, dtype=dtype
-    )
-    scales = scales[(*((None,) * (len(x.shape) - 1)), Ellipsis)]
-
-    x = x * scales * pi
-    x = x.sin() if sin_only else torch.cat([x.sin(), x.cos()], dim=-1)
-    logger.debug(f"Fourier Channels Shape: {x.size()} Sin Only: {sin_only}")
-    x = torch.cat((x, orig_x), dim=-1)
-    return x
-
-
 class MultiPerceiverSat(torch.nn.Module):
     def __init__(
         self,
-        modalities: Iterable[InputModality],
-        fourier_encode_data: bool = True,
-        input_channels: int = 3,
-        output_channels: int = 12,
-        forecast_steps: int = 48,
-        sin_only: bool = False,
-        output_shape: Union[int, Tuple[int, int, int]] = 32,
         use_input_as_query: bool = False,
         use_learnable_query: bool = False,
         **kwargs,
@@ -545,123 +522,18 @@ class MultiPerceiverSat(torch.nn.Module):
             **kwargs:
         """
         super(MultiPerceiverSat, self).__init__()
-        self.fourier_encode_data = fourier_encode_data
-        self.forecast_steps = forecast_steps
-        self.input_channels = input_channels
-        self.sin_only = sin_only
-        self.output_channels = output_channels
-        self.use_input_as_query = use_input_as_query
-        self.use_learnable_query = use_learnable_query
-        self.modalities = {modality.name: modality for modality in modalities}
-        # we encode modality with one hot encoding, so need one dim per modality:
-        modality_encoding_dim = sum([1 for _ in modalities])
-        # input_dim is the maximum dimension over all input modalities:
-        logger.debug(
-            f"Max Modality Input Dim: {max(modality.input_dim for modality in modalities)} Encoding Dim: {modality_encoding_dim}"
-        )
-        input_dim = max(modality.input_dim for modality in modalities) + modality_encoding_dim
-        # Pop dim
-        self.max_modality_dim = input_dim
-        logger.debug(f"Max Modality Dim: {self.max_modality_dim}")
-        kwargs.pop("dim")
-        # Want toe logit_dim to be the same as the channels * width or height, as it is a linear projection
-        if isinstance(output_shape, int):
-            kwargs["logits_dim"] = output_shape * self.output_channels
-        else:
-            output_shape = (int(output_shape[0]), int(output_shape[1]), int(output_shape[2]))
-            # Need it to be able to be reshaped, (T*H*W)
-            # Uses logits dim to project down to number of channels - 12 here, query dim would be number of elements T*H*W
-            kwargs["logits_dim"] = output_shape[0] * output_shape[1] * output_shape[2]
-            kwargs["logits_dim"] = None
-        if use_input_as_query:
-            kwargs["queries_dim"] = input_dim  # Use input as query, same as paper for optical flow
-        self.query_dim = kwargs["queries_dim"]
+        self.multi_perceiver = MultiPerceiver(**kwargs)
         if use_learnable_query:
             self.learnable_query = torch.nn.Linear(self.query_dim, self.query_dim)
             self.distribution = uniform.Uniform(low=torch.Tensor([0.0]), high=torch.Tensor([1.0]))
-            self.query_future_size = output_shape[0] * output_shape[1] * output_shape[2]
+            self.query_future_size = 0
             # Like GAN sorta, random input, learn important parts in linear layer T*H*W shape,
             # need to add Fourier features too though
-        # Query Dim should be number of channels?
-        self.perceiver = PerceiverIO(dim=input_dim, **kwargs)
-
-    def decode_output(self, data):
-        pass
 
     def forward(self, multi_modality_data: Dict[str, torch.Tensor], mask=None, queries=None):
-        batch_sizes = set()
-        num_modalities = len(multi_modality_data)
-        linearized_data = []
+        data = self.multi_perceiver.forward(multi_modality_data)
 
-        for modality_index, modality_name in enumerate(sorted(multi_modality_data.keys())):
-            assert (
-                modality_name in self.modalities
-            ), f"modality {modality_name} was not defined in constructor"
-            data = multi_modality_data[modality_name]
-            modality = self.modalities[modality_name]
-            b, *axis, _ = data.size()
-            logger.debug(modality_name)
-            logger.debug(axis)
-            assert len(axis) == modality.input_axis, (
-                f"input data must have the right number of  for modality {modality_name}. "
-                f"Expected {modality.input_axis} while forward argument offered {len(axis)}"
-            )
-            batch_sizes.add(b)
-            assert len(batch_sizes) == 1, "batch size must be the same across all modalities"
-            enc_pos = []
-            if self.fourier_encode_data:
-                # calculate fourier encoded positions in the range of [-1, 1], for all axis
-
-                axis_pos = list(
-                    map(lambda size: torch.linspace(-1.0, 1.0, steps=size).type_as(data), axis)
-                )
-                pos = torch.stack(torch.meshgrid(*axis_pos), dim=-1)
-                enc_pos = fourier_encode(
-                    pos,
-                    modality.max_freq,
-                    modality.num_freq_bands,
-                    modality.freq_base,
-                    sin_only=self.sin_only,
-                )
-                logger.debug(f"Encoding Shape: {enc_pos.size()}")
-                enc_pos = rearrange(enc_pos, "... n d -> ... (n d)")
-                logger.debug(f"Encoding Shape After Rearranging: {enc_pos.size()}")
-                enc_pos = repeat(enc_pos, "... -> b ...", b=b)
-
-            # Figure out padding for this modality, given max dimension across all modalities:
-            logger.debug(
-                f"Max Size: {self.max_modality_dim} Input Dim: {modality.input_dim} Num Modality: {num_modalities}"
-            )
-            padding_size = self.max_modality_dim - modality.input_dim - num_modalities
-            logger.debug(f"Padding Size: {padding_size}")
-
-            padding = torch.zeros(size=data.size()[0:-1] + (padding_size,)).type_as(data)
-            # concat to channels of data and flatten axis
-            modality_encodings = modality_encoding(
-                b, axis, modality_index, num_modalities
-            ).type_as(data)
-            to_concat = (
-                (data, padding, enc_pos, modality_encodings)
-                if len(enc_pos) > 0
-                else (data, padding, modality_encodings)
-            )
-            logger.debug(
-                f"Data: {data.size()} Padding: {padding.size()} Enc_pos: {enc_pos.size()} Modality: {modality_encodings.size()}"
-            )
-            data = torch.cat(to_concat, dim=-1)
-            # concat to channels of data and flatten axis
-            data = rearrange(data, "b ... d -> b (...) d")
-            logger.debug(f"{modality_name} Size: {data.size()}")
-            linearized_data.append(data)
-
-        # Concatenate all the modalities:
-        logger.debug([t.size() for t in linearized_data])
-        data = torch.cat(linearized_data, dim=1)
-
-        # After this is the PerceiverIO backbone, still would need to decode it back to an image though
-        # Should include the query shape here for the output we want, could be learned embeddings, repeated input frames of the same shape that is desired, etc.
-        if self.use_input_as_query:
-            queries = data
+        # Create learnable query here, need to add fourier features as well
         if self.use_learnable_query:
             # Create learnable query, also adds somewhat ensemble on multiple forward passes
             # Middle is the shape of the future timesteps and such
@@ -669,19 +541,8 @@ class MultiPerceiverSat(torch.nn.Module):
                 (data.shape[0], self.query_future_size, self.query_dim)
             ).type_as(data)
             queries = self.learnable_query(z)
-        perceiver_output = self.perceiver.forward(data, mask, queries)
 
-        # For multiple modalities, they are split after this beack into different tensors
-        # For Sat images, we just want the images, not the other ones, so can leave it as is?
+        perceiver_output = self.multi_perceiver.perceiver.forward(data, mask, queries)
 
-        # Have to decode back into future Sat image frames
-        # Perceiver for 'pixel' postprocessing does nothing, or undoes the space2depth from before if just image
-        # If doing depth2space, should split modalities again
-        logger.debug(perceiver_output.size())
-
-        # Reshape to the correct output
-        # This is how it is done in the official implementation, do a decoder query with cross attention, then just reshape the output
-        # For timeseries, this is given as a query with T*H*W shape
-        # For Flow Decoder, this is the same, except has a rescale factor
         logger.debug(f"Perceiver Finished Output: {perceiver_output.size()}")
         return perceiver_output
