@@ -29,9 +29,8 @@ def test_perceiver_creation():
     # MetNet creates predictions for the center 1/4th
     assert out.size() == (
         2,
-        config["forecast_steps"],
+        config["forecast_steps"] * config["input_size"],
         config["sat_channels"] * config["input_size"],
-        config["input_size"],
     )
     assert not torch.isnan(out).any(), "Output included NaNs"
 
