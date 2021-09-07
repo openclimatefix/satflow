@@ -1,15 +1,14 @@
-from perceiver_pytorch import PerceiverIO
+from perceiver_pytorch import PerceiverIO, MultiPerceiver
+from perceiver_pytorch.modalities import InputModality, modality_encoding
 import torch
-import numpy as np
 from torch.distributions import uniform
 from typing import List, Iterable, Dict, Optional, Any, Union, Tuple
 from satflow.models.base import register_model, BaseModel
 from math import pi, log
 from einops import rearrange, repeat
-from satflow.models.layers.modalities import modality_encoding, InputModality
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from satflow.models.losses import get_loss
-from satflow.models.layers import ConditionTime, MetNetPreprocessor
+from satflow.models.layers import MetNetPreprocessor
 import torch_optimizer as optim
 import logging
 
