@@ -18,4 +18,4 @@ huggingface_hub>=0.0.16
 einops==0.3.2
 metnet>=0.0.3
 skillful_nowcasting>=0.0.2
-perceiverio>=0.7.0
+perceiver-model>=0.7.0
