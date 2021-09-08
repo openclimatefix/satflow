@@ -11,7 +11,6 @@ from satflow.models.base import register_model, BaseModel
 from einops import rearrange, repeat
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from satflow.models.losses import get_loss
-from satflow.models.layers import MetNetPreprocessor
 import torch_optimizer as optim
 import logging
 
