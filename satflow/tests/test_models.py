@@ -1,5 +1,5 @@
 import numpy as np
-from satflow.models import MetNet, Perceiver, NowcastingGAN
+from satflow.models import LitMetNet, Perceiver
 from satflow.models.base import list_models, create_model
 import yaml
 import torch
@@ -29,30 +29,8 @@ def test_perceiver_creation():
     # MetNet creates predictions for the center 1/4th
     assert out.size() == (
         2,
-        config["forecast_steps"],
+        config["forecast_steps"] * config["input_size"],
         config["sat_channels"] * config["input_size"],
-        config["input_size"],
-    )
-    assert not torch.isnan(out).any(), "Output included NaNs"
-
-
-def test_nowcasting_gan_creation():
-    config = load_config("satflow/configs/model/nowcasting_gan.yaml")
-    config.pop("_target_")  # This is only for Hydra
-    model = NowcastingGAN(**config)
-    x = torch.randn(
-        (2, 4, config["input_channels"], config["output_shape"], config["output_shape"])
-    )
-    model.eval()
-    with torch.no_grad():
-        out = model(x)
-    # MetNet creates predictions for the center 1/4th
-    assert out.size() == (
-        2,
-        config["forecast_steps"],
-        config["input_channels"],
-        config["output_shape"],
-        config["output_shape"],
     )
     assert not torch.isnan(out).any(), "Output included NaNs"
 
@@ -60,7 +38,7 @@ def test_nowcasting_gan_creation():
 def test_metnet_creation():
     config = load_config("satflow/configs/model/metnet.yaml")
     config.pop("_target_")  # This is only for Hydra
-    model = MetNet(**config)
+    model = LitMetNet(**config)
     # MetNet expects original HxW to be 4x the input size
     x = torch.randn(
         (2, 12, config["input_channels"], config["input_size"] * 4, config["input_size"] * 4)
@@ -94,6 +72,9 @@ def test_create_model(model_name):
     pass
 
 
+@pytest.mark.skip(
+    "Perceiver has changed in SatFlow, doesn't have the same options as the one on HF"
+)
 def test_load_hf():
     """
     Current only HF model is PerceiverIO, change in future to do all ones
@@ -104,6 +85,9 @@ def test_load_hf():
     pass
 
 
+@pytest.mark.skip(
+    "Perceiver has changed in SatFlow, doesn't have the same options as the one on HF"
+)
 def test_load_hf_pretrained():
     """
     Current only HF model is PerceiverIO, change in future to do all ones

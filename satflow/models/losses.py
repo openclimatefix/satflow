@@ -13,7 +13,7 @@ class SSIMLoss(nn.Module):
             convert_range:
             **kwargs:
         """
-        super().__init__()
+        super(SSIMLoss, self).__init__()
         self.convert_range = convert_range
         self.ssim_module = SSIM(**kwargs)
 
@@ -32,7 +32,7 @@ class MS_SSIMLoss(nn.Module):
             convert_range:
             **kwargs:
         """
-        super().__init__()
+        super(MS_SSIMLoss, self).__init__()
         self.convert_range = convert_range
         self.ssim_module = MS_SSIM(**kwargs)
 
@@ -41,6 +41,87 @@ class MS_SSIMLoss(nn.Module):
             x = torch.div(torch.add(x, 1), 2)
             y = torch.div(torch.add(y, 1), 2)
         return 1.0 - self.ssim_module(x, y)
+
+
+class SSIMLossDynamic(nn.Module):
+    def __init__(self, convert_range: bool = False, **kwargs):
+        """
+        SSIM Loss on only dynamic part of the images, optionally converting input range from [-1,1] to [0,1]
+
+        In Mathieu et al. to stop SSIM regressing towards the mean and predicting only the background, they only
+        run SSIM on the dynamic parts of the image. We can accomplish that by subtracting the current image from the future ones
+
+        Args:
+            convert_range:
+            **kwargs:
+        """
+        super(SSIMLossDynamic, self).__init__()
+        self.convert_range = convert_range
+        self.ssim_module = MS_SSIM(**kwargs)
+
+    def forward(self, curr_image: torch.Tensor, x: torch.Tensor, y: torch.Tensor):
+        if self.convert_range:
+            curr_image = torch.div(torch.add(curr_image, 1), 2)
+            x = torch.div(torch.add(x, 1), 2)
+            y = torch.div(torch.add(y, 1), 2)
+        # Subtract 'now' image to get what changes for both x and y
+        x = x - curr_image
+        y = y - curr_image
+        # TODO: Mask out loss from pixels that don't change
+        return 1.0 - self.ssim_module(x, y)
+
+
+def tv_loss(img, tv_weight):
+    """
+    Taken from https://github.com/chongyangma/cs231n/blob/master/assignments/assignment3/style_transfer_pytorch.py
+    Compute total variation loss.
+    Inputs:
+    - img: PyTorch Variable of shape (1, 3, H, W) holding an input image.
+    - tv_weight: Scalar giving the weight w_t to use for the TV loss.
+    Returns:
+    - loss: PyTorch Variable holding a scalar giving the total variation loss
+      for img weighted by tv_weight.
+    """
+    w_variance = torch.sum(torch.pow(img[:, :, :, :-1] - img[:, :, :, 1:], 2))
+    h_variance = torch.sum(torch.pow(img[:, :, :-1, :] - img[:, :, 1:, :], 2))
+    loss = tv_weight * (h_variance + w_variance)
+    return loss
+
+
+class TotalVariationLoss(nn.Module):
+    def __init__(self, tv_weight: float = 1.0):
+        super(TotalVariationLoss, self).__init__()
+        self.tv_weight = tv_weight
+
+    def forward(self, x: torch.Tensor):
+        return tv_loss(x, self.tv_weight)
+
+
+class GradientDifferenceLoss(nn.Module):
+    """"""
+
+    def __init__(self, alpha: int = 2):
+        super(GradientDifferenceLoss, self).__init__()
+        self.alpha = alpha
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        t1 = torch.pow(
+            torch.abs(
+                torch.abs(x[:, :, :, 1:, :] - x[:, :, :, :-1, :])
+                - torch.abs(y[:, :, :, 1:, :] - y[:, :, :, :-1, :])
+            ),
+            self.alpha,
+        )
+        t2 = torch.pow(
+            torch.abs(
+                torch.abs(x[:, :, :, :, :-1] - x[:, :, :, :, 1:])
+                - torch.abs(y[:, :, :, :, :-1] - y[:, :, :, :, 1:])
+            ),
+            self.alpha,
+        )
+        loss = t1 + t2
+        print(loss.shape)
+        return loss
 
 
 class GridCellLoss(nn.Module):
@@ -188,6 +269,11 @@ def get_loss(loss: str = "mse", **kwargs) -> torch.nn.Module:
         "ssim",
         "ms_ssim",
         "l1",
+        "tv",
+        "total_variation",
+        "ssim_dynamic",
+        "gdl",
+        "gradient_difference_loss",
     ]
     if loss == "mse":
         criterion = F.mse_loss
@@ -199,8 +285,14 @@ def get_loss(loss: str = "mse", **kwargs) -> torch.nn.Module:
         criterion = SSIMLoss(data_range=1.0, size_average=True, **kwargs)
     elif loss in ["ms_ssim"]:
         criterion = MS_SSIMLoss(data_range=1.0, size_average=True, **kwargs)
+    elif loss in ["ssim_dynamic"]:
+        criterion = SSIMLossDynamic(data_range=1.0, size_average=True, **kwargs)
     elif loss in ["l1"]:
         criterion = torch.nn.L1Loss()
+    elif loss in ["tv", "total_variation"]:
+        criterion = TotalVariationLoss(tv_weight=kwargs.get("tv_weight", 1))
+    elif loss in ["gdl", "gradient_difference_loss"]:
+        criterion = GradientDifferenceLoss(alpha=kwargs.get("alpha", 2))
     else:
         raise ValueError(f"loss {loss} not recognized")
     return criterion
