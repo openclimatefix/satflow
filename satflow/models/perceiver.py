@@ -1,9 +1,10 @@
 from perceiver_pytorch import PerceiverIO, MultiPerceiver
 from perceiver_pytorch.modalities import InputModality, modality_encoding
-from perceiver_pytorch.perceiver_pytorch import fourier_encode
+from perceiver_pytorch.utils import encode_position
 from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.decoders import ImageDecoder
 import torch
+from math import prod
 from torch.distributions import uniform
 from typing import Iterable, Dict, Optional, Any, Union, Tuple
 from satflow.models.base import register_model, BaseModel
@@ -369,7 +370,7 @@ class SinglePassPerceiver(BaseModel):
             sin_only=sin_only,
             fourier_encode=encode_fourier,
         )
-        self.model = MultiPerceiver(
+        self.model = MultiPerceiverSat(
             modalities=[video_modality, image_modality],
             dim=dim,  # dimension of sequence to be encoded
             queries_dim=queries_dim,  # dimension of decoder queries
@@ -526,13 +527,15 @@ class MultiPerceiverSat(torch.nn.Module):
         if use_learnable_query:
             self.learnable_query = torch.nn.Linear(self.query_dim, self.query_dim)
             self.distribution = uniform.Uniform(low=torch.Tensor([0.0]), high=torch.Tensor([1.0]))
-            self.query_future_size = 0
+            self.query_dim = kwargs.get("query_dim", 32)
+            self.query_future_size = (
+                prod(kwargs.get("output_shape", [24, 32, 32])) * kwargs["output_channels"]
+            )
             # Like GAN sorta, random input, learn important parts in linear layer T*H*W shape,
             # need to add Fourier features too though
 
     def forward(self, multi_modality_data: Dict[str, torch.Tensor], mask=None, queries=None):
         data = self.multi_perceiver.forward(multi_modality_data)
-
         # Create learnable query here, need to add fourier features as well
         if self.use_learnable_query:
             # Create learnable query, also adds somewhat ensemble on multiple forward passes
@@ -541,6 +544,7 @@ class MultiPerceiverSat(torch.nn.Module):
                 (data.shape[0], self.query_future_size, self.query_dim)
             ).type_as(data)
             queries = self.learnable_query(z)
+            # Add Fourier Features now to the query
 
         perceiver_output = self.multi_perceiver.perceiver.forward(data, mask, queries)
 
