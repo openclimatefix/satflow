@@ -1,8 +1,7 @@
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from typing import Optional
-import webdataset as wds
-from satflow.data.datasets import SatFlowDataset, CloudFlowDataset, FileDataset, PerceiverDataset
+from nowcasting_dataset.dataset import NowcastingDataset, NetCDFDataset
 import os
 
 
