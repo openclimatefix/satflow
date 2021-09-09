@@ -1,14 +1,10 @@
-import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from typing import Any
 
 from satflow.models.base import register_model, BaseModel
-from satflow.models.utils import get_conv_layer
 from satflow.models.losses import get_loss
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
-import numpy as np
-import antialiased_cnns
 from metnet import MetNet
 
 
@@ -58,7 +54,7 @@ class LitMetNet(BaseModel):
             temporal_dropout=temporal_dropout,
         )
 
-    def forward(self, imgs):
+    def forward(self, imgs, **kwargs) -> Any:
         return self.model(imgs)
 
     def configure_optimizers(self):

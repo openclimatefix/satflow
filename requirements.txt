@@ -1,8 +1,8 @@
 albumentations>=1.0.3
 antialiased-cnns>=0.3
-axial-attention>=0.5.0
 hydra-core>=1.1.0
 hydra-optuna-sweeper>=1.1.0
+hydra-colorlog
 lightning-bolts>=0.3.4
 neptune-client>=0.10.2
 neptune-pytorch-lightning>=0.9.7

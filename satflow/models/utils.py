@@ -1,8 +1,6 @@
 import torch
-import math
 import einops
 import numpy as np
-import torch.nn.functional as F
 from satflow.models.layers import CoordConv
 
 
@@ -19,22 +17,6 @@ def get_conv_layer(conv_type: str = "standard") -> torch.nn.Module:
     else:
         raise ValueError(f"{conv_type} is not a recognized Conv method")
     return conv_layer
-
-
-def extract_image_patches(x, kernel, stride=1, dilation=1):
-    # Do TF 'SAME' Padding
-    b, c, h, w = x.shape
-    h2 = math.ceil(h / stride)
-    w2 = math.ceil(w / stride)
-    pad_row = (h2 - 1) * stride + (kernel - 1) * dilation + 1 - h
-    pad_col = (w2 - 1) * stride + (kernel - 1) * dilation + 1 - w
-    x = F.pad(x, (pad_row // 2, pad_row - pad_row // 2, pad_col // 2, pad_col - pad_col // 2))
-
-    # Extract patches
-    patches = x.unfold(2, kernel, stride).unfold(3, kernel, stride)
-    patches = patches.permute(0, 4, 5, 1, 2, 3).contiguous()
-
-    return patches.view(b, -1, patches.shape[-2], patches.shape[-1])
 
 
 def reverse_space_to_depth(
