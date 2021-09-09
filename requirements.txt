@@ -15,7 +15,9 @@ affine==2.3.0
 git+https://github.com/webdataset/webdataset
 torch_optimizer
 huggingface_hub>=0.0.16
-einops==0.3.2
+einops>=0.3.2
 metnet>=0.0.3
 skillful_nowcasting>=0.0.2
 perceiver-model>=0.7.0
+nowcasting-dataset
+nowcasting-utils
