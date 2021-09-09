@@ -1,13 +1,9 @@
 import functools
-
 import torch
 from torch import nn as nn
-from torch.nn.modules.pixelshuffle import PixelShuffle
-from torch.nn.utils import spectral_norm
-from typing import Union, Tuple, List
-from satflow.models.gan.common import get_norm_layer, init_net, GBlock
+from typing import Union
+from satflow.models.gan.common import get_norm_layer, init_net
 from satflow.models.utils import get_conv_layer
-from satflow.models.layers import ConvGRU
 import antialiased_cnns
 
 

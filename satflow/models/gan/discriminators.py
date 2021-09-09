@@ -1,11 +1,8 @@
 import functools
 import torch
-from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
-from torch.nn.utils import spectral_norm
 from torch import nn as nn
-from torchvision.transforms import RandomCrop
 from satflow.models.utils import get_conv_layer
-from satflow.models.gan.common import get_norm_layer, init_net, LBlock, GBlock, DBlock
+from satflow.models.gan.common import get_norm_layer, init_net
 import antialiased_cnns
 
 
