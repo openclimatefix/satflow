@@ -16,7 +16,7 @@ def main(config: DictConfig):
     # Imports should be nested inside @hydra.main to optimize tab completion
     # Read more here: https://github.com/facebookresearch/hydra/issues/934
     from satflow.core import utils
-    from satflow.experiments.pl_train import train
+    from satflow.experiments.train import train
 
     # A couple of optional utilities:
     # - disabling python warnings

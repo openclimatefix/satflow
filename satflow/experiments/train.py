@@ -1,56 +1,98 @@
-import os
+from typing import List, Optional
 
-import torch
-import torch.nn.functional as F
-import webdataset as wds
-from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.tuner.tuning import Tuner
-from torch.utils.data import DataLoader
+import hydra
+from omegaconf import DictConfig
+from pytorch_lightning import (
+    Callback,
+    LightningModule,
+    LightningDataModule,
+    Trainer,
+    seed_everything,
+)
+from pytorch_lightning.loggers import LightningLoggerBase
+from pytorch_lightning.profiler import AdvancedProfiler, PyTorchProfiler
+from satflow.core import utils
+from satflow.core.callbacks import NeptuneModelLogger
+from pytorch_lightning.callbacks import LearningRateMonitor
 
-import satflow.models
-from satflow.core.training_utils import get_args, get_loaders, setup_experiment
-from satflow.core.utils import load_config, make_logger
-from satflow.data.datasets import SatFlowDataset
-from satflow.models import get_model
-
-logger = make_logger("satflow.train")
+log = utils.get_logger(__name__)
 
 
-def run_experiment(args):
-    config = setup_experiment(args)
-    config["device"] = (
-        ("cuda" if torch.cuda.is_available() else "cpu") if not args.with_cpu else "cpu"
+def train(config: DictConfig) -> Optional[float]:
+    """Contains training pipeline.
+    Instantiates all PyTorch Lightning objects from config.
+
+    Args:
+        config (DictConfig): Configuration composed by Hydra.
+
+    Returns:
+        Optional[float]: Metric score for hyperparameter optimization.
+    """
+
+    # Set seed for random number generators in pytorch, numpy and python.random
+    if "seed" in config:
+        seed_everything(config.seed, workers=True)
+
+    # If required
+    # Init Dataloaders
+    log.info(f"Instantiating datamodule <{config.datamodule._target_}>")
+    datamodule: LightningDataModule = hydra.utils.instantiate(
+        config.datamodule, _convert_="partial"
     )
 
-    # Load Model
-    model = get_model(config["model"]["name"]).from_config(config["model"])
-    # Load Datasets
-    loaders = get_loaders(config["dataset"])
+    # Init Lightning model
+    log.info(f"Instantiating model <{config.model._target_}>")
+    model: LightningModule = hydra.utils.instantiate(config.model)
 
-    # Get batch size that fits in memory
+    # Init Lightning callbacks
+    lr_monitor = LearningRateMonitor(logging_interval="step")
+    callbacks: List[Callback] = [lr_monitor, NeptuneModelLogger()]
+    if "callbacks" in config:
+        for _, cb_conf in config["callbacks"].items():
+            if "_target_" in cb_conf:
+                log.info(f"Instantiating callback <{cb_conf._target_}>")
+                callbacks.append(hydra.utils.instantiate(cb_conf))
 
-    # trainer = Trainer(auto_scale_batch_size='power')
-    # trainer.tune(model)
-    # tuner = Tuner(trainer)
+    # Init Lightning loggers
+    logger: List[LightningLoggerBase] = []
+    if "logger" in config:
+        for _, lg_conf in config["logger"].items():
+            if "_target_" in lg_conf:
+                log.info(f"Instantiating logger <{lg_conf._target_}>")
+                logger.append(hydra.utils.instantiate(lg_conf))
 
-    # new_batch_size = tuner.scale_batch_size(model)
-    trainer = Trainer(
-        gpus=1,
-        auto_lr_find=True,
-        max_steps=config["training"]["iterations"],
-        min_epochs=0,
-        val_check_interval=config["training"]["eval_steps"],
-        limit_train_batches=2000,
-        limit_val_batches=config["training"]["eval_examples"],
-        accumulate_grad_batches=4,
-        profiler="simple",
+    # Init Lightning trainer
+    log.info(f"Instantiating trainer <{config.trainer._target_}>")
+    trainer: Trainer = hydra.utils.instantiate(
+        config.trainer,
+        callbacks=callbacks,
+        logger=logger,
     )
 
-    trainer.tune(model, loaders["train"], loaders["test"])
+    # Send some parameters from config to all lightning loggers
+    log.info("Logging hyperparameters!")
+    utils.log_hyperparameters(
+        config=config,
+        model=model,
+        trainer=trainer,
+    )
 
-    trainer.fit(model, loaders["train"], loaders["test"])
+    # Train the model
+    if config.trainer.auto_lr_find or config.trainer.auto_scale_batch_size:
+        log.info("Starting tuning!")
+        trainer.tune(model=model, datamodule=datamodule)
+    log.info("Starting training!")
+    trainer.fit(model=model, datamodule=datamodule)
 
+    # Evaluate model on test set after training
+    if not config.trainer.get("fast_dev_run", False):
+        log.info("Starting testing!")
+        trainer.test(model=model, datamodule=datamodule)
 
-if __name__ == "__main__":
-    args = get_args()
-    run_experiment(args)
+    # Print path to best checkpoint
+    log.info(f"Best checkpoint path:\n{trainer.checkpoint_callback.best_model_path}")
+
+    # Return metric score for hyperparameter optimization
+    optimized_metric = config.get("optimized_metric")
+    if optimized_metric:
+        return trainer.callback_metrics[optimized_metric]
