@@ -1,4 +1,3 @@
-import numpy as np
 from satflow.models import LitMetNet, Perceiver
 from nowcasting_utils.models.base import list_models, create_model
 import yaml
