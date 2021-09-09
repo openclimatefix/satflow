@@ -4,24 +4,6 @@ from typing import Optional
 import webdataset as wds
 from satflow.data.datasets import SatFlowDataset, CloudFlowDataset, FileDataset, PerceiverDataset
 import os
-from glob import glob
-
-
-def is_streaming(pattern):
-    """
-    Determine whether Webdataset is being streamed in or not
-
-    Very simple for now and kinda hacky
-    Args:
-        pattern:
-
-    Returns:
-
-    """
-    if "pipe" in pattern:
-        return True
-    else:
-        return False
 
 
 class SatFlowDataModule(pl.LightningDataModule):
