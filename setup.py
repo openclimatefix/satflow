@@ -2,6 +2,7 @@ from distutils.core import setup
 
 with open("requirements.txt") as f:
     install_requires = f.read().splitlines()
+
 exec(open("satflow/version.py").read())
 setup(
     name="satflow",
