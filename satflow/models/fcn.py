@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from satflow.models.base import register_model
+from nowcasting_utils.models.base import register_model
 from torchvision.models.segmentation import fcn_resnet50, fcn_resnet101
 import numpy as np
 from typing import Union

@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 import torchvision
 import numpy as np
 from satflow.models.losses import FocalLoss, get_loss
-from satflow.models.base import register_model
+from nowcasting_utils.models.base import register_model
 
 
 @register_model

@@ -3,7 +3,7 @@ from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
 import torchvision
 from typing import Union
-from satflow.models.base import register_model
+from nowcasting_utils.models.base import register_model
 from satflow.models.losses import get_loss
 import numpy as np
 
