@@ -1,12 +1,27 @@
+from typing import Tuple, Union, List
 from nowcasting_dataset.dataset import NetCDFDataset
 
 
-class SatFlowDataset(torch.utils.data.Dataset):
+class SatFlowDataset(NetCDFDataset):
     """Loads data saved by the `prepare_ml_training_data.py` script.
     Adapted from predict_pv_yield
     """
 
-    def __init__(self, n_batches: int, src_path: str, tmp_path: str, cloud: str = "gcp"):
+    def __init__(
+        self,
+        n_batches: int,
+        src_path: str,
+        tmp_path: str,
+        cloud: str = "gcp",
+        required_keys: Union[Tuple[str], List[str]] = (
+            "nwp",
+            "nwp_x_coords",
+            "nwp_y_coords",
+            "sat_data",
+            "sat_x_coords",
+            "sat_y_coords",
+        ),
+    ):
         """
         Args:
           n_batches: Number of batches available on disk.
@@ -15,28 +30,9 @@ class SatFlowDataset(torch.utils.data.Dataset):
           tmp_path: The full path to the local temporary directory
             (on a local filesystem).
         """
-        self.n_batches = n_batches
-        self.src_path = src_path
-        self.tmp_path = tmp_path
-        self.cloud = cloud
+        super().__init__(n_batches, src_path, tmp_path, cloud, required_keys)
 
-        # setup cloud connections as None
-        self.gcs = None
-        self.s3_resource = None
-
-        assert cloud in ["gcp", "aws"]
-
-        if not os.path.isdir(self.tmp_path):
-            os.mkdir(self.tmp_path)
-
-    def per_worker_init(self, worker_id: int):
-        if self.cloud == "gcp":
-            self.gcs = gcsfs.GCSFileSystem()
-        else:
-            self.s3_resource = boto3.resource("s3")
-
-    def __len__(self):
-        return self.n_batches
+        # SatFlow specific changes to it
 
     def __getitem__(self, batch_idx: int) -> example.Example:
         """Returns a whole batch at once.
