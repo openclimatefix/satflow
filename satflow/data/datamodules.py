@@ -130,7 +130,7 @@ class FakeDataset(torch.utils.data.Dataset):
     """Fake dataset."""
 
     def __init__(
-        self, batch_size=32, seq_length=19, width=16, height=16, number_sat_channels=8, length=10
+        self, batch_size=32, seq_length=19, width=16, height=16, number_sat_channels=12, length=10
     ):
         self.batch_size = batch_size
         self.seq_length = seq_length
@@ -173,4 +173,4 @@ class FakeDataset(torch.utils.data.Dataset):
         x["sat_datetime_index"], _ = torch.sort(torch.randn(self.batch_size, self.seq_length))
         x["nwp_target_time"], _ = torch.sort(torch.randn(self.batch_size, self.seq_length))
 
-        return xv
+        return x

@@ -31,7 +31,7 @@ class SatFlowDataset(NetCDFDataset):
             (on a local filesystem).
         """
         super().__init__(n_batches, src_path, tmp_path, cloud, required_keys)
-
+        self.required_keys = list(required_keys)
         # SatFlow specific changes to it
 
     def __getitem__(self, batch_idx: int) -> example.Example:
@@ -80,6 +80,8 @@ class SatFlowDataset(NetCDFDataset):
                 pass
 
         sat_data = batch["sat_data"]
+        # subset data here?
+
         if sat_data.dtype == np.int16:
             sat_data = sat_data.astype(np.float32)
             sat_data = sat_data - SAT_MEAN
@@ -87,5 +89,7 @@ class SatFlowDataset(NetCDFDataset):
             batch["sat_data"] = sat_data
 
         batch = example.to_numpy(batch)
+
+        # Now do the subsetting and
 
         return batch
