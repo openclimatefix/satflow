@@ -73,14 +73,7 @@ class SatFlowDataset(NetCDFDataset):
             sat_datetime_index=netcdf_batch.sat_time_coords,
             nwp_target_time=netcdf_batch.nwp_time_coords,
         )
-        for key in [
-            "nwp",
-            "nwp_x_coords",
-            "nwp_y_coords",
-            "sat_data",
-            "sat_x_coords",
-            "sat_y_coords",
-        ] + list(example.DATETIME_FEATURE_NAMES):
+        for key in self.required_keys + list(example.DATETIME_FEATURE_NAMES):
             try:
                 batch[key] = netcdf_batch[key]
             except KeyError:
