@@ -1,7 +1,7 @@
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from typing import Optional
-from nowcasting_dataset.dataset import NowcastingDataset, NetCDFDataset
+from nowcasting_dataset.dataset import NetCDFDataset
 import os
 
 
@@ -187,6 +187,14 @@ class NetCDFDataModule(LightningDataModule):
                 os.path.join(self.data_path, "train"),
                 os.path.join(self.temp_path, "train"),
                 cloud=self.cloud,
+                required_keys=(
+                    "nwp",
+                    "nwp_x_coords",
+                    "nwp_y_coords",
+                    "sat_data",
+                    "sat_x_coords",
+                    "sat_y_coords",
+                ),
             )
 
         return torch.utils.data.DataLoader(train_dataset, **self.dataloader_config)
@@ -200,6 +208,14 @@ class NetCDFDataModule(LightningDataModule):
                 os.path.join(self.data_path, "validation"),
                 os.path.join(self.temp_path, "validation"),
                 cloud=self.cloud,
+                required_keys=(
+                    "nwp",
+                    "nwp_x_coords",
+                    "nwp_y_coords",
+                    "sat_data",
+                    "sat_x_coords",
+                    "sat_y_coords",
+                ),
             )
 
         return torch.utils.data.DataLoader(val_dataset, **self.dataloader_config)
@@ -214,6 +230,14 @@ class NetCDFDataModule(LightningDataModule):
                 os.path.join(self.data_path, "validation"),
                 os.path.join(self.temp_path, "validation"),
                 cloud=self.cloud,
+                required_keys=(
+                    "nwp",
+                    "nwp_x_coords",
+                    "nwp_y_coords",
+                    "sat_data",
+                    "sat_x_coords",
+                    "sat_y_coords",
+                ),
             )
 
         return torch.utils.data.DataLoader(test_dataset, **self.dataloader_config)
