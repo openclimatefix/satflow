@@ -17,7 +17,7 @@ repos:
     rev: 20.8b1
     hooks:
       - id: black
-        args: [--line-length, "99"]
+        args: [--line-length, "100"]
 
   # yaml formatting
   - repo: https://github.com/pre-commit/mirrors-prettier
