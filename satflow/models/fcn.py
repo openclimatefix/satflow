@@ -5,7 +5,7 @@ from nowcasting_utils.models.base import register_model
 from torchvision.models.segmentation import fcn_resnet50, fcn_resnet101
 import numpy as np
 from typing import Union
-from satflow.models.losses import FocalLoss
+from nowcasting_utils.models.loss import FocalLoss
 
 
 @register_model

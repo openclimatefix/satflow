@@ -7,7 +7,7 @@ import torch.nn as nn
 import numpy as np
 
 from nowcasting_utils.models.base import register_model
-from satflow.models.losses import get_loss
+from nowcasting_utils.models.loss import get_loss
 from satflow.models.layers.ConvLSTM import ConvLSTMCell
 import torchvision
 

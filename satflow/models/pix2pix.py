@@ -4,7 +4,7 @@ import numpy as np
 from collections import OrderedDict
 from torch.optim import lr_scheduler
 import pytorch_lightning as pl
-from satflow.models.base import register_model
+from nowcasting_utils.models.base import register_model
 from satflow.models.gan.discriminators import define_discriminator, GANLoss
 from satflow.models.gan import define_generator
 

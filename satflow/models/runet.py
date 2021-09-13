@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 import torchvision
 from typing import Union
 from nowcasting_utils.models.base import register_model
-from satflow.models.losses import get_loss
+from nowcasting_utils.models.loss import get_loss
 import numpy as np
 
 

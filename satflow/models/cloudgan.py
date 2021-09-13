@@ -6,7 +6,7 @@ from collections import OrderedDict
 from satflow.models import R2U_Net, ConvLSTM
 from satflow.models.gan import GANLoss, define_generator, define_discriminator
 from satflow.models.layers import ConditionTime
-from satflow.models.losses import get_loss
+from nowcasting_utils.models.loss import get_loss
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 import numpy as np
 
