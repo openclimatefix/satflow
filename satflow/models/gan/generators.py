@@ -382,15 +382,11 @@ class UnetSkipConnectionBlock(nn.Module):
         conv2d = get_conv_layer(conv_type)
         if conv_type == "antialiased":
             antialiased = True
-            downconv = conv2d(
-                input_nc, inner_nc, kernel_size=4, stride=1, padding=1, bias=use_bias
-            )
+            downconv = conv2d(input_nc, inner_nc, kernel_size=4, stride=1, padding=1, bias=use_bias)
             blurpool = antialiased_cnns.BlurPool(inner_nc, stride=2)
         else:
             antialiased = False
-            downconv = conv2d(
-                input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias
-            )
+            downconv = conv2d(input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias)
         downrelu = nn.LeakyReLU(0.2, True)
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)

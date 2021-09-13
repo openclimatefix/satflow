@@ -100,9 +100,7 @@ def cal_gradient_penalty(
     Returns the gradient penalty loss
     """
     if lambda_gp > 0.0:
-        if (
-            type == "real"
-        ):  # either use real images, fake images, or a linear interpolation of two.
+        if type == "real":  # either use real images, fake images, or a linear interpolation of two.
             interpolatesv = real_data
         elif type == "fake":
             interpolatesv = fake_data
