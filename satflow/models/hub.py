@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from functools import partial
-from typing import Union, Optional
+from typing import Optional, Union
 
 import pytorch_lightning
 import torch
@@ -19,16 +19,14 @@ except ImportError:
 from satflow import __version__
 
 try:
-    from huggingface_hub import hf_hub_url
-    from huggingface_hub import cached_download
+    from huggingface_hub import cached_download, hf_hub_url
 
     cached_download = partial(cached_download, library_name="satflow", library_version=__version__)
 except ImportError:
     hf_hub_url = None
     cached_download = None
 
-from huggingface_hub import ModelHubMixin, PYTORCH_WEIGHTS_NAME, CONFIG_NAME, hf_hub_download
-import os
+from huggingface_hub import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, ModelHubMixin, hf_hub_download
 
 MODEL_CARD_MARKDOWN = """---
 license: mit
