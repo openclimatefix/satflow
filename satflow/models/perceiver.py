@@ -156,6 +156,8 @@ class Perceiver(BaseModel):
         else:
             self.postprocessor = None
 
+        self.save_hyperparameters()
+
     def encode_inputs(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         video_inputs = x[:, :, : self.sat_channels, :, :]
         base_inputs = x[
