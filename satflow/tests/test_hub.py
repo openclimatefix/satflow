@@ -1,6 +1,8 @@
 import os
 import tempfile
 
+from huggingface_hub import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
+
 from satflow.models.base import BaseModel
 from satflow.models.hub import SatFlowModelHubMixin
 
@@ -29,8 +31,8 @@ def test_satflow_mixin():
         folder_contents = os.listdir(storage_folder)
         assert len(folder_contents) == 3
         assert "README.md" in folder_contents
-        assert "pytorch_model.bin" in folder_contents
-        assert "config.json" in folder_contents
+        assert PYTORCH_WEIGHTS_NAME in folder_contents
+        assert CONFIG_NAME in folder_contents
         # Load new model and compare hyperparameters
         new_model = DummyModel.from_pretrained(storage_folder)
         assert new_model.hparams == model.hparams
