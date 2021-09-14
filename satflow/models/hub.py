@@ -189,26 +189,24 @@ def load_pretrained(
 class SatFlowModelHubMixin(ModelHubMixin):
     def __init__(self, *args, **kwargs):
         """
-        Mix this class with your torch-model class for ease process of saving & loading from
+        Mix this class with your pl.LightningModule class to easily push / download the model via the Hugging Face Hub
 
         Example::
 
-            >>> from huggingface_hub import PyTorchModelHubMixin
+            >>> from satflow.models.hub import SatFlowModelHubMixin
 
-            >>> class MyModel(nn.Module, PyTorchModelHubMixin):
+            >>> class MyModel(nn.Module, SatFlowModelHubMixin):
             ...    def __init__(self, **kwargs):
             ...        super().__init__()
-            ...        self.config = kwargs.pop("config", None)
             ...        self.layer = ...
             ...    def forward(self, ...)
             ...        return ...
 
             >>> model = MyModel()
-            >>> model.save_pretrained("mymodel", push_to_hub=False) # Saving model weights in the directory
-            >>> model.push_to_hub("mymodel", "model-1") # Pushing model-weights to hf-hub
+            >>> model.push_to_hub("mymodel") # Pushing model-weights to hf-hub
 
             >>> # Downloading weights from hf-hub & model will be initialized from those weights
-            >>> model = MyModel.from_pretrained("username/mymodel@main")
+            >>> model = MyModel.from_pretrained("username/mymodel")
         """
 
     def _create_model_card(self, path):
