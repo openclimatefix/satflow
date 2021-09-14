@@ -3,52 +3,10 @@ import torch.nn
 import pytorch_lightning as pl
 import torchvision
 from neptune.new.types import File
-from satflow.models.hub import load_model_config_from_hf, load_pretrained
-from huggingface_hub import PyTorchModelHubMixin, PYTORCH_WEIGHTS_NAME
-import os
+from satflow.models.hub import load_model_config_from_hf, load_pretrained, SatFlowModelHubMixin
+
 
 REGISTERED_MODELS = {}
-
-MODEL_CARD_MARKDOWN = """---
-license: mit
-tags:
-- satflow
-- forecasting
-- timeseries
-- remote-sensing
----
-
-# {model_name}
-
-## Model description
-
-[More information needed]
-
-## Intended uses & limitations
-
-[More information needed]
-
-## How to use
-
-[More information needed]
-
-## Limitations and bias
-
-[More information needed]
-
-## Training data
-
-[More information needed]
-
-## Training procedure
-
-[More information needed]
-
-## Evaluation results
-
-[More information needed]
-
-"""
 
 
 def register_model(cls: Type[pl.LightningModule]):
@@ -141,7 +99,7 @@ def create_model(model_name, pretrained=False, checkpoint_path=None, **kwargs):
     return model
 
 
-class BaseModel(pl.LightningModule, PyTorchModelHubMixin):
+class BaseModel(pl.LightningModule, SatFlowModelHubMixin):
     def __init__(
         self,
         pretrained: bool = False,
@@ -204,14 +162,3 @@ class BaseModel(pl.LightningModule, PyTorchModelHubMixin):
             )
             image_grid = image_grid.permute(1, 2, 0)
             tensorboard[f"{step}/Predicted_Frame_{i}"].log(File.as_image(image_grid.numpy()))
-
-    def _create_model_card(self, path):
-        model_card = MODEL_CARD_MARKDOWN.format(model_name=type(self).__name__)
-        with open(os.path.join(path, "README.md"), "w") as f:
-            f.write(model_card)
-
-    def _save_pretrained(self, save_directory: str):
-        path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
-        model_to_save = self.module if hasattr(self, "module") else self
-        torch.save(model_to_save.state_dict(), path)
-        self._create_model_card(save_directory)

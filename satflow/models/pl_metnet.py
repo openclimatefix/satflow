@@ -7,6 +7,8 @@ from satflow.models.losses import get_loss
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from metnet import MetNet
 
+head_to_module = {"identity": nn.Identity()}
+
 
 @register_model
 class LitMetNet(BaseModel):
@@ -21,7 +23,7 @@ class LitMetNet(BaseModel):
         kernel_size: int = 3,
         num_layers: int = 1,
         num_att_layers: int = 1,
-        head: nn.Module = nn.Identity(),
+        head: str = "identity",
         forecast_steps: int = 48,
         temporal_dropout: float = 0.2,
         lr: float = 0.001,
@@ -49,10 +51,13 @@ class LitMetNet(BaseModel):
             kernel_size=kernel_size,
             num_layers=num_layers,
             num_att_layers=num_att_layers,
-            head=head,
+            head=head_to_module[head],
             forecast_steps=forecast_steps,
             temporal_dropout=temporal_dropout,
         )
+        # TODO: Would be nice to have this automatically applied to all classes
+        # that inherit from BaseModel
+        self.save_hyperparameters()
 
     def forward(self, imgs, **kwargs) -> Any:
         return self.model(imgs)
