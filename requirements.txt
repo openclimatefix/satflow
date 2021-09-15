@@ -12,7 +12,7 @@ pytorch-msssim==0.2.1
 rich>=10.6.0
 torchvision>=0.10.0
 affine==2.3.0
-git+https://github.com/webdataset/webdataset
+webdataset
 torch_optimizer
 huggingface_hub>=0.0.16
 einops==0.3.2
