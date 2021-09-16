@@ -1,6 +1,16 @@
 from typing import Tuple, Union, List
 from nowcasting_dataset.dataset.datasets import NetCDFDataset
-from nowcasting_dataset.dataset.example import Example
+from nowcasting_dataset.consts import (
+    SATELLITE_DATA,
+    SATELLITE_X_COORDS,
+    SATELLITE_Y_COORDS,
+    SATELLITE_DATETIME_INDEX,
+    NWP_DATA,
+    NWP_Y_COORDS,
+    NWP_X_COORDS,
+    NWP_TARGET_TIME,
+    DATETIME_FEATURE_NAMES,
+)
 
 
 class SatFlowDataset(NetCDFDataset):
@@ -14,14 +24,16 @@ class SatFlowDataset(NetCDFDataset):
         src_path: str,
         tmp_path: str,
         cloud: str = "gcp",
-        required_keys: Union[Tuple[str], List[str]] = (
-            "nwp",
-            "nwp_x_coords",
-            "nwp_y_coords",
-            "sat_data",
-            "sat_x_coords",
-            "sat_y_coords",
-        ),
+        required_keys: Union[Tuple[str], List[str]] = [
+            NWP_DATA,
+            NWP_X_COORDS,
+            NWP_Y_COORDS,
+            SATELLITE_DATA,
+            SATELLITE_X_COORDS,
+            SATELLITE_Y_COORDS,
+            SATELLITE_DATETIME_INDEX,
+        ]
+        + list(DATETIME_FEATURE_NAMES),
         history_minutes: int = 30,
         forecast_minutes: int = 60,
         current_timestep_index: int = 7,
@@ -51,18 +63,27 @@ class SatFlowDataset(NetCDFDataset):
         self.required_keys = list(required_keys)
 
     def __getitem__(self, batch_idx: int):
-        """Returns a whole batch at once.
-
-        Args:
-          batch_idx: The integer index of the batch. Must be in the range
-          [0, self.n_batches).
-
-        Returns:
-            NamedDict where each value is a numpy array. The size of this
-            array's first dimension is the batch size.
-        """
         batch = super().__getitem__(batch_idx)
 
         # Need to partition out past and future sat images here, along with the rest of the data
+        past_satellite_data = batch[SATELLITE_DATA][:, : self.current_index]
+        future_sat_data = batch[SATELLITE_DATA][:, self.current_index :]
+        x = {
+            SATELLITE_DATA: past_satellite_data,
+            SATELLITE_X_COORDS: batch[SATELLITE_X_COORDS],
+            SATELLITE_Y_COORDS: batch[SATELLITE_Y_COORDS],
+            batch[SATELLITE_DATETIME_INDEX]: SATELLITE_DATETIME_INDEX,
+        }
+        y = {SATELLITE_DATA: future_sat_data}
 
-        return batch
+        for k in list(DATETIME_FEATURE_NAMES):
+            if k in self.required_keys:
+                x[k] = batch[k][:, : self.current_index]
+
+        if NWP_DATA in self.required_keys:
+            past_nwp_data = batch[NWP_DATA][:, :, : self.current_index]
+            x[NWP_DATA] = past_nwp_data
+            x[NWP_X_COORDS] = batch[NWP_X_COORDS]
+            x[NWP_Y_COORDS] = batch[NWP_Y_COORDS]
+
+        return x, y
