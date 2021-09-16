@@ -59,7 +59,9 @@ class SatFlowDataset(NetCDFDataset):
         # SatFlow specific changes, i.e. which timestep to split on
         self.history_steps = history_minutes // 5
         self.forecast_steps = forecast_minutes // 5
-        self.current_index = self.history_steps + 1
+        self.current_index = (
+            self.history_steps + 2
+        )  # +2 as indexing does not include this index, so need to go one beyond
         self.required_keys = list(required_keys)
 
     def __getitem__(self, batch_idx: int):

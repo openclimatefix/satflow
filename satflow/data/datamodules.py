@@ -1,6 +1,17 @@
 import os
-from nowcasting_dataset.dataset import NetCDFDataset, worker_init_fn
-from typing import Tuple
+from nowcasting_dataset.dataset.datasets import worker_init_fn
+from satflow.data.datasets import SatFlowDataset
+from typing import Union, List, Tuple
+from nowcasting_dataset.consts import (
+    SATELLITE_DATA,
+    SATELLITE_X_COORDS,
+    SATELLITE_Y_COORDS,
+    SATELLITE_DATETIME_INDEX,
+    NWP_DATA,
+    NWP_Y_COORDS,
+    NWP_X_COORDS,
+    DATETIME_FEATURE_NAMES,
+)
 import logging
 import torch
 from pytorch_lightning import LightningDataModule
@@ -35,6 +46,16 @@ class SatFlowDataModule(LightningDataModule):
         pin_memory: bool = True,
         data_path="prepared_ML_training_data/v4/",
         fake_data: bool = False,
+        required_keys: Union[Tuple[str], List[str]] = [
+            NWP_DATA,
+            NWP_X_COORDS,
+            NWP_Y_COORDS,
+            SATELLITE_DATA,
+            SATELLITE_X_COORDS,
+            SATELLITE_Y_COORDS,
+            SATELLITE_DATETIME_INDEX,
+        ]
+        + list(DATETIME_FEATURE_NAMES),
     ):
         """
         fake_data: random data is created and used instead. This is useful for testing
@@ -49,6 +70,7 @@ class SatFlowDataModule(LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.fake_data = fake_data
+        self.required_keys = required_keys
 
         self.dataloader_config = dict(
             pin_memory=self.pin_memory,
@@ -65,19 +87,12 @@ class SatFlowDataModule(LightningDataModule):
         if self.fake_data:
             train_dataset = FakeDataset()
         else:
-            train_dataset = NetCDFDataset(
+            train_dataset = SatFlowDataset(
                 self.n_train_data,
                 os.path.join(self.data_path, "train"),
                 os.path.join(self.temp_path, "train"),
                 cloud=self.cloud,
-                required_keys=(
-                    "nwp",
-                    "nwp_x_coords",
-                    "nwp_y_coords",
-                    "sat_data",
-                    "sat_x_coords",
-                    "sat_y_coords",
-                ),
+                required_keys=self.required_keys,
             )
 
         return torch.utils.data.DataLoader(train_dataset, **self.dataloader_config)
@@ -86,19 +101,12 @@ class SatFlowDataModule(LightningDataModule):
         if self.fake_data:
             val_dataset = FakeDataset()
         else:
-            val_dataset = NetCDFDataset(
+            val_dataset = SatFlowDataset(
                 self.n_val_data,
                 os.path.join(self.data_path, "validation"),
                 os.path.join(self.temp_path, "validation"),
                 cloud=self.cloud,
-                required_keys=(
-                    "nwp",
-                    "nwp_x_coords",
-                    "nwp_y_coords",
-                    "sat_data",
-                    "sat_x_coords",
-                    "sat_y_coords",
-                ),
+                required_keys=self.required_keys,
             )
 
         return torch.utils.data.DataLoader(val_dataset, **self.dataloader_config)
@@ -108,19 +116,12 @@ class SatFlowDataModule(LightningDataModule):
             test_dataset = FakeDataset()
         else:
             # TODO need to change this to a test folder
-            test_dataset = NetCDFDataset(
+            test_dataset = SatFlowDataset(
                 self.n_val_data,
                 os.path.join(self.data_path, "validation"),
                 os.path.join(self.temp_path, "validation"),
                 cloud=self.cloud,
-                required_keys=(
-                    "nwp",
-                    "nwp_x_coords",
-                    "nwp_y_coords",
-                    "sat_data",
-                    "sat_x_coords",
-                    "sat_y_coords",
-                ),
+                required_keys=self.required_keys,
             )
 
         return torch.utils.data.DataLoader(test_dataset, **self.dataloader_config)
@@ -130,10 +131,19 @@ class FakeDataset(torch.utils.data.Dataset):
     """Fake dataset."""
 
     def __init__(
-        self, batch_size=32, seq_length=19, width=16, height=16, number_sat_channels=12, length=10
+        self,
+        batch_size=32,
+        width=16,
+        height=16,
+        number_sat_channels=12,
+        length=10,
+        history_minutes=30,
+        forecast_minutes=30,
     ):
         self.batch_size = batch_size
-        self.seq_length = seq_length
+        self.history_steps = history_minutes // 5
+        self.forecast_steps = forecast_minutes // 5
+        self.seq_length = self.history_steps + 1
         self.width = width
         self.height = height
         self.number_sat_channels = number_sat_channels
@@ -148,29 +158,32 @@ class FakeDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
 
         x = {
-            "sat_data": torch.randn(
+            SATELLITE_DATA: torch.randn(
                 self.batch_size, self.seq_length, self.width, self.height, self.number_sat_channels
             ),
-            "pv_yield": torch.randn(self.batch_size, self.seq_length, 128),
-            "pv_system_id": torch.randn(self.batch_size, 128),
-            "nwp": torch.randn(self.batch_size, 10, self.seq_length, 2, 2),
+            NWP_DATA: torch.randn(self.batch_size, 10, self.seq_length, 2, 2),
             "hour_of_day_sin": torch.randn(self.batch_size, self.seq_length),
             "hour_of_day_cos": torch.randn(self.batch_size, self.seq_length),
             "day_of_year_sin": torch.randn(self.batch_size, self.seq_length),
             "day_of_year_cos": torch.randn(self.batch_size, self.seq_length),
         }
 
-        # add a nan
-        x["pv_yield"][0, 0, :] = float("nan")
-
         # add fake x and y coords, and make sure they are sorted
-        x["sat_x_coords"], _ = torch.sort(torch.randn(self.batch_size, self.seq_length))
-        x["sat_y_coords"], _ = torch.sort(
+        x[SATELLITE_X_COORDS], _ = torch.sort(torch.randn(self.batch_size, self.seq_length))
+        x[SATELLITE_Y_COORDS], _ = torch.sort(
             torch.randn(self.batch_size, self.seq_length), descending=True
         )
 
         # add sorted (fake) time series
-        x["sat_datetime_index"], _ = torch.sort(torch.randn(self.batch_size, self.seq_length))
-        x["nwp_target_time"], _ = torch.sort(torch.randn(self.batch_size, self.seq_length))
+        x[SATELLITE_DATETIME_INDEX], _ = torch.sort(torch.randn(self.batch_size, self.seq_length))
 
-        return x
+        y = {
+            SATELLITE_DATA: torch.randn(
+                self.batch_size,
+                self.forecast_steps,
+                self.width,
+                self.height,
+                self.number_sat_channels,
+            ),
+        }
+        return x, y
