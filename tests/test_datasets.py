@@ -15,8 +15,8 @@ from nowcasting_dataset.consts import (
 def test_dataset():
     train_dataset = SatFlowDataset(
         1,
-        "./",
-        "./",
+        "tests/",
+        "tests/",
         cloud="local",
         required_keys=[
             NWP_DATA,
