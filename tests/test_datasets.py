@@ -29,4 +29,5 @@ def test_dataset():
     )
 
     sample, target = next(iter(train_dataset))
-    print(sample.keys())
+    assert sample[SATELLITE_DATA].shape[1] == 3
+    assert target[SATELLITE_DATA].shape[1] == 2

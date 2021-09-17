@@ -60,7 +60,7 @@ class SatFlowDataset(NetCDFDataset):
         self.history_steps = history_minutes // 5
         self.forecast_steps = forecast_minutes // 5
         self.current_index = (
-            self.history_steps + 2
+            self.history_steps + 1
         )  # +2 as indexing does not include this index, so need to go one beyond
         self.required_keys = list(required_keys)
 
