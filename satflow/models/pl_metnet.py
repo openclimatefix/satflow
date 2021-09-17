@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from typing import Any
 
-from satflow.models.base import register_model, BaseModel
-from satflow.models.losses import get_loss
+from nowcasting_utils.models.base import register_model, BaseModel
+from nowcasting_utils.models.loss import get_loss
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from metnet import MetNet
 

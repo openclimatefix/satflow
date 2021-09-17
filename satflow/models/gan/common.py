@@ -1,14 +1,6 @@
 import functools
-from typing import Tuple
-
 import torch
 from torch.nn import init
-from torch.distributions import uniform
-from torch.nn.utils import spectral_norm
-from torch.nn.modules.pixelshuffle import PixelShuffle, PixelUnshuffle
-from torch.nn.functional import interpolate
-from satflow.models.utils import get_conv_layer
-from satflow.models.layers.Attention import SelfAttention2d
 
 
 def get_norm_layer(norm_type="instance"):
@@ -108,9 +100,7 @@ def cal_gradient_penalty(
     Returns the gradient penalty loss
     """
     if lambda_gp > 0.0:
-        if (
-            type == "real"
-        ):  # either use real images, fake images, or a linear interpolation of two.
+        if type == "real":  # either use real images, fake images, or a linear interpolation of two.
             interpolatesv = real_data
         elif type == "fake":
             interpolatesv = fake_data

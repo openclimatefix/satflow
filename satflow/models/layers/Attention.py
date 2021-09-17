@@ -10,15 +10,9 @@ class SeparableAttn(nn.Module):
     ):
         super().__init__()
         self.model = nn.Sequential(
-            SeparableAttnCell(
-                in_dim, "T", activation, pooling_factor, padding_mode, padding_value
-            ),
-            SeparableAttnCell(
-                in_dim, "W", activation, pooling_factor, padding_mode, padding_value
-            ),
-            SeparableAttnCell(
-                in_dim, "H", activation, pooling_factor, padding_mode, padding_value
-            ),
+            SeparableAttnCell(in_dim, "T", activation, pooling_factor, padding_mode, padding_value),
+            SeparableAttnCell(in_dim, "W", activation, pooling_factor, padding_mode, padding_value),
+            SeparableAttnCell(in_dim, "H", activation, pooling_factor, padding_mode, padding_value),
         )
 
     def forward(self, x):

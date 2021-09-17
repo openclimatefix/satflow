@@ -1,4 +1,4 @@
-from satflow.models import MetNet
+from satflow.models import LitMetNet
 import torch
 import urllib.request
 
@@ -13,7 +13,7 @@ def get_input_target(number: int):
 # Setup the model (need to add loading weights from HuggingFace :)
 # 12 satellite channels + 1 Topographic + 3 Lat/Lon + 1 Cloud Mask
 # Output Channels: 1 Cloud mask, 12 for Satellite image
-model = MetNet(input_channels=17, sat_channels=13, input_size=64, out_channels=1)
+model = LitMetNet(input_channels=17, sat_channels=13, input_size=64, out_channels=1)
 torch.set_grad_enabled(False)
 model.eval()
 # The inputs are Tensors of size (Batch, Curr+Prev Timesteps, Channel, Width, Height)

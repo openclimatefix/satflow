@@ -1,7 +1,9 @@
 from distutils.core import setup
+from pathlib import Path
 
-with open("requirements.txt") as f:
-    install_requires = f.read().splitlines()
+this_directory = Path(__file__).parent
+install_requires = (this_directory / "requirements.txt").read_text().splitlines()
+long_description = (this_directory / "README.md").read_text()
 
 exec(open("satflow/version.py").read())
 setup(
@@ -13,6 +15,8 @@ setup(
     company="Open Climate Fix Ltd",
     author="Jacob Bieker",
     install_requires=install_requires,
+    long_description=long_description,
+    ong_description_content_type="text/markdown",
     author_email="jacob@openclimatefix.org",
     description="Satellite Optical Flow",
 )

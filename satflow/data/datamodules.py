@@ -1,340 +1,208 @@
-import pytorch_lightning as pl
-from torch.utils.data import DataLoader
-from typing import Optional
-import webdataset as wds
-from satflow.data.datasets import SatFlowDataset, CloudFlowDataset, FileDataset, PerceiverDataset
 import os
-from glob import glob
+from nowcasting_dataset.dataset.datasets import worker_init_fn
+from satflow.data.datasets import SatFlowDataset
+from typing import Union, List, Tuple, Optional
+from nowcasting_dataset.consts import (
+    SATELLITE_DATA,
+    SATELLITE_X_COORDS,
+    SATELLITE_Y_COORDS,
+    SATELLITE_DATETIME_INDEX,
+    NWP_DATA,
+    NWP_Y_COORDS,
+    NWP_X_COORDS,
+    DATETIME_FEATURE_NAMES,
+)
+import logging
+import torch
+from pytorch_lightning import LightningDataModule
 
 
-def is_streaming(pattern):
+_LOG = logging.getLogger(__name__)
+_LOG.setLevel(logging.DEBUG)
+
+
+class SatFlowDataModule(LightningDataModule):
     """
-    Determine whether Webdataset is being streamed in or not
-
-    Very simple for now and kinda hacky
-    Args:
-        pattern:
-
-    Returns:
-
+    Example of LightningDataModule for NETCDF dataset.
+    A DataModule implements 5 key methods:
+        - prepare_data (things to do on 1 GPU/TPU, not on every GPU/TPU in distributed mode)
+        - setup (things to do on every accelerator in distributed mode)
+        - train_dataloader (the training dataloader)
+        - val_dataloader (the validation dataloader(s))
+        - test_dataloader (the test dataloader(s))
+    This allows you to share a full dataset without explaining how to download,
+    split, transform and process the data.
+    Read the docs:
+        https://pytorch-lightning.readthedocs.io/en/latest/extensions/datamodules.html
     """
-    if "pipe" in pattern:
-        return True
-    else:
-        return False
 
-
-class SatFlowDataModule(pl.LightningDataModule):
     def __init__(
         self,
-        config: dict,
-        sources: dict,
-        batch_size: int = 2,
-        shuffle: int = 0,
-        data_dir: str = "./",
-        num_workers: int = 1,
+        temp_path: str = ".",
+        n_train_data: int = 24900,
+        n_val_data: int = 1000,
+        cloud: str = "aws",
+        num_workers: int = 8,
         pin_memory: bool = True,
-        prefetch_factor: int = 2,
+        data_path="prepared_ML_training_data/v4/",
+        fake_data: bool = False,
+        required_keys: Union[Tuple[str], List[str]] = [
+            NWP_DATA,
+            NWP_X_COORDS,
+            NWP_Y_COORDS,
+            SATELLITE_DATA,
+            SATELLITE_X_COORDS,
+            SATELLITE_Y_COORDS,
+            SATELLITE_DATETIME_INDEX,
+        ]
+        + list(DATETIME_FEATURE_NAMES),
+        history_minutes: Optional[int] = None,
+        forecast_minutes: Optional[int] = None,
     ):
+        """
+        fake_data: random data is created and used instead. This is useful for testing
+        """
         super().__init__()
-        self.data_dir = data_dir
-        self.config = config
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.sources = sources
+
+        self.temp_path = temp_path
+        self.data_path = data_path
+        self.cloud = cloud
+        self.n_train_data = n_train_data
+        self.n_val_data = n_val_data
         self.num_workers = num_workers
         self.pin_memory = pin_memory
-        self.prefetch_factor = prefetch_factor
+        self.fake_data = fake_data
+        self.required_keys = required_keys
+        self.forecast_minutes = forecast_minutes
+        self.history_minutes = history_minutes
 
-        self.training_dataloader_ref = None
-
-    def prepare_data(self):
-        # download
-        pass
-
-    def setup(self, stage: Optional[str] = None):
-        # Assign train/val datasets for use in dataloaders
-        if stage == "fit" or stage is None:
-            train_dset = wds.WebDataset(
-                self.sources["train"]
-                if is_streaming(self.sources["train"])
-                else os.path.join(self.data_dir, self.sources["train"])
-            )
-            val_dset = wds.WebDataset(
-                self.sources["val"]
-                if is_streaming(self.sources["val"])
-                else os.path.join(self.data_dir, self.sources["val"])
-            )
-            if self.shuffle > 0:
-                # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
-                train_dset = train_dset.shuffle(self.shuffle)
-            self.train_dataset = SatFlowDataset([train_dset], config=self.config, train=True)
-            self.val_dataset = SatFlowDataset([val_dset], config=self.config, train=False)
-            # This seems necessary for the reload_dataloader to not reload the training_dataloader
-            if self.training_dataloader_ref is None:
-                training_dataloader = DataLoader(
-                    self.train_dataset,
-                    batch_size=self.batch_size,
-                    pin_memory=self.pin_memory,
-                    num_workers=self.num_workers,
-                    prefetch_factor=self.prefetch_factor,
-                )
-                self.training_dataloader_ref = training_dataloader
-
-        # Assign test dataset for use in dataloader(s)
-        if stage == "test" or stage is None:
-            test_dset = wds.WebDataset(
-                self.sources["test"]
-                if is_streaming(self.sources["test"])
-                else os.path.join(self.data_dir, self.sources["test"])
-            )
-            self.test_dataset = SatFlowDataset([test_dset], config=self.config, train=False)
+        self.dataloader_config = dict(
+            pin_memory=self.pin_memory,
+            num_workers=self.num_workers,
+            prefetch_factor=8,
+            worker_init_fn=worker_init_fn,
+            persistent_workers=True,
+            # Disable automatic batching because dataset
+            # returns complete batches.
+            batch_size=None,
+        )
 
     def train_dataloader(self):
-        return self.training_dataloader_ref
+        if self.fake_data:
+            train_dataset = FakeDataset(
+                history_minutes=self.history_minutes, forecast_minutes=self.forecast_minutes
+            )
+        else:
+            train_dataset = SatFlowDataset(
+                self.n_train_data,
+                os.path.join(self.data_path, "train"),
+                os.path.join(self.temp_path, "train"),
+                cloud=self.cloud,
+                required_keys=self.required_keys,
+                history_minutes=self.history_minutes,
+                forecast_minutes=self.forecast_minutes,
+            )
+
+        return torch.utils.data.DataLoader(train_dataset, **self.dataloader_config)
 
     def val_dataloader(self):
-        return DataLoader(
-            self.val_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers // 2,
-            prefetch_factor=self.prefetch_factor,
-        )
+        if self.fake_data:
+            val_dataset = FakeDataset(
+                history_minutes=self.history_minutes, forecast_minutes=self.forecast_minutes
+            )
+        else:
+            val_dataset = SatFlowDataset(
+                self.n_val_data,
+                os.path.join(self.data_path, "validation"),
+                os.path.join(self.temp_path, "validation"),
+                cloud=self.cloud,
+                required_keys=self.required_keys,
+                history_minutes=self.history_minutes,
+                forecast_minutes=self.forecast_minutes,
+            )
+
+        return torch.utils.data.DataLoader(val_dataset, **self.dataloader_config)
 
     def test_dataloader(self):
-        return DataLoader(
-            self.test_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers // 2,
-            prefetch_factor=self.prefetch_factor,
-        )
+        if self.fake_data:
+            test_dataset = FakeDataset(
+                history_minutes=self.history_minutes, forecast_minutes=self.forecast_minutes
+            )
+        else:
+            # TODO need to change this to a test folder
+            test_dataset = SatFlowDataset(
+                self.n_val_data,
+                os.path.join(self.data_path, "validation"),
+                os.path.join(self.temp_path, "validation"),
+                cloud=self.cloud,
+                required_keys=self.required_keys,
+                history_minutes=self.history_minutes,
+                forecast_minutes=self.forecast_minutes,
+            )
+
+        return torch.utils.data.DataLoader(test_dataset, **self.dataloader_config)
 
 
-class FileDataModule(pl.LightningDataModule):
+class FakeDataset(torch.utils.data.Dataset):
+    """Fake dataset."""
+
     def __init__(
         self,
-        config: dict,
-        sources: dict,
-        batch_size: int = 2,
-        shuffle: int = 0,
-        data_dir: str = "./",
-        num_workers: int = 1,
-        pin_memory: bool = True,
+        batch_size=32,
+        width=16,
+        height=16,
+        number_sat_channels=12,
+        length=10,
+        history_minutes=30,
+        forecast_minutes=30,
     ):
-        super().__init__()
-        self.data_dir = data_dir
-        self.config = config
         self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.sources = sources
-        self.num_workers = num_workers
-        self.pin_memory = pin_memory
+        if history_minutes is None or forecast_minutes is None:
+            history_minutes = 30  # Half an hour
+            forecast_minutes = 240  # 4 hours
+        self.history_steps = history_minutes // 5
+        self.forecast_steps = forecast_minutes // 5
+        self.seq_length = self.history_steps + 1
+        self.width = width
+        self.height = height
+        self.number_sat_channels = number_sat_channels
+        self.length = length
 
-        self.training_dataloader_ref = None
+    def __len__(self):
+        return self.length
 
-    def prepare_data(self):
-        # download
+    def per_worker_init(self, worker_id: int):
         pass
 
-    def setup(self, stage: Optional[str] = None):
-        # Assign train/val datasets for use in dataloaders
-        if stage == "fit" or stage is None:
-            self.train_dataset = FileDataset(
-                os.path.join(self.data_dir, self.sources["train"]),
-                use_image=self.config.get("use_image", True),
-                train=True,
-            )
-            self.val_dataset = FileDataset(
-                os.path.join(self.data_dir, self.sources["val"]),
-                use_image=self.config.get("use_image", True),
-                train=False,
-            )
+    def __getitem__(self, idx):
 
-        # Assign test dataset for use in dataloader(s)
-        if stage == "test" or stage is None:
-            self.test_dataset = FileDataset(
-                os.path.join(self.data_dir, self.sources["test"]),
-                use_image=self.config.get("use_image", True),
-                train=False,
-            )
+        x = {
+            SATELLITE_DATA: torch.randn(
+                self.batch_size, self.seq_length, self.width, self.height, self.number_sat_channels
+            ),
+            NWP_DATA: torch.randn(self.batch_size, 10, self.seq_length, 2, 2),
+            "hour_of_day_sin": torch.randn(self.batch_size, self.seq_length),
+            "hour_of_day_cos": torch.randn(self.batch_size, self.seq_length),
+            "day_of_year_sin": torch.randn(self.batch_size, self.seq_length),
+            "day_of_year_cos": torch.randn(self.batch_size, self.seq_length),
+        }
 
-    def train_dataloader(self):
-        if self.training_dataloader_ref:
-            return self.training_dataloader_ref
-
-        training_dataloader = DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers,
-            shuffle=True,
-        )
-        self.training_dataloader_ref = training_dataloader
-
-        return self.training_dataloader_ref
-
-    def val_dataloader(self):
-        return DataLoader(
-            self.val_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers,
+        # add fake x and y coords, and make sure they are sorted
+        x[SATELLITE_X_COORDS], _ = torch.sort(torch.randn(self.batch_size, self.seq_length))
+        x[SATELLITE_Y_COORDS], _ = torch.sort(
+            torch.randn(self.batch_size, self.seq_length), descending=True
         )
 
-    def test_dataloader(self):
-        return DataLoader(
-            self.test_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers,
-        )
+        # add sorted (fake) time series
+        x[SATELLITE_DATETIME_INDEX], _ = torch.sort(torch.randn(self.batch_size, self.seq_length))
 
-
-class MaskFlowDataModule(pl.LightningDataModule):
-    def __init__(
-        self,
-        config: dict,
-        sources: dict,
-        batch_size: int = 2,
-        shuffle: int = 0,
-        data_dir: str = "./",
-        num_workers: int = 1,
-        pin_memory: bool = True,
-    ):
-        super().__init__()
-        self.data_dir = data_dir
-        self.config = config
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.sources = sources
-        self.num_workers = num_workers
-        self.pin_memory = pin_memory
-
-        self.training_dataloader_ref = None
-
-    def prepare_data(self):
-        # download
-        pass
-
-    def setup(self, stage: Optional[str] = None):
-        # Assign train/val datasets for use in dataloaders
-        if stage == "fit" or stage is None:
-            train_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["train"]))
-            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"]))
-            if self.shuffle > 0:
-                # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
-                train_dset = train_dset.shuffle(self.shuffle)
-            self.train_dataset = CloudFlowDataset([train_dset], config=self.config, train=True)
-            self.val_dataset = CloudFlowDataset([val_dset], config=self.config, train=False)
-
-        # Assign test dataset for use in dataloader(s)
-        if stage == "test" or stage is None:
-            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"]))
-            self.test_dataset = CloudFlowDataset([test_dset], config=self.config, train=False)
-
-    def train_dataloader(self):
-        # Stores reference and returns it for the reload_dataloaders_every_n_epochs so that the training dataloader keeps
-        # iterating through all the data, but the validation dataloader is reset and helps with keeping the same examples
-        if self.training_dataloader_ref:
-            return self.training_dataloader_ref
-
-        training_dataloader = DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers,
-        )
-        self.training_dataloader_ref = training_dataloader
-
-        return self.training_dataloader_ref
-
-    def val_dataloader(self):
-        return DataLoader(
-            self.val_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers,
-        )
-
-    def test_dataloader(self):
-        return DataLoader(
-            self.test_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers,
-        )
-
-
-class PerceiverDataModule(pl.LightningDataModule):
-    def __init__(
-        self,
-        config: dict,
-        sources: dict,
-        batch_size: int = 2,
-        shuffle: int = 0,
-        data_dir: str = "./",
-        num_workers: int = 1,
-        pin_memory: bool = True,
-    ):
-        super().__init__()
-        self.data_dir = data_dir
-        self.config = config
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.sources = sources
-        self.num_workers = num_workers
-        self.pin_memory = pin_memory
-
-        self.training_dataloader_ref = None
-
-    def prepare_data(self):
-        # download
-        pass
-
-    def setup(self, stage: Optional[str] = None):
-        # Assign train/val datasets for use in dataloaders
-        if stage == "fit" or stage is None:
-            train_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["train"]))
-            val_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["val"]))
-            if self.shuffle > 0:
-                # Add shuffling, each sample is still quite large, so too many examples ends up running out of ram
-                train_dset = train_dset.shuffle(self.shuffle)
-            self.train_dataset = PerceiverDataset([train_dset], config=self.config, train=True)
-            self.val_dataset = PerceiverDataset([val_dset], config=self.config, train=False)
-
-        # Assign test dataset for use in dataloader(s)
-        if stage == "test" or stage is None:
-            test_dset = wds.WebDataset(os.path.join(self.data_dir, self.sources["test"]))
-            self.test_dataset = PerceiverDataset([test_dset], config=self.config, train=False)
-
-    def train_dataloader(self):
-        if self.training_dataloader_ref:
-            return self.training_dataloader_ref
-
-        training_dataloader = DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers,
-        )
-        self.training_dataloader_ref = training_dataloader
-
-        return self.training_dataloader_ref
-
-    def val_dataloader(self):
-        return DataLoader(
-            self.val_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers,
-        )
-
-    def test_dataloader(self):
-        return DataLoader(
-            self.test_dataset,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=self.num_workers,
-        )
+        y = {
+            SATELLITE_DATA: torch.randn(
+                self.batch_size,
+                self.forecast_steps,
+                self.width,
+                self.height,
+                self.number_sat_channels,
+            ),
+        }
+        return x, y

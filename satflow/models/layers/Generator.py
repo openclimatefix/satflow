@@ -84,9 +84,7 @@ class Generator(nn.Module):
                 torch.cat((noise_emb[0], class_emb), dim=1)
             )  # B x (2 x ld x ch)
         else:
-            y = self.affine_transfrom(
-                torch.cat((noise_emb, class_emb), dim=1)
-            )  # B x (2 x ld x ch)
+            y = self.affine_transfrom(torch.cat((noise_emb, class_emb), dim=1))  # B x (2 x ld x ch)
 
         y = y.view(-1, 8 * self.ch, self.latent_dim, self.latent_dim)  # B x ch x ld x ld
 

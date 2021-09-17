@@ -7,10 +7,10 @@ import torch
 from math import prod
 from torch.distributions import uniform
 from typing import Iterable, Dict, Optional, Any, Union, Tuple
-from satflow.models.base import register_model, BaseModel
+from nowcasting_utils.models.base import register_model, BaseModel
 from einops import rearrange, repeat
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
-from satflow.models.losses import get_loss
+from nowcasting_utils.models.loss import get_loss
 import torch_optimizer as optim
 import logging
 

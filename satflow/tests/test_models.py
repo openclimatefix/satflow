@@ -1,6 +1,5 @@
-import numpy as np
 from satflow.models import LitMetNet, Perceiver
-from satflow.models.base import list_models, create_model
+from nowcasting_utils.models.base import list_models, create_model
 import yaml
 import torch
 import pytest
