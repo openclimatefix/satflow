@@ -3,8 +3,8 @@ from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
 import torchvision
 from typing import Union
-from satflow.models.base import register_model
-from satflow.models.losses import get_loss
+from nowcasting_utils.models.base import register_model
+from nowcasting_utils.models.loss import get_loss
 import numpy as np
 
 
@@ -122,19 +122,13 @@ class R2U_Net(nn.Module):
         self.RRCNN1 = RRCNN_block(ch_in=img_ch, ch_out=64, t=t, conv_type=conv_type)
         self.Blur1 = antialiased_cnns.BlurPool(64, stride=2) if self.antialiased else nn.Identity()
         self.RRCNN2 = RRCNN_block(ch_in=64, ch_out=128, t=t, conv_type=conv_type)
-        self.Blur2 = (
-            antialiased_cnns.BlurPool(128, stride=2) if self.antialiased else nn.Identity()
-        )
+        self.Blur2 = antialiased_cnns.BlurPool(128, stride=2) if self.antialiased else nn.Identity()
 
         self.RRCNN3 = RRCNN_block(ch_in=128, ch_out=256, t=t, conv_type=conv_type)
-        self.Blur3 = (
-            antialiased_cnns.BlurPool(256, stride=2) if self.antialiased else nn.Identity()
-        )
+        self.Blur3 = antialiased_cnns.BlurPool(256, stride=2) if self.antialiased else nn.Identity()
 
         self.RRCNN4 = RRCNN_block(ch_in=256, ch_out=512, t=t, conv_type=conv_type)
-        self.Blur4 = (
-            antialiased_cnns.BlurPool(512, stride=2) if self.antialiased else nn.Identity()
-        )
+        self.Blur4 = antialiased_cnns.BlurPool(512, stride=2) if self.antialiased else nn.Identity()
 
         self.RRCNN5 = RRCNN_block(ch_in=512, ch_out=1024, t=t, conv_type=conv_type)
 

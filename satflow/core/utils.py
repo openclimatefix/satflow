@@ -81,13 +81,9 @@ def extras(config: DictConfig) -> None:
         else channels
     )
     log.info(f"Channels: (Use Time) {channels}")
-    channels = (
-        channels + 2 if config.datamodule.config.get("add_pixel_coords", False) else channels
-    )
+    channels = channels + 2 if config.datamodule.config.get("add_pixel_coords", False) else channels
     log.info(f"Channels: (Add Pixel Coordinates) {channels}")
-    channels = (
-        channels + 1 if config.datamodule.config.get("add_polar_coords", False) else channels
-    )
+    channels = channels + 1 if config.datamodule.config.get("add_polar_coords", False) else channels
     log.info(f"Channels: (Add Polar Coordinates) {channels}")
     config.model.input_channels = channels
 

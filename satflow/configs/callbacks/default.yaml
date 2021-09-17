@@ -17,4 +17,4 @@ early_stopping:
   min_delta: 0 # minimum change in the monitored metric needed to qualify as an improvement
 
 model_logging:
-  _target_: satflow.core.callbacks.NeptuneModelLogger
+  _target_: nowcasting_utils.training.callbacks.NeptuneModelLogger
