@@ -15,16 +15,12 @@ from nowcasting_dataset.consts import (
 def test_dataset():
     train_dataset = SatFlowDataset(
         1,
-        "test/train",
-        "test/train",
+        "./",
+        "./",
         cloud="local",
         required_keys=[
             NWP_DATA,
-            NWP_X_COORDS,
-            NWP_Y_COORDS,
             SATELLITE_DATA,
-            SATELLITE_X_COORDS,
-            SATELLITE_Y_COORDS,
             SATELLITE_DATETIME_INDEX,
             NWP_TARGET_TIME,
         ],

@@ -72,11 +72,14 @@ class SatFlowDataset(NetCDFDataset):
         future_sat_data = batch[SATELLITE_DATA][:, self.current_index :]
         x = {
             SATELLITE_DATA: past_satellite_data,
-            SATELLITE_X_COORDS: batch[SATELLITE_X_COORDS],
-            SATELLITE_Y_COORDS: batch[SATELLITE_Y_COORDS],
-            batch[SATELLITE_DATETIME_INDEX]: SATELLITE_DATETIME_INDEX,
+            SATELLITE_X_COORDS: batch.get(SATELLITE_X_COORDS, None),
+            SATELLITE_Y_COORDS: batch.get(SATELLITE_Y_COORDS, None),
+            SATELLITE_DATETIME_INDEX: batch[SATELLITE_DATETIME_INDEX][:, : self.current_index],
         }
-        y = {SATELLITE_DATA: future_sat_data}
+        y = {
+            SATELLITE_DATA: future_sat_data,
+            SATELLITE_DATETIME_INDEX: batch[SATELLITE_DATETIME_INDEX][:, self.current_index :],
+        }
 
         for k in list(DATETIME_FEATURE_NAMES):
             if k in self.required_keys:
@@ -85,7 +88,7 @@ class SatFlowDataset(NetCDFDataset):
         if NWP_DATA in self.required_keys:
             past_nwp_data = batch[NWP_DATA][:, :, : self.current_index]
             x[NWP_DATA] = past_nwp_data
-            x[NWP_X_COORDS] = batch[NWP_X_COORDS]
-            x[NWP_Y_COORDS] = batch[NWP_Y_COORDS]
+            x[NWP_X_COORDS] = batch.get(NWP_X_COORDS, None)
+            x[NWP_Y_COORDS] = batch.get(NWP_Y_COORDS, None)
 
         return x, y

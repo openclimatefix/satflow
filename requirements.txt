@@ -20,4 +20,3 @@ skillful_nowcasting>=0.0.2
 perceiver-model>=0.7.0
 nowcasting-dataset
 nowcasting-utils
-xarray
