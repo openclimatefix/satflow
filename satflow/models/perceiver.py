@@ -1,6 +1,5 @@
 from perceiver_pytorch import MultiPerceiver
-from perceiver_pytorch.modalities import InputModality, modality_encoding
-from perceiver_pytorch.utils import encode_position
+from perceiver_pytorch.modalities import InputModality
 from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.decoders import ImageDecoder
 from perceiver_pytorch.queries import LearnableQuery

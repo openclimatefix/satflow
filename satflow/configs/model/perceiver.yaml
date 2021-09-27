@@ -1,9 +1,10 @@
 _target_: satflow.models.perceiver.Perceiver
-input_channels: 16
+input_channels: 23
 sat_channels: 12
+nwp_channels: 10
 forecast_steps: 12
 lr: 0.0005
-input_size: 32
+input_size: 64
 max_frequency: 16.0
 depth: 6
 num_latents: 256
@@ -18,3 +19,7 @@ logits_dim: null
 queries_dim: 32
 latent_dim_heads: 64
 visualize: False
+use_learnable_query: True
+predict_timesteps_together: True
+nwp_modality: True
+history_steps: 6
