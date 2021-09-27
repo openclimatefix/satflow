@@ -65,6 +65,7 @@ class Perceiver(BaseModel):
         pretrained: bool = False,
         predict_timesteps_together: bool = False,
         nwp_modality: bool = False,
+        use_learnable_query: bool = True,
     ):
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
@@ -76,7 +77,21 @@ class Perceiver(BaseModel):
         self.nwp_channels = nwp_channels
         self.output_channels = sat_channels
         self.criterion = get_loss(loss)
+        self.input_size = input_size
         self.predict_timesteps_together = predict_timesteps_together
+        self.use_learnable_query = use_learnable_query
+
+        if use_learnable_query:
+            self.query = LearnableQuery(
+                channel_dim=queries_dim,
+                query_shape=(self.forecast_steps, self.input_size, self.input_size),
+                conv_layer="3d",
+                max_frequency=max_frequency,
+                num_frequency_bands=input_size,
+                sine_only=sin_only,
+            )
+        else:
+            self.query = None
 
         # Warn if using frequency is smaller than Nyquist Frequency
         if max_frequency < input_size / 2:
@@ -117,7 +132,7 @@ class Perceiver(BaseModel):
         modalities = []
         # Timeseries input
         sat_modality = InputModality(
-            name="sat_timeseries",
+            name=SATELLITE_DATA,
             input_channels=video_input_channels,
             input_axis=3,  # number of axes, 3 for video
             num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
@@ -128,7 +143,7 @@ class Perceiver(BaseModel):
         modalities.append(sat_modality)
         if nwp_modality:
             nwp_modality = InputModality(
-                name="nwp_timeseries",
+                name=NWP_DATA,
                 input_channels=nwp_channels,
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
@@ -139,7 +154,7 @@ class Perceiver(BaseModel):
             modalities.append(nwp_modality)
         # Use image modality for latlon, elevation, other base data?
         image_modality = InputModality(
-            name="basemap",
+            name=TOPOGRAPHIC_DATA,
             input_channels=image_input_channels,
             input_axis=2,  # number of axes, 2 for images
             num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
@@ -240,15 +255,9 @@ class Perceiver(BaseModel):
     def encode_inputs(self, x: dict) -> Dict[str, torch.Tensor]:
         video_inputs = x[SATELLITE_DATA]
         nwp_inputs = x.get(NWP_DATA, [])
-        base_inputs = [
-            x.get(TOPOGRAPHIC_DATA, []),
-            x.get(SATELLITE_X_COORDS, []),
-            x.get(SATELLITE_Y_COORDS, []),
-            x.get(NWP_X_COORDS, []),
-            x.get(NWP_Y_COORDS, []),
-            x.get(TOPOGRAPHIC_X_COORDS, []),
-            x.get(TOPOGRAPHIC_Y_COORDS, []),
-        ]  # Base maps should be the same for all timesteps in a sample
+        base_inputs = x.get(
+            TOPOGRAPHIC_DATA, []
+        )  # Base maps should be the same for all timesteps in a sample
 
         # Run the preprocessors here when encoding the inputs
         if self.preprocessor is not None:
@@ -262,7 +271,10 @@ class Perceiver(BaseModel):
             nwp_inputs = nwp_inputs.permute(0, 1, 3, 4, 2)  # Channel last
         base_inputs = base_inputs.permute(0, 2, 3, 1)  # Channel last
         logger.debug(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
-        return {"sat": video_inputs, "nwp": nwp_inputs, "base": base_inputs}
+        x[SATELLITE_DATA] = video_inputs
+        x[NWP_DATA] = nwp_inputs
+        x[TOPOGRAPHIC_DATA] = base_inputs
+        return x
 
     def add_timestep(self, batch_size: int, timestep: int = 1) -> torch.Tensor:
         times = (torch.eye(self.forecast_steps)[timestep]).unsqueeze(-1).unsqueeze(-1)
@@ -278,15 +290,29 @@ class Perceiver(BaseModel):
         batch_size = y.size(0)
         # For each future timestep:
         predictions = []
-        query = self.construct_query(x)
+        if self.query is None:
+            query = self.construct_query(x)
+        else:
+            query = self.query
         x = self.encode_inputs(x)
-        for i in range(self.forecast_steps):
-            x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
-            # x_i = self.ct(x["timeseries"], fstep=i)
+        if self.predict_timesteps_together:
+            # Predicting all future ones at once
             y_hat = self(x, query=query)
-            y_hat = rearrange(y_hat, "b h (w c) -> b c h w", c=self.output_channels)
-            predictions.append(y_hat)
-        y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
+            y_hat = rearrange(
+                y_hat,
+                "b (t h w) c -> b c t h w",
+                t=self.forecast_steps,
+                h=self.input_size,
+                w=self.input_size,
+            )
+        else:
+            for i in range(self.forecast_steps):
+                x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
+                # x_i = self.ct(x["timeseries"], fstep=i)
+                y_hat = self(x, query=query)
+                y_hat = rearrange(y_hat, "b h (w c) -> b c h w", c=self.output_channels)
+                predictions.append(y_hat)
+            y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
         if self.postprocessor is not None:
             y_hat = self.postprocessor(y_hat)
         if self.visualize:
@@ -295,7 +321,9 @@ class Perceiver(BaseModel):
         self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat[:, f, :, :, :], y[:, f, :, :, :]).item()
+            frame_loss = self.criterion(
+                y_hat[:, f, :, :, :], y[SATELLITE_DATA][:, f, :, :, :]
+            ).item()
             frame_loss_dict[f"{'train' if is_training else 'val'}/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
         return loss
@@ -323,6 +351,8 @@ class Perceiver(BaseModel):
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
     def construct_query(self, x):
+        if self.use_learnable_query:
+            pass
         # key, value: B x N x K; query: B x M x K
         # Attention maps -> B x N x M
         # Output -> B x M x K
