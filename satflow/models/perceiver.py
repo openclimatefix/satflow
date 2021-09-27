@@ -287,13 +287,10 @@ class Perceiver(BaseModel):
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
-        batch_size = y.size(0)
+        batch_size = y[SATELLITE_DATA].size(0)
         # For each future timestep:
         predictions = []
-        if self.query is None:
-            query = self.construct_query(x)
-        else:
-            query = self.query
+        query = self.construct_query(x)
         x = self.encode_inputs(x)
         if self.predict_timesteps_together:
             # Predicting all future ones at once
@@ -350,16 +347,16 @@ class Perceiver(BaseModel):
         }
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
-    def construct_query(self, x):
+    def construct_query(self, x: dict):
         if self.use_learnable_query:
-            pass
+            return self.query
         # key, value: B x N x K; query: B x M x K
         # Attention maps -> B x N x M
         # Output -> B x M x K
         # So want query to be B X (T*H*W) X C to reshape to B x T x C x H x W
         if self.preprocessor is not None:
-            x = self.preprocessor(x)
-        y_query = x[:, -1, 0, :, :]  # Only want sat channels, the output
+            x = self.preprocessor(x[SATELLITE_DATA])
+        y_query = x  # Only want sat channels, the output
         # y_query = torch.permute(y_query, (0, 2, 3, 1)) # Channel Last
         # Need to reshape to 3 dimensions, TxHxW or HxWxC
         # y_query = rearrange(y_query, "b h w d -> b (h w) d")
