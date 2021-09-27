@@ -3,6 +3,7 @@ from perceiver_pytorch.modalities import InputModality, modality_encoding
 from perceiver_pytorch.utils import encode_position
 from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.decoders import ImageDecoder
+from perceiver_pytorch.queries import LearnableQuery
 import torch
 from math import prod
 from torch.distributions import uniform
@@ -13,6 +14,19 @@ from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from nowcasting_utils.models.loss import get_loss
 import torch_optimizer as optim
 import logging
+from nowcasting_dataset.consts import (
+    SATELLITE_DATA,
+    SATELLITE_X_COORDS,
+    SATELLITE_Y_COORDS,
+    SATELLITE_DATETIME_INDEX,
+    NWP_DATA,
+    NWP_Y_COORDS,
+    NWP_X_COORDS,
+    TOPOGRAPHIC_DATA,
+    TOPOGRAPHIC_X_COORDS,
+    TOPOGRAPHIC_Y_COORDS,
+    DATETIME_FEATURE_NAMES,
+)
 
 logger = logging.getLogger("satflow.model")
 logger.setLevel(logging.WARN)
@@ -22,8 +36,9 @@ logger.setLevel(logging.WARN)
 class Perceiver(BaseModel):
     def __init__(
         self,
-        input_channels: int = 12,
+        input_channels: int = 22,
         sat_channels: int = 12,
+        nwp_channels: int = 10,
         forecast_steps: int = 48,
         input_size: int = 64,
         lr: float = 5e-4,
@@ -49,6 +64,8 @@ class Perceiver(BaseModel):
         encoder_kwargs: Optional[Dict[str, Any]] = None,
         decoder_kwargs: Optional[Dict[str, Any]] = None,
         pretrained: bool = False,
+        predict_timesteps_together: bool = False,
+        nwp_modality: bool = False,
     ):
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
@@ -57,8 +74,10 @@ class Perceiver(BaseModel):
         self.pretrained = pretrained
         self.visualize = visualize
         self.sat_channels = sat_channels
+        self.nwp_channels = nwp_channels
         self.output_channels = sat_channels
         self.criterion = get_loss(loss)
+        self.predict_timesteps_together = predict_timesteps_together
 
         # Warn if using frequency is smaller than Nyquist Frequency
         if max_frequency < input_size / 2:
@@ -75,7 +94,7 @@ class Perceiver(BaseModel):
                 # MetNet processing
                 self.preprocessor = ImageEncoder(
                     crop_size=input_size,
-                    preprocessor_type="metnet",
+                    prep_type="metnet",
                 )
                 video_input_channels = (
                     8 * sat_channels
@@ -85,7 +104,7 @@ class Perceiver(BaseModel):
             else:
                 self.preprocessor = ImageEncoder(
                     input_channels=sat_channels,
-                    preprocessor_type=preprocessor_type,
+                    prep_type=preprocessor_type,
                     **encoder_kwargs,
                 )
                 video_input_channels = self.preprocessor.output_channels
@@ -96,10 +115,10 @@ class Perceiver(BaseModel):
             image_input_channels = input_channels - sat_channels
 
         # The preprocessor will change the number of channels in the input
-
+        modalities = []
         # Timeseries input
-        video_modality = InputModality(
-            name="timeseries",
+        sat_modality = InputModality(
+            name="sat_timeseries",
             input_channels=video_input_channels,
             input_axis=3,  # number of axes, 3 for video
             num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
@@ -107,6 +126,18 @@ class Perceiver(BaseModel):
             sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
             fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
         )
+        modalities.append(sat_modality)
+        if nwp_modality:
+            nwp_modality = InputModality(
+                name="nwp_timeseries",
+                input_channels=nwp_channels,
+                input_axis=3,  # number of axes, 3 for video
+                num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
+                sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
+                fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
+            )
+            modalities.append(nwp_modality)
         # Use image modality for latlon, elevation, other base data?
         image_modality = InputModality(
             name="base",
@@ -117,18 +148,21 @@ class Perceiver(BaseModel):
             sin_only=sin_only,
             fourier_encode=encode_fourier,
         )
-        # Sort audio for timestep one-hot encode? Or include under other modality?
-        timestep_modality = InputModality(
-            name="forecast_time",
-            input_channels=1,  # number of channels for mono audio
-            input_axis=1,  # number of axes, 2 for images
-            num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
-            max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
-            sin_only=sin_only,
-            fourier_encode=encode_fourier,
-        )
+        modalities.append(image_modality)
+        if not self.predict_timesteps_together:
+            # Sort audio for timestep one-hot encode? Or include under other modality?
+            timestep_modality = InputModality(
+                name="forecast_time",
+                input_channels=1,  # number of channels for mono audio
+                input_axis=1,  # number of axes, 2 for images
+                num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                sin_only=sin_only,
+                fourier_encode=encode_fourier,
+            )
+            modalities.append(timestep_modality)
         self.model = MultiPerceiver(
-            modalities=[video_modality, image_modality, timestep_modality],
+            modalities=modalities,
             dim=dim,  # dimension of sequence to be encoded
             queries_dim=queries_dim,  # dimension of decoder queries
             logits_dim=logits_dim,  # dimension of final logits
@@ -158,10 +192,17 @@ class Perceiver(BaseModel):
 
         self.save_hyperparameters()
 
-    def encode_inputs(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        video_inputs = x[:, :, : self.sat_channels, :, :]
-        base_inputs = x[
-            :, 0, self.sat_channels :, :, :
+    def encode_inputs(self, x: dict) -> Dict[str, torch.Tensor]:
+        video_inputs = x[SATELLITE_DATA]
+        nwp_inputs = x.get(NWP_DATA, [])
+        base_inputs = [
+            x.get(TOPOGRAPHIC_DATA, []),
+            x.get(SATELLITE_X_COORDS, []),
+            x.get(SATELLITE_Y_COORDS, []),
+            x.get(NWP_X_COORDS, []),
+            x.get(NWP_Y_COORDS, []),
+            x.get(TOPOGRAPHIC_X_COORDS, []),
+            x.get(TOPOGRAPHIC_Y_COORDS, []),
         ]  # Base maps should be the same for all timesteps in a sample
 
         # Run the preprocessors here when encoding the inputs
@@ -169,10 +210,14 @@ class Perceiver(BaseModel):
             # Expects Channel first
             video_inputs = self.preprocessor(video_inputs)
             base_inputs = self.preprocessor(base_inputs)
+            if nwp_inputs:
+                nwp_inputs = self.preprocessor(nwp_inputs)
         video_inputs = video_inputs.permute(0, 1, 3, 4, 2)  # Channel last
+        if nwp_inputs:
+            nwp_inputs = nwp_inputs.permute(0, 1, 3, 4, 2)  # Channel last
         base_inputs = base_inputs.permute(0, 2, 3, 1)  # Channel last
         logger.debug(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
-        return {"timeseries": video_inputs, "base": base_inputs}
+        return {"sat": video_inputs, "nwp": nwp_inputs, "base": base_inputs}
 
     def add_timestep(self, batch_size: int, timestep: int = 1) -> torch.Tensor:
         times = (torch.eye(self.forecast_steps)[timestep]).unsqueeze(-1).unsqueeze(-1)
