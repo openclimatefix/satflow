@@ -1,12 +1,10 @@
-from perceiver_pytorch import PerceiverIO, MultiPerceiver
+from perceiver_pytorch import MultiPerceiver
 from perceiver_pytorch.modalities import InputModality, modality_encoding
 from perceiver_pytorch.utils import encode_position
 from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.decoders import ImageDecoder
 from perceiver_pytorch.queries import LearnableQuery
 import torch
-from math import prod
-from torch.distributions import uniform
 from typing import Iterable, Dict, Optional, Any, Union, Tuple
 from nowcasting_utils.models.base import register_model, BaseModel
 from einops import rearrange, repeat
@@ -40,6 +38,7 @@ class Perceiver(BaseModel):
         sat_channels: int = 12,
         nwp_channels: int = 10,
         forecast_steps: int = 48,
+        history_steps: int = 6,
         input_size: int = 64,
         lr: float = 5e-4,
         visualize: bool = True,
@@ -140,7 +139,7 @@ class Perceiver(BaseModel):
             modalities.append(nwp_modality)
         # Use image modality for latlon, elevation, other base data?
         image_modality = InputModality(
-            name="base",
+            name="basemap",
             input_channels=image_input_channels,
             input_axis=2,  # number of axes, 2 for images
             num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
@@ -161,6 +160,52 @@ class Perceiver(BaseModel):
                 fourier_encode=encode_fourier,
             )
             modalities.append(timestep_modality)
+        # X,Y Coords are given in 1D, and each would be a different modality
+        # Keeping them as 1D saves input size, just need to add more ones
+        coord_modalities = (
+            [
+                SATELLITE_Y_COORDS,
+                SATELLITE_X_COORDS,
+                TOPOGRAPHIC_Y_COORDS,
+                TOPOGRAPHIC_X_COORDS,
+                NWP_Y_COORDS,
+                NWP_X_COORDS,
+            ]
+            if nwp_modality
+            else [
+                SATELLITE_Y_COORDS,
+                SATELLITE_X_COORDS,
+                TOPOGRAPHIC_Y_COORDS,
+                TOPOGRAPHIC_X_COORDS,
+            ]
+        )
+        for coord in coord_modalities:
+            coord_modality = InputModality(
+                name=coord,
+                input_channels=1,  # number of channels for mono audio
+                input_axis=1,  # number of axes, 2 for images
+                num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                sin_only=sin_only,
+                fourier_encode=encode_fourier,
+            )
+            modalities.append(coord_modality)
+
+        # Datetime features as well should be incorporated
+        for date in SATELLITE_DATETIME_INDEX + list(DATETIME_FEATURE_NAMES):
+            date_modality = InputModality(
+                name=date,
+                input_channels=1,  # number of channels for mono audio
+                input_axis=1,  # number of axes, 2 for images
+                num_freq_bands=(
+                    2 * history_steps + 1
+                ),  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                sin_only=sin_only,
+                fourier_encode=encode_fourier,
+            )
+            modalities.append(date_modality)
+
         self.model = MultiPerceiver(
             modalities=modalities,
             dim=dim,  # dimension of sequence to be encoded
@@ -234,8 +279,6 @@ class Perceiver(BaseModel):
         # For each future timestep:
         predictions = []
         query = self.construct_query(x)
-        if self.visualize:
-            vis_x = x.cpu()
         x = self.encode_inputs(x)
         for i in range(self.forecast_steps):
             x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
@@ -247,11 +290,7 @@ class Perceiver(BaseModel):
         if self.postprocessor is not None:
             y_hat = self.postprocessor(y_hat)
         if self.visualize:
-            # Only visualize the second batch of train/val
-            if batch_idx == 1:
-                self.visualize_step(
-                    vis_x, y, y_hat, batch_idx, step=f"{'train' if is_training else 'val'}"
-                )
+            self.visualize_step(x, y, y_hat, batch_idx, step="train" if is_training else "val")
         loss = self.criterion(y, y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
         frame_loss_dict = {}
@@ -299,47 +338,3 @@ class Perceiver(BaseModel):
 
     def forward(self, x, mask=None, query=None):
         return self.model.forward(x, mask=mask, queries=query)
-
-
-class MultiPerceiverSat(torch.nn.Module):
-    def __init__(
-        self,
-        use_input_as_query: bool = False,
-        use_learnable_query: bool = False,
-        **kwargs,
-    ):
-        """
-        PerceiverIO made to work more specifically with timeseries images
-        Not a recurrent model, so like MetNet somewhat, can optionally give a one-hot encoded vector for the future
-        timestep
-        Args:
-            input_channels: Number of input channels
-            forecast_steps: Number of forecast steps to make
-            **kwargs:
-        """
-        super(MultiPerceiverSat, self).__init__()
-        self.multi_perceiver = MultiPerceiver(**kwargs)
-        if use_learnable_query:
-            self.learnable_query = torch.nn.Linear(self.query_dim, self.query_dim)
-            self.distribution = uniform.Uniform(low=torch.Tensor([0.0]), high=torch.Tensor([1.0]))
-            self.query_dim = kwargs.get("query_dim", 32)
-            self.query_future_size = prod(kwargs.get("output_shape", [24, 32, 32]))
-            # Like GAN sorta, random input, learn important parts in linear layer T*H*W shape,
-            # need to add Fourier features too though
-
-    def forward(self, multi_modality_data: Dict[str, torch.Tensor], mask=None, queries=None):
-        data = self.multi_perceiver.forward(multi_modality_data)
-        # Create learnable query here, need to add fourier features as well
-        if self.use_learnable_query:
-            # Create learnable query, also adds somewhat ensemble on multiple forward passes
-            # Middle is the shape of the future timesteps and such
-            z = self.distribution.sample(
-                (data.shape[0], self.query_future_size, self.query_dim)
-            ).type_as(data)
-            queries = self.learnable_query(z)
-            # Add Fourier Features now to the query
-
-        perceiver_output = self.multi_perceiver.perceiver.forward(data, mask, queries)
-
-        logger.debug(f"Perceiver Finished Output: {perceiver_output.size()}")
-        return perceiver_output
