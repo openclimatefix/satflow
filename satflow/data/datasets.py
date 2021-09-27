@@ -1,4 +1,7 @@
 from typing import Tuple, Union, List
+
+import numpy as np
+
 from nowcasting_dataset.dataset.datasets import NetCDFDataset
 from nowcasting_dataset.consts import (
     SATELLITE_DATA,
@@ -8,7 +11,7 @@ from nowcasting_dataset.consts import (
     NWP_DATA,
     NWP_Y_COORDS,
     NWP_X_COORDS,
-    NWP_TARGET_TIME,
+    TOPOGRAPHIC_DATA,
     DATETIME_FEATURE_NAMES,
 )
 
@@ -32,11 +35,13 @@ class SatFlowDataset(NetCDFDataset):
             SATELLITE_X_COORDS,
             SATELLITE_Y_COORDS,
             SATELLITE_DATETIME_INDEX,
+            TOPOGRAPHIC_DATA,
         ]
         + list(DATETIME_FEATURE_NAMES),
         history_minutes: int = 30,
         forecast_minutes: int = 60,
         current_timestep_index: int = 7,
+        combine_inputs: bool = False,
     ):
         """
         Args:
@@ -63,6 +68,7 @@ class SatFlowDataset(NetCDFDataset):
             self.history_steps + 1
         )  # +2 as indexing does not include this index, so need to go one beyond
         self.required_keys = list(required_keys)
+        self.combine_inputs = combine_inputs
 
     def __getitem__(self, batch_idx: int):
         batch = super().__getitem__(batch_idx)
@@ -90,5 +96,10 @@ class SatFlowDataset(NetCDFDataset):
             x[NWP_DATA] = past_nwp_data
             x[NWP_X_COORDS] = batch.get(NWP_X_COORDS, None)
             x[NWP_Y_COORDS] = batch.get(NWP_Y_COORDS, None)
+
+        if TOPOGRAPHIC_DATA in self.required_keys:
+            # Need to expand dims to get a single channel one
+            # Results in topographic maps with [Batch, Channel, H, W]
+            x[TOPOGRAPHIC_DATA] = np.expand_dims(batch[TOPOGRAPHIC_DATA], axis=1)
 
         return x, y
