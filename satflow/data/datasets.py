@@ -1,4 +1,4 @@
-from typing import Tuple, Union, List
+from typing import Tuple, Union, List, Optional
 
 import numpy as np
 
@@ -42,7 +42,6 @@ class SatFlowDataset(NetCDFDataset):
         + list(DATETIME_FEATURE_NAMES),
         history_minutes: int = 30,
         forecast_minutes: int = 60,
-        current_timestep_index: int = 7,
         combine_inputs: bool = False,
     ):
         """
@@ -52,6 +51,7 @@ class SatFlowDataset(NetCDFDataset):
             Google Cloud storage.
           tmp_path: The full path to the local temporary directory
             (on a local filesystem).
+        batch_size: Batch size, if requested, will subset data along batch dimension
         """
         super().__init__(
             n_batches,
@@ -66,34 +66,36 @@ class SatFlowDataset(NetCDFDataset):
         # SatFlow specific changes, i.e. which timestep to split on
         self.required_keys = list(required_keys)
         self.combine_inputs = combine_inputs
+        self.current_timestep_index = (history_minutes // 5) + 1
 
     def __getitem__(self, batch_idx: int):
         batch = super().__getitem__(batch_idx)
+        print(batch[SATELLITE_DATA].shape)
 
         # Need to partition out past and future sat images here, along with the rest of the data
-        past_satellite_data = batch[SATELLITE_DATA][:, : self.current_timestep_5_index]
-        future_sat_data = batch[SATELLITE_DATA][:, self.current_timestep_5_index :]
+        past_satellite_data = batch[SATELLITE_DATA][:, : self.current_timestep_index]
+        future_sat_data = batch[SATELLITE_DATA][:, self.current_timestep_index :]
         x = {
             SATELLITE_DATA: past_satellite_data,
             SATELLITE_X_COORDS: batch.get(SATELLITE_X_COORDS, None),
             SATELLITE_Y_COORDS: batch.get(SATELLITE_Y_COORDS, None),
             SATELLITE_DATETIME_INDEX: batch[SATELLITE_DATETIME_INDEX][
-                :, : self.current_timestep_5_index
+                :, : self.current_timestep_index
             ],
         }
         y = {
             SATELLITE_DATA: future_sat_data,
             SATELLITE_DATETIME_INDEX: batch[SATELLITE_DATETIME_INDEX][
-                :, self.current_timestep_5_index :
+                :, self.current_timestep_index :
             ],
         }
 
         for k in list(DATETIME_FEATURE_NAMES):
             if k in self.required_keys:
-                x[k] = batch[k][:, : self.current_timestep_5_index]
+                x[k] = batch[k][:, : self.current_timestep_index]
 
         if NWP_DATA in self.required_keys:
-            past_nwp_data = batch[NWP_DATA][:, :, : self.current_timestep_5_index]
+            past_nwp_data = batch[NWP_DATA][:, :, : self.current_timestep_index]
             x[NWP_DATA] = past_nwp_data
             x[NWP_X_COORDS] = batch.get(NWP_X_COORDS, None)
             x[NWP_Y_COORDS] = batch.get(NWP_Y_COORDS, None)
