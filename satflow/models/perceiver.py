@@ -116,6 +116,7 @@ class Perceiver(BaseModel):
                 video_input_channels = (
                     8 * sat_channels
                 )  # This is only done on the sat channel inputs
+                nwp_input_channels = 8 * nwp_channels
                 # If doing it on the base map, then need
                 image_input_channels = 4 * base_channels
             else:
@@ -124,10 +125,12 @@ class Perceiver(BaseModel):
                     prep_type=preprocessor_type,
                     **encoder_kwargs,
                 )
+                nwp_input_channels = self.preprocessor.output_channels
                 video_input_channels = self.preprocessor.output_channels
                 image_input_channels = self.preprocessor.output_channels
         else:
             self.preprocessor = None
+            nwp_input_channels = nwp_channels
             video_input_channels = sat_channels
             image_input_channels = base_channels
 
@@ -147,7 +150,7 @@ class Perceiver(BaseModel):
         if nwp_modality:
             nwp_modality = InputModality(
                 name=NWP_DATA,
-                input_channels=nwp_channels,
+                input_channels=nwp_input_channels,
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
