@@ -1,6 +1,6 @@
 import os
 from nowcasting_dataset.dataset.datasets import worker_init_fn
-from nowcasting_dataset.config.model import Configuration
+from nowcasting_dataset.config.load import load_yaml_configuration
 from satflow.data.datasets import SatFlowDataset
 from typing import Union, List, Tuple, Optional
 from nowcasting_dataset.consts import (
@@ -48,7 +48,7 @@ class SatFlowDataModule(LightningDataModule):
         cloud: str = "aws",
         num_workers: int = 8,
         pin_memory: bool = True,
-        data_path="prepared_ML_training_data/v4/",
+        configuration_filename="satflow/configs/local.yaml",
         fake_data: bool = False,
         required_keys: Union[Tuple[str], List[str]] = [
             NWP_DATA,
@@ -72,7 +72,7 @@ class SatFlowDataModule(LightningDataModule):
         super().__init__()
 
         self.temp_path = temp_path
-        self.data_path = data_path
+        self.configuration = load_yaml_configuration(configuration_filename)
         self.cloud = cloud
         self.n_train_data = n_train_data
         self.n_val_data = n_val_data
@@ -102,8 +102,9 @@ class SatFlowDataModule(LightningDataModule):
         else:
             train_dataset = SatFlowDataset(
                 self.n_train_data,
-                os.path.join(self.data_path, "train"),
+                os.path.join(self.configuration.output_data.filepath, "train"),
                 os.path.join(self.temp_path, "train"),
+                configuration=self.configuration,
                 cloud=self.cloud,
                 required_keys=self.required_keys,
                 history_minutes=self.history_minutes,
@@ -120,8 +121,9 @@ class SatFlowDataModule(LightningDataModule):
         else:
             val_dataset = SatFlowDataset(
                 self.n_val_data,
-                os.path.join(self.data_path, "validation"),
+                os.path.join(self.configuration.output_data.filepath, "validation"),
                 os.path.join(self.temp_path, "validation"),
+                configuration=self.configuration,
                 cloud=self.cloud,
                 required_keys=self.required_keys,
                 history_minutes=self.history_minutes,
@@ -139,8 +141,9 @@ class SatFlowDataModule(LightningDataModule):
             # TODO need to change this to a test folder
             test_dataset = SatFlowDataset(
                 self.n_val_data,
-                os.path.join(self.data_path, "validation"),
-                os.path.join(self.temp_path, "validation"),
+                os.path.join(self.configuration.output_data.filepath, "test"),
+                os.path.join(self.temp_path, "test"),
+                configuration=self.configuration,
                 cloud=self.cloud,
                 required_keys=self.required_keys,
                 history_minutes=self.history_minutes,
