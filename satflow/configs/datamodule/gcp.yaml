@@ -8,5 +8,20 @@ num_workers: 8
 pin_memory: True
 configuration_filename: "satflow/configs/configurations/gcp.yaml"
 fake_data: False
+required_keys:
+  - sat_data
+  - sat_x_coords
+  - sat_y_coords
+  - sat_datetime_index
+  - nwp_data
+  - nwp_x_coords
+  - nwp_y_coords
+  - topo_data
+  - topo_x_coords
+  - topo_y_coords
+  - hour_of_day_sin
+  - hour_of_day_cos
+  - day_of_year_sin
+  - day_of_year_cos
 history_minutes: 30
 forecast_minutes: 120
