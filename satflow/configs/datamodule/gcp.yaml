@@ -6,7 +6,7 @@ n_val_data: 1000
 cloud: "gcp"
 num_workers: 8
 pin_memory: True
-configuration_filename: "satflow/configs/local.yaml"
+configuration_filename: "satflow/configs/configurations/gcp.yaml"
 fake_data: False
 history_minutes: 30
 forecast_minutes: 120
