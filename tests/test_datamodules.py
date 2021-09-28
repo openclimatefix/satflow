@@ -2,7 +2,7 @@ from satflow.data.datamodules import SatFlowDataModule
 
 
 def test_datamodule_subsetting():
-    dataset = SatFlowDataModule(fake_data=True)
+    dataset = SatFlowDataModule(fake_data=True, configuration_filename="tests/config/test.yaml")
     dataset.setup()
     train_dset = dataset.train_dataloader()
     sample, target = next(iter(train_dset))

@@ -10,9 +10,15 @@ from nowcasting_dataset.consts import (
     NWP_TARGET_TIME,
     DATETIME_FEATURE_NAMES,
 )
+import os
+from nowcasting_dataset.config.load import load_yaml_configuration
 
 
 def test_dataset():
+
+    # load configuration, this can be changed to a different filename as needed
+    filename = os.path.join("tests", "config", "test.yaml")
+    config = load_yaml_configuration(filename)
     train_dataset = SatFlowDataset(
         1,
         "tests/",
@@ -26,6 +32,7 @@ def test_dataset():
         ],
         history_minutes=10,
         forecast_minutes=10,
+        configuration=config,
     )
 
     sample, target = next(iter(train_dataset))

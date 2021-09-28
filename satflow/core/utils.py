@@ -1,5 +1,6 @@
 import logging
 import typing as Dict
+from nowcasting_dataset.config.load import load_yaml_configuration
 
 import yaml
 
@@ -24,7 +25,6 @@ import pytorch_lightning as pl
 import rich.syntax
 import rich.tree
 from omegaconf import DictConfig, OmegaConf
-from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
 
 
@@ -61,30 +61,33 @@ def extras(config: DictConfig) -> None:
     # enable adding new keys to config
     OmegaConf.set_struct(config, False)
     # Ensure that model and dataloader are doing the same thing
-    config.datamodule.config.forecast_times = config.model.forecast_steps
-    channels = len(config.datamodule.config.bands)
+    config.datamodule.config.forecast_times = (
+        config.model.forecast_steps * 5
+    )  # Convert from steps to minutes
+    # Get number of channels from config
+    dataset_config = load_yaml_configuration(config.datamodule.configuration_filename)
+
+    channels = len(dataset_config.process.sat_channels)
     log.info(f"Channels: (Bands) {channels}")
-    channels = channels + 1 if config.datamodule.config.get("use_mask", False) else channels
-    log.info(f"Channels: (Use Mask) {channels}")
-    if config.datamodule.config.get("time_as_channels", False):
-        # Calc number of channels + inital ones
-        channels = channels * (config.datamodule.config.num_timesteps + 1)
-    log.info(f"Channels: (Time as Channels) {channels}")
-    channels = channels + 1 if config.datamodule.config.get("use_topo", False) else channels
-    log.info(f"Channels: (Use Topo) {channels}")
-    channels = channels + 3 if config.datamodule.config.get("use_latlon", False) else channels
-    log.info(f"Channels: (Use Latlon) {channels}")
+    channels = channels + 1 if "topo_data" in config.datamodule.required_keys else channels
     channels = (
-        channels + 3
-        if config.datamodule.config.get("use_time", False)
-        and not config.datamodule.config.get("time_aux", False)
+        channels + len(dataset_config.process.nwp_channels)
+        if "nwp_data" in config.datamodule.required_keys
         else channels
     )
-    log.info(f"Channels: (Use Time) {channels}")
-    channels = channels + 2 if config.datamodule.config.get("add_pixel_coords", False) else channels
-    log.info(f"Channels: (Add Pixel Coordinates) {channels}")
-    channels = channels + 1 if config.datamodule.config.get("add_polar_coords", False) else channels
-    log.info(f"Channels: (Add Polar Coordinates) {channels}")
+    log.info(f"Channels: (Use Topo) {channels}")
+    # Check lat/lon, would only use one coord for MetNet, basic check if using Perceiver or not, only single set of coords
+    # Perceiver input channels also makes less sense, as each one is put in separately, so NWP and Sat won't be concatenated
+    if (
+        "sat_x_coords" in config.datamodule.required_keys
+        and "nwp_x_coords" not in config.datamodule.required_keys
+    ):
+        channels = channels + 2 if "sat_x_coords" in config.datamodule.required_keys else channels
+        # If one datetime is in there, all will be, 1 layer for each value
+        channels = (
+            channels + 4 if "hour_of_day_sin" in config.datamodule.required_keys else channels
+        )
+
     config.model.input_channels = channels
 
     # Update number of iterations per epoch based on accumulate

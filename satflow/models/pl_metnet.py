@@ -1,11 +1,24 @@
+import einops
+import numpy as np
 import torch
 import torch.nn as nn
-from typing import Any
+from typing import Any, Dict
 
 from nowcasting_utils.models.base import register_model, BaseModel
 from nowcasting_utils.models.loss import get_loss
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from metnet import MetNet
+from nowcasting_dataset.consts import (
+    SATELLITE_DATA,
+    SATELLITE_X_COORDS,
+    SATELLITE_Y_COORDS,
+    SATELLITE_DATETIME_INDEX,
+    NWP_DATA,
+    NWP_Y_COORDS,
+    NWP_X_COORDS,
+    TOPOGRAPHIC_DATA,
+    DATETIME_FEATURE_NAMES,
+)
 
 head_to_module = {"identity": nn.Identity()}
 
@@ -85,24 +98,38 @@ class LitMetNet(BaseModel):
         }
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
+    def _combine_data_sources(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """
+        Combine different data sources from nowcasting dataset into a single input array for each example
+
+        Mostly useful for adding topographic data to satellite
+
+        Args:
+            x: Dictionary containing mappings from nowcasting dataset names to the data
+
+        Returns:
+            Numpy array of [Batch, C, T, H, W] to give to model
+        """
+        timesteps = x[SATELLITE_DATA].shape[2]
+        topographic_repeat = einops.repeat(x[TOPOGRAPHIC_DATA], "b c h w -> b c t h w", t=timesteps)
+        to_concat = [x[SATELLITE_DATA], topographic_repeat]
+        to_concat = to_concat + x.get(NWP_DATA, [])
+        input_data = torch.cat(to_concat, dim=1).float()  # Cat along channel dim
+        return input_data
+
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
-        x = x.float()
-        y_hat = self(x)
+        y[SATELLITE_DATA] = y[SATELLITE_DATA].float()
+
+        y_hat = self(self._combine_data_sources(x))
 
         if self.visualize:
             if batch_idx == 1:
                 self.visualize_step(x, y, y_hat, batch_idx, step="train" if is_training else "val")
-        loss = self.criterion(y_hat, y)
+        loss = self.criterion(y_hat, y[SATELLITE_DATA])
         self.log(f"{'train' if is_training else 'val'}/loss", loss, prog_bar=True)
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
-            frame_loss = self.criterion(y_hat[:, f, :, :], y[:, f, :, :]).item()
+            frame_loss = self.criterion(y_hat[:, f, :, :], y[SATELLITE_DATA][:, f, :, :]).item()
             frame_loss_dict[f"{'train' if is_training else 'val'}/frame_{f}_loss"] = frame_loss
         self.log_dict(frame_loss_dict)
-
-    def test_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        loss = self.criterion(y_hat, y)
-        return loss

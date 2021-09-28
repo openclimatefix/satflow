@@ -1,5 +1,18 @@
 from satflow.models import LitMetNet, Perceiver
 from nowcasting_utils.models.base import list_models, create_model
+from nowcasting_dataset.consts import (
+    SATELLITE_DATA,
+    SATELLITE_X_COORDS,
+    SATELLITE_Y_COORDS,
+    SATELLITE_DATETIME_INDEX,
+    NWP_DATA,
+    NWP_Y_COORDS,
+    NWP_X_COORDS,
+    TOPOGRAPHIC_DATA,
+    TOPOGRAPHIC_X_COORDS,
+    TOPOGRAPHIC_Y_COORDS,
+    DATETIME_FEATURE_NAMES,
+)
 import yaml
 import torch
 import pytest
@@ -15,10 +28,13 @@ def test_perceiver_creation():
     config.pop("_target_")  # This is only for Hydra
     model = Perceiver(**config)
     x = {
-        "timeseries": torch.randn(
+        SATELLITE_DATA: torch.randn(
             (2, 6, config["input_size"], config["input_size"], config["sat_channels"])
         ),
-        "base": torch.randn((2, config["input_size"], config["input_size"], 4)),
+        TOPOGRAPHIC_DATA: torch.randn((2, config["input_size"], config["input_size"], 1)),
+        NWP_DATA: torch.randn(
+            (2, 6, config["input_size"], config["input_size"], config["nwp_channels"])
+        ),
         "forecast_time": torch.randn(2, config["forecast_steps"], 1),
     }
     query = torch.randn((2, config["input_size"] * config["sat_channels"], config["queries_dim"]))
