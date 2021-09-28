@@ -1,5 +1,6 @@
 import os
 from nowcasting_dataset.dataset.datasets import worker_init_fn
+from nowcasting_dataset.config.model import Configuration
 from satflow.data.datasets import SatFlowDataset
 from typing import Union, List, Tuple, Optional
 from nowcasting_dataset.consts import (

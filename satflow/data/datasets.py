@@ -3,6 +3,7 @@ from typing import Tuple, Union, List
 import numpy as np
 
 from nowcasting_dataset.dataset.datasets import NetCDFDataset
+from nowcasting_dataset.config.model import Configuration
 from nowcasting_dataset.consts import (
     SATELLITE_DATA,
     SATELLITE_X_COORDS,
