@@ -271,10 +271,10 @@ class Perceiver(BaseModel):
         video_inputs = video_inputs.permute(0, 1, 3, 4, 2)  # Channel last
         if nwp_inputs:
             nwp_inputs = nwp_inputs.permute(0, 1, 3, 4, 2)  # Channel last
+            x[NWP_DATA] = nwp_inputs
         base_inputs = base_inputs.permute(0, 2, 3, 1)  # Channel last
         logger.debug(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
         x[SATELLITE_DATA] = video_inputs
-        x[NWP_DATA] = nwp_inputs
         x[TOPOGRAPHIC_DATA] = base_inputs
         return x
 
