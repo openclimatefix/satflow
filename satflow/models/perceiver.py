@@ -85,7 +85,9 @@ class Perceiver(BaseModel):
         if use_learnable_query:
             self.query = LearnableQuery(
                 channel_dim=queries_dim,
-                query_shape=(self.forecast_steps, self.input_size, self.input_size),
+                query_shape=(self.forecast_steps, self.input_size, self.input_size)
+                if predict_timesteps_together
+                else (self.input_size, self.input_size),
                 conv_layer="3d",
                 max_frequency=max_frequency,
                 num_frequency_bands=input_size,
@@ -307,7 +309,6 @@ class Perceiver(BaseModel):
         else:
             for i in range(self.forecast_steps):
                 x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
-                # x_i = self.ct(x["timeseries"], fstep=i)
                 y_hat = self(x, query=query)
                 y_hat = rearrange(y_hat, "b h (w c) -> b c h w", c=self.output_channels)
                 predictions.append(y_hat)
