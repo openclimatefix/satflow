@@ -70,7 +70,6 @@ class SatFlowDataset(NetCDFDataset):
 
     def __getitem__(self, batch_idx: int):
         batch = super().__getitem__(batch_idx)
-        print(batch[SATELLITE_DATA].shape)
 
         # Need to partition out past and future sat images here, along with the rest of the data
         past_satellite_data = batch[SATELLITE_DATA][:, : self.current_timestep_index]

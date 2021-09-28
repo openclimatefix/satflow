@@ -98,7 +98,7 @@ class LitMetNet(BaseModel):
         }
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
-    def _combine_data_sources(self, x: Dict[torch.Tensor]) -> torch.Tensor:
+    def _combine_data_sources(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
         Combine different data sources from nowcasting dataset into a single input array for each example
 

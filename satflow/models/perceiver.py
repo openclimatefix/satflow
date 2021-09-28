@@ -36,6 +36,7 @@ class Perceiver(BaseModel):
         input_channels: int = 22,
         sat_channels: int = 12,
         nwp_channels: int = 10,
+        base_channels: int = 1,
         forecast_steps: int = 48,
         history_steps: int = 6,
         input_size: int = 64,
@@ -64,6 +65,7 @@ class Perceiver(BaseModel):
         pretrained: bool = False,
         predict_timesteps_together: bool = False,
         nwp_modality: bool = False,
+        datetime_modality: bool = False,
         use_learnable_query: bool = True,
     ):
         super(BaseModel, self).__init__()
@@ -113,7 +115,7 @@ class Perceiver(BaseModel):
                     8 * sat_channels
                 )  # This is only done on the sat channel inputs
                 # If doing it on the base map, then need
-                image_input_channels = 4 * (input_channels - sat_channels)
+                image_input_channels = 4 * base_channels
             else:
                 self.preprocessor = ImageEncoder(
                     input_channels=sat_channels,
@@ -125,7 +127,7 @@ class Perceiver(BaseModel):
         else:
             self.preprocessor = None
             video_input_channels = sat_channels
-            image_input_channels = input_channels - sat_channels
+            image_input_channels = base_channels
 
         # The preprocessor will change the number of channels in the input
         modalities = []
@@ -206,19 +208,20 @@ class Perceiver(BaseModel):
             modalities.append(coord_modality)
 
         # Datetime features as well should be incorporated
-        for date in SATELLITE_DATETIME_INDEX + list(DATETIME_FEATURE_NAMES):
-            date_modality = InputModality(
-                name=date,
-                input_channels=1,  # number of channels for mono audio
-                input_axis=1,  # number of axes, 2 for images
-                num_freq_bands=(
-                    2 * history_steps + 1
-                ),  # number of freq bands, with original value (2 * K + 1)
-                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
-                sin_only=sin_only,
-                fourier_encode=encode_fourier,
-            )
-            modalities.append(date_modality)
+        if datetime_modality:
+            for date in [SATELLITE_DATETIME_INDEX] + list(DATETIME_FEATURE_NAMES):
+                date_modality = InputModality(
+                    name=date,
+                    input_channels=1,  # number of channels for mono audio
+                    input_axis=1,  # number of axes, 2 for images
+                    num_freq_bands=(
+                        2 * history_steps + 1
+                    ),  # number of freq bands, with original value (2 * K + 1)
+                    max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                    sin_only=sin_only,
+                    fourier_encode=encode_fourier,
+                )
+                modalities.append(date_modality)
 
         self.model = MultiPerceiver(
             modalities=modalities,
