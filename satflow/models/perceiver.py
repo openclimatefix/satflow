@@ -3,6 +3,7 @@ from perceiver_pytorch.modalities import InputModality
 from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.decoders import ImageDecoder
 from perceiver_pytorch.queries import LearnableQuery
+from perceiver_pytorch.utils import encode_position
 import torch
 from typing import Iterable, Dict, Optional, Any, Union, Tuple
 from nowcasting_utils.models.base import register_model, BaseModel
@@ -67,6 +68,8 @@ class Perceiver(BaseModel):
         nwp_modality: bool = False,
         datetime_modality: bool = False,
         use_learnable_query: bool = True,
+        generate_fourier_features: bool = True,
+        temporally_consistent_fourier_features: bool = False,
     ):
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
@@ -81,6 +84,8 @@ class Perceiver(BaseModel):
         self.input_size = input_size
         self.predict_timesteps_together = predict_timesteps_together
         self.use_learnable_query = use_learnable_query
+        self.max_frequency = max_frequency
+        self.temporally_consistent_fourier_features = temporally_consistent_fourier_features
 
         if use_learnable_query:
             self.query = LearnableQuery(
@@ -92,6 +97,7 @@ class Perceiver(BaseModel):
                 max_frequency=max_frequency,
                 num_frequency_bands=input_size,
                 sine_only=sin_only,
+                generate_fourier_features=generate_fourier_features,
             )
         else:
             self.query = None
@@ -355,7 +361,26 @@ class Perceiver(BaseModel):
 
     def construct_query(self, x: dict):
         if self.use_learnable_query:
-            return self.query
+            if self.temporally_consistent_fourier_features:
+                fourier_features = encode_position(
+                    x[SATELLITE_DATA].shape[0],
+                    axis=(
+                        x[SATELLITE_DATA].shape[1] + self.forecast_steps,
+                        self.input_size,
+                        self.input_size,
+                    ),
+                    num_frequency_bands=max(
+                        [self.input_size, x[SATELLITE_DATA].shape[1] + self.forecast_steps]
+                    )
+                    * 2
+                    + 1,
+                    max_frequency=self.max_frequency,
+                )[
+                    x[SATELLITE_DATA].shape[1] :
+                ]  # Only want future part
+            else:
+                fourier_features = None
+            return self.query(x, fourier_features)
         # key, value: B x N x K; query: B x M x K
         # Attention maps -> B x N x M
         # Output -> B x M x K
