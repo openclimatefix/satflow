@@ -15,6 +15,9 @@ from nowcasting_dataset.consts import (
     TOPOGRAPHIC_DATA,
     TOPOGRAPHIC_X_COORDS,
     TOPOGRAPHIC_Y_COORDS,
+    GSP_YIELD,
+    GSP_X_COORDS,
+    GSP_Y_COORDS,
 )
 import logging
 import torch
@@ -61,6 +64,9 @@ class SatFlowDataModule(LightningDataModule):
             TOPOGRAPHIC_DATA,
             TOPOGRAPHIC_X_COORDS,
             TOPOGRAPHIC_Y_COORDS,
+            GSP_YIELD,
+            GSP_X_COORDS,
+            GSP_Y_COORDS,
         ]
         + list(DATETIME_FEATURE_NAMES),
         history_minutes: Optional[int] = None,
