@@ -24,6 +24,16 @@ from nowcasting_dataset.consts import (
     TOPOGRAPHIC_X_COORDS,
     TOPOGRAPHIC_Y_COORDS,
     DATETIME_FEATURE_NAMES,
+    GSP_YIELD,
+    GSP_X_COORDS,
+    GSP_Y_COORDS,
+    PV_YIELD,
+    PV_SYSTEM_ID,
+    GSP_ID,
+    PV_SYSTEM_X_COORDS,
+    PV_SYSTEM_Y_COORDS,
+    DEFAULT_N_GSP_PER_EXAMPLE,
+    DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE,
 )
 
 logger = logging.getLogger("satflow.model")
@@ -70,6 +80,9 @@ class Perceiver(BaseModel):
         use_learnable_query: bool = True,
         generate_fourier_features: bool = True,
         temporally_consistent_fourier_features: bool = False,
+        joint_model: bool = False,
+        use_gsp_data: bool = False,
+        use_pv_data: bool = False,
     ):
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
@@ -86,6 +99,9 @@ class Perceiver(BaseModel):
         self.use_learnable_query = use_learnable_query
         self.max_frequency = max_frequency
         self.temporally_consistent_fourier_features = temporally_consistent_fourier_features
+        self.joint_model = joint_model
+        self.use_gsp_data = use_gsp_data
+        self.use_pv_data = use_pv_data
 
         if use_learnable_query:
             self.query = LearnableQuery(
@@ -99,7 +115,22 @@ class Perceiver(BaseModel):
                 sine_only=sin_only,
                 generate_fourier_features=generate_fourier_features,
             )
+            if self.joint_model:
+                # Need second query as well
+                self.pv_query = LearnableQuery(
+                    channel_dim=queries_dim,
+                    query_shape=(self.forecast_steps, 1)  # Only need one number for GSP
+                    if predict_timesteps_together
+                    else (1, 1),
+                    conv_layer="3d",
+                    max_frequency=max_frequency,
+                    num_frequency_bands=input_size,
+                    sine_only=sin_only,
+                    generate_fourier_features=generate_fourier_features,
+                )
         else:
+            if self.joint_model:
+                self.pv_query = None
             self.query = None
 
         # Warn if using frequency is smaller than Nyquist Frequency
@@ -175,6 +206,53 @@ class Perceiver(BaseModel):
             fourier_encode=encode_fourier,
         )
         modalities.append(image_modality)
+
+        if use_gsp_data:
+            # Sort audio for timestep one-hot encode? Or include under other modality?
+            gsp_modality = InputModality(
+                name=GSP_YIELD,
+                input_channels=1,  # number of channels for mono audio
+                input_axis=1,  # number of axes, 2 for images
+                num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                sin_only=sin_only,
+                fourier_encode=encode_fourier,
+            )
+            modalities.append(gsp_modality)
+            gsp_id_modality = InputModality(
+                name=GSP_ID,
+                input_channels=1,  # number of channels for mono audio
+                input_axis=1,  # number of axes, 2 for images
+                num_freq_bands=DEFAULT_N_GSP_PER_EXAMPLE,  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                sin_only=sin_only,
+                fourier_encode=encode_fourier,
+            )
+            modalities.append(gsp_id_modality)
+
+        if use_pv_data:
+            # Sort audio for timestep one-hot encode? Or include under other modality?
+            pv_modality = InputModality(
+                name=PV_YIELD,
+                input_channels=1,  # number of channels for mono audio
+                input_axis=1,  # number of axes, 2 for images
+                num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                sin_only=sin_only,
+                fourier_encode=encode_fourier,
+            )
+            modalities.append(pv_modality)
+            pv_id_modality = InputModality(
+                name=PV_SYSTEM_ID,
+                input_channels=1,  # number of channels for mono audio
+                input_axis=1,  # number of axes, 2 for images
+                num_freq_bands=DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE,  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                sin_only=sin_only,
+                fourier_encode=encode_fourier,
+            )
+            modalities.append(pv_id_modality)
+
         if not self.predict_timesteps_together:
             # Sort audio for timestep one-hot encode? Or include under other modality?
             timestep_modality = InputModality(
@@ -206,6 +284,10 @@ class Perceiver(BaseModel):
                 TOPOGRAPHIC_X_COORDS,
             ]
         )
+        if use_gsp_data:
+            coord_modalities = coord_modalities + [GSP_X_COORDS, GSP_Y_COORDS]
+        if use_pv_data:
+            coord_modalities = coord_modalities + [PV_SYSTEM_X_COORDS, PV_SYSTEM_Y_COORDS]
         for coord in coord_modalities:
             coord_modality = InputModality(
                 name=coord,
@@ -359,8 +441,10 @@ class Perceiver(BaseModel):
         }
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
-    def construct_query(self, x: dict):
+    def construct_query(self, x: dict) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         if self.use_learnable_query:
+            if self.joint_model:
+                self.pv_query(x)
             if self.temporally_consistent_fourier_features:
                 fourier_features = encode_position(
                     x[SATELLITE_DATA].shape[0],
