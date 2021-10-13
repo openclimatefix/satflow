@@ -1,7 +1,7 @@
 import os
 from nowcasting_dataset.dataset.datasets import worker_init_fn
 from nowcasting_dataset.config.load import load_yaml_configuration
-from satflow.data.datasets import SatFlowDataset
+from nowcasting_dataloader.dataloaders import SatFlowDataset
 from typing import Union, List, Tuple, Optional
 from nowcasting_dataset.consts import (
     SATELLITE_DATA,
