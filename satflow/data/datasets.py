@@ -1,3 +1,4 @@
+"""SatFlowDataset"""
 from typing import Tuple, Union, List, Optional
 
 import numpy as np
@@ -18,9 +19,7 @@ from nowcasting_dataset.consts import (
 
 
 class SatFlowDataset(NetCDFDataset):
-    """Loads data saved by the `prepare_ml_training_data.py` script.
-    Adapted from predict_pv_yield
-    """
+    """Loads data saved by the `prepare_ml_training_data.py` script. Adapted from predict_pv_yield"""
 
     def __init__(
         self,
@@ -45,13 +44,18 @@ class SatFlowDataset(NetCDFDataset):
         combine_inputs: bool = False,
     ):
         """
+        Initialize SatFlowDataSet
+
         Args:
-          n_batches: Number of batches available on disk.
-          src_path: The full path (including 'gs://') to the data on
-            Google Cloud storage.
-          tmp_path: The full path to the local temporary directory
-            (on a local filesystem).
-        batch_size: Batch size, if requested, will subset data along batch dimension
+            n_batches: Number of batches available on disk.
+            src_path: The full path (including 'gs://') to the data on Google Cloud storage.
+            tmp_path: The full path to the local temporary directory (on a local filesystem).
+            configuration:
+            cloud:
+            required_keys:
+            history_minutes:
+            forecast_minutes:
+            combine_inputes:
         """
         super().__init__(
             n_batches,
@@ -69,6 +73,7 @@ class SatFlowDataset(NetCDFDataset):
         self.current_timestep_index = (history_minutes // 5) + 1
 
     def __getitem__(self, batch_idx: int):
+        """Get data at the index"""
         batch = super().__getitem__(batch_idx)
 
         # Need to partition out past and future sat images here, along with the rest of the data

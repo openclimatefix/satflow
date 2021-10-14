@@ -1,3 +1,4 @@
+"""The training pipeline for a satflow model"""
 from typing import List, Optional
 
 import hydra
@@ -19,8 +20,7 @@ log = utils.get_logger(__name__)
 
 
 def train(config: DictConfig) -> Optional[float]:
-    """Contains training pipeline.
-    Instantiates all PyTorch Lightning objects from config.
+    """Contains training pipeline. Instantiates all PyTorch Lightning objects from config.
 
     Args:
         config (DictConfig): Configuration composed by Hydra.
@@ -28,7 +28,6 @@ def train(config: DictConfig) -> Optional[float]:
     Returns:
         Optional[float]: Metric score for hyperparameter optimization.
     """
-
     # Set seed for random number generators in pytorch, numpy and python.random
     if "seed" in config:
         seed_everything(config.seed, workers=True)

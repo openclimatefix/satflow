@@ -1,3 +1,4 @@
+"""Command line entrypoint to train a satflow model from a config file"""
 import os
 
 os.environ["HYDRA_FULL_ERROR"] = "1"
@@ -12,6 +13,16 @@ dotenv.load_dotenv(override=True)
 
 @hydra.main(config_path="configs/", config_name="config.yaml")
 def main(config: DictConfig):
+    """
+    Train a satflow model
+
+    Args:
+        config: the configuration values will be provided by hydra based
+            on how the script is executed from the command line
+
+    Returns: the output of model training
+    """
+    https://hydra.cc/docs/intro/
 
     # Imports should be nested inside @hydra.main to optimize tab completion
     # Read more here: https://github.com/facebookresearch/hydra/issues/934

@@ -1,3 +1,4 @@
+"""A DataModule that encapsulates the steps to process the data"""
 import os
 from nowcasting_dataset.dataset.datasets import worker_init_fn
 from nowcasting_dataset.config.load import load_yaml_configuration
@@ -27,6 +28,8 @@ _LOG.setLevel(logging.DEBUG)
 
 class SatFlowDataModule(LightningDataModule):
     """
+    A SatFlow DataModule
+
     Example of LightningDataModule for NETCDF dataset.
     A DataModule implements 5 key methods:
         - prepare_data (things to do on 1 GPU/TPU, not on every GPU/TPU in distributed mode)
@@ -67,7 +70,21 @@ class SatFlowDataModule(LightningDataModule):
         forecast_minutes: Optional[int] = None,
     ):
         """
-        fake_data: random data is created and used instead. This is useful for testing
+        Initialize a satflow DataModule
+
+        Args:
+            temp_path: a file path to store temporary data
+            n_train_data: default is 24900
+            n_val_data: default is 1000
+            cloud: name of cloud provider. Default is "aws".
+            num_workers: default is 8
+            pin_memory:
+            configuration_file_name: a file path
+            fake_data: random data is created and used instead. This is useful for testing.
+                Default is false.
+            required_keys:
+            history_minutes:
+            forecast_minutes:
         """
         super().__init__()
 
@@ -95,6 +112,7 @@ class SatFlowDataModule(LightningDataModule):
         )
 
     def train_dataloader(self):
+        """A data loader for the training data"""
         if self.fake_data:
             train_dataset = FakeDataset(
                 history_minutes=self.history_minutes, forecast_minutes=self.forecast_minutes
@@ -114,6 +132,7 @@ class SatFlowDataModule(LightningDataModule):
         return torch.utils.data.DataLoader(train_dataset, **self.dataloader_config)
 
     def val_dataloader(self):
+        """A data loader for the validation data"""
         if self.fake_data:
             val_dataset = FakeDataset(
                 history_minutes=self.history_minutes, forecast_minutes=self.forecast_minutes
@@ -133,6 +152,7 @@ class SatFlowDataModule(LightningDataModule):
         return torch.utils.data.DataLoader(val_dataset, **self.dataloader_config)
 
     def test_dataloader(self):
+        """A data loader for the testing data"""
         if self.fake_data:
             test_dataset = FakeDataset(
                 history_minutes=self.history_minutes, forecast_minutes=self.forecast_minutes
@@ -154,7 +174,7 @@ class SatFlowDataModule(LightningDataModule):
 
 
 class FakeDataset(torch.utils.data.Dataset):
-    """Fake dataset."""
+    """Fake dataset with random data, useful for testing."""
 
     def __init__(
         self,
@@ -166,6 +186,7 @@ class FakeDataset(torch.utils.data.Dataset):
         history_minutes=30,
         forecast_minutes=30,
     ):
+        """Initialize a fake dataset"""
         self.batch_size = batch_size
         if history_minutes is None or forecast_minutes is None:
             history_minutes = 30  # Half an hour
@@ -179,12 +200,15 @@ class FakeDataset(torch.utils.data.Dataset):
         self.length = length
 
     def __len__(self):
+        """Length of dataset"""
         return self.length
 
     def per_worker_init(self, worker_id: int):
+        """Not implemented"""
         pass
 
     def __getitem__(self, idx):
+        """Get data at the index"""
 
         x = {
             SATELLITE_DATA: torch.randn(

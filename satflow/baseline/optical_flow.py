@@ -1,3 +1,4 @@
+"""Evaluation of baseline models"""
 import cv2
 from satflow.data.datasets import OpticalFlowDataset, SatFlowDataset
 import webdataset as wds
@@ -7,6 +8,7 @@ import numpy as np
 
 
 def load_config(config_file):
+    """Load a config file from disk"""
     with open(config_file, "r") as cfg:
         return yaml.load(cfg, Loader=yaml.FullLoader)["config"]
 
@@ -21,6 +23,15 @@ import torch
 
 
 def warp_flow(img, flow):
+    """
+    Get the previous image by inverting the optical flow and applying it to the current image
+
+    Args:
+        img: the current image
+        flow: the optical flow
+
+    Returns: the resulting image
+    """
     h, w = flow.shape[:2]
     flow = -flow
     flow[:, :, 0] += np.arange(w)
