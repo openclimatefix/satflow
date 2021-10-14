@@ -263,56 +263,6 @@ class JointPerceiver(BaseModel):
                 fourier_encode=encode_fourier,
             )
             modalities.append(timestep_modality)
-        # X,Y Coords are given in 1D, and each would be a different modality
-        # Keeping them as 1D saves input size, just need to add more ones
-        coord_modalities = (
-            [
-                SATELLITE_Y_COORDS,
-                SATELLITE_X_COORDS,
-                TOPOGRAPHIC_Y_COORDS,
-                TOPOGRAPHIC_X_COORDS,
-                NWP_Y_COORDS,
-                NWP_X_COORDS,
-            ]
-            if nwp_modality
-            else [
-                SATELLITE_Y_COORDS,
-                SATELLITE_X_COORDS,
-                TOPOGRAPHIC_Y_COORDS,
-                TOPOGRAPHIC_X_COORDS,
-            ]
-        )
-        if use_gsp_data:
-            coord_modalities = coord_modalities + [GSP_X_COORDS, GSP_Y_COORDS]
-        if use_pv_data:
-            coord_modalities = coord_modalities + [PV_SYSTEM_X_COORDS, PV_SYSTEM_Y_COORDS]
-        for coord in coord_modalities:
-            coord_modality = InputModality(
-                name=coord,
-                input_channels=1,  # number of channels for mono audio
-                input_axis=1,  # number of axes, 2 for images
-                num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
-                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
-                sin_only=sin_only,
-                fourier_encode=encode_fourier,
-            )
-            modalities.append(coord_modality)
-
-        # Datetime features as well should be incorporated
-        if datetime_modality:
-            for date in [SATELLITE_DATETIME_INDEX] + list(DATETIME_FEATURE_NAMES):
-                date_modality = InputModality(
-                    name=date,
-                    input_channels=1,  # number of channels for mono audio
-                    input_axis=1,  # number of axes, 2 for images
-                    num_freq_bands=(
-                        2 * history_steps + 1
-                    ),  # number of freq bands, with original value (2 * K + 1)
-                    max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
-                    sin_only=sin_only,
-                    fourier_encode=encode_fourier,
-                )
-                modalities.append(date_modality)
 
         self.model = MultiPerceiver(
             modalities=modalities,
