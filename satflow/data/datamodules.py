@@ -79,7 +79,7 @@ class SatFlowDataModule(LightningDataModule):
             cloud: name of cloud provider. Default is "aws".
             num_workers: default is 8
             pin_memory: default is true
-            configuration_file_name: a file path
+            configuration_filename: a file path
             fake_data: random data is created and used instead. This is useful for testing.
                 Default is false.
             required_keys: tuple or list of keys required in the example for it to be considered usable

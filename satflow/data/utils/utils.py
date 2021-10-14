@@ -75,12 +75,12 @@ def map_satellite_to_mercator(
     Opens, transforms to Transverse Mercator over Europe, and optionally saves it to files on disk.
 
     Args:
-        native_satellite:
-        grib_files:
-        bufr_files:
-        bands:
-        save_scene:
-        ave_loc: Save location
+        native_satellite: file path. Default is None.
+        grib_files: file path. Default is None.
+        bufr_files: file path. Default is None.
+        bands: list of bands to load
+        save_scene: name of the writer to use when writing data to disk. Default is "geotiff".
+        save_loc: Save location
     """
     if not _SAT_LIBS:
         raise EnvironmentError("Pyresample or Satpy are not installed, please install them first")
@@ -97,7 +97,7 @@ def map_satellite_to_mercator(
     # By default resamples to 3km, as thats the native resolution of all bands other than HRV
     scene = scene.resample(areas[0])
     if save_loc is not None:
-        # Now the relvant data is all together, just need to save it somehow, or return it to the calling process
+        # Now the relevant data is all together, just need to save it somehow, or return it to the calling process
         scene.save_datasets(writer=save_scene, base_dir=save_loc, enhance=False)
     return scene
 
