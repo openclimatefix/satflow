@@ -50,12 +50,12 @@ class SatFlowDataset(NetCDFDataset):
             n_batches: Number of batches available on disk.
             src_path: The full path (including 'gs://') to the data on Google Cloud storage.
             tmp_path: The full path to the local temporary directory (on a local filesystem).
-            configuration:
-            cloud:
-            required_keys:
-            history_minutes:
-            forecast_minutes:
-            combine_inputes:
+            configuration: configuration values
+            cloud: name of cloud provider. Default is "gcp".
+            required_keys: Tuple or list of keys required in the example for it to be considered usable
+            history_minutes: How many past minutes of data to use, if subsetting the batch. Default is 30.
+            forecast_minutes: How many future minutes of data to use, if reducing the amount of forecast time. Default is 60.
+            combine_inputs: Default is False.
         """
         super().__init__(
             n_batches,

@@ -78,13 +78,13 @@ class SatFlowDataModule(LightningDataModule):
             n_val_data: default is 1000
             cloud: name of cloud provider. Default is "aws".
             num_workers: default is 8
-            pin_memory:
+            pin_memory: default is true
             configuration_file_name: a file path
             fake_data: random data is created and used instead. This is useful for testing.
                 Default is false.
-            required_keys:
-            history_minutes:
-            forecast_minutes:
+            required_keys: tuple or list of keys required in the example for it to be considered usable
+            history_minutes: how many past minutes of data to use, if subsetting the batch. Default is None.
+            forecast_minutes: how many future minutes of data to use, if reducing the amount of forecast time. Default is None.
         """
         super().__init__()
 
@@ -209,7 +209,6 @@ class FakeDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         """Get data at the index"""
-
         x = {
             SATELLITE_DATA: torch.randn(
                 self.batch_size, self.seq_length, self.width, self.height, self.number_sat_channels
