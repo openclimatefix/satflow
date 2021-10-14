@@ -49,7 +49,6 @@ class JointPerceiver(BaseModel):
         nwp_channels: int = 10,
         base_channels: int = 1,
         forecast_steps: int = 48,
-        history_steps: int = 6,
         input_size: int = 64,
         lr: float = 5e-4,
         visualize: bool = True,
@@ -76,7 +75,6 @@ class JointPerceiver(BaseModel):
         pretrained: bool = False,
         predict_timesteps_together: bool = False,
         nwp_modality: bool = False,
-        datetime_modality: bool = False,
         use_learnable_query: bool = True,
         generate_fourier_features: bool = True,
         temporally_consistent_fourier_features: bool = False,
@@ -113,22 +111,20 @@ class JointPerceiver(BaseModel):
                 sine_only=sin_only,
                 generate_fourier_features=generate_fourier_features,
             )
-            if self.joint_model:
-                # Need second query as well
-                self.pv_query = LearnableQuery(
-                    channel_dim=queries_dim,
-                    query_shape=(self.forecast_steps, 1)  # Only need one number for GSP
-                    if predict_timesteps_together
-                    else (1, 1),
-                    conv_layer="3d",
-                    max_frequency=max_frequency,
-                    num_frequency_bands=input_size,
-                    sine_only=sin_only,
-                    generate_fourier_features=generate_fourier_features,
-                )
+            # Need second query as well
+            self.pv_query = LearnableQuery(
+                channel_dim=queries_dim,
+                query_shape=(self.forecast_steps, 1)  # Only need one number for GSP
+                if predict_timesteps_together
+                else (1, 1),
+                conv_layer="3d",
+                max_frequency=max_frequency,
+                num_frequency_bands=input_size,
+                sine_only=sin_only,
+                generate_fourier_features=generate_fourier_features,
+            )
         else:
-            if self.joint_model:
-                self.pv_query = None
+            self.pv_query = None
             self.query = None
 
         # Warn if using frequency is smaller than Nyquist Frequency
@@ -250,19 +246,6 @@ class JointPerceiver(BaseModel):
                 fourier_encode=encode_fourier,
             )
             modalities.append(pv_id_modality)
-
-        if not self.predict_timesteps_together:
-            # Sort audio for timestep one-hot encode? Or include under other modality?
-            timestep_modality = InputModality(
-                name="forecast_time",
-                input_channels=1,  # number of channels for mono audio
-                input_axis=1,  # number of axes, 2 for images
-                num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
-                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
-                sin_only=sin_only,
-                fourier_encode=encode_fourier,
-            )
-            modalities.append(timestep_modality)
 
         self.model = MultiPerceiver(
             modalities=modalities,
@@ -410,10 +393,7 @@ class JointPerceiver(BaseModel):
                 ]  # Only want future part
             else:
                 fourier_features = None
-            if self.joint_model:
-                return self.query(x, fourier_features), self.pv_query(x, fourier_features)
-            else:
-                return self.query(x, fourier_features)
+            return self.query(x, fourier_features), self.pv_query(x, fourier_features)
         # key, value: B x N x K; query: B x M x K
         # Attention maps -> B x N x M
         # Output -> B x M x K
