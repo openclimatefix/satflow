@@ -1,22 +1,5 @@
-import logging
-import typing as Dict
 from nowcasting_dataset.config.load import load_yaml_configuration
-
 import yaml
-
-
-def load_config(file_path: str) -> Dict:
-    with open(file_path, "r") as f:
-        config = yaml.load(f)
-    return config
-
-
-def make_logger(name: str, level=logging.DEBUG) -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(level=level)
-    return logger
-
-
 import logging
 import warnings
 from typing import List, Sequence
@@ -26,6 +9,12 @@ import rich.syntax
 import rich.tree
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.utilities import rank_zero_only
+
+
+def make_logger(name: str, level=logging.DEBUG) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(level=level)
+    return logger
 
 
 def get_logger(name=__name__, level=logging.INFO) -> logging.Logger:
@@ -211,3 +200,8 @@ def log_hyperparameters(
     # this is just a trick to prevent trainer from logging hparams of model,
     # since we already did that above
     trainer.logger.log_hyperparams = empty
+
+
+def load_config(config_file):
+    with open(config_file, "r") as cfg:
+        return yaml.load(cfg, Loader=yaml.FullLoader)["config"]

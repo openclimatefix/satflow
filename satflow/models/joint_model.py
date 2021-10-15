@@ -355,7 +355,13 @@ class JointPerceiver(BaseModel):
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
     def construct_query(self, x: dict) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.query(x), self.pv_query(x)
+        sat_fourier_features = x[SATELLITE_DATA + "_position_encoding"][
+            :, :, : -self.forecast_steps
+        ]  # Only want future steps
+        gsp_fourier_features = x[GSP_YIELD + "_position_encoding"][
+            :, :, : -self.gsp_forecast_steps
+        ]  # Only want future features
+        return self.query(x, sat_fourier_features), self.pv_query(x, gsp_fourier_features)
 
     def forward(self, x, mask=None, query=None):
         return self.model.forward(x, mask=mask, queries=query)
