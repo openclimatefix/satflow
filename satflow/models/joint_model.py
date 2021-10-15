@@ -354,40 +354,8 @@ class JointPerceiver(BaseModel):
         }
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
-    def construct_query(self, x: dict) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        if self.use_learnable_query:
-            if self.temporally_consistent_fourier_features:
-                fourier_features = encode_position(
-                    x[SATELLITE_DATA].shape[0],
-                    axis=(
-                        x[SATELLITE_DATA].shape[1] + self.forecast_steps,
-                        self.input_size,
-                        self.input_size,
-                    ),
-                    num_frequency_bands=max(
-                        [self.input_size, x[SATELLITE_DATA].shape[1] + self.forecast_steps]
-                    )
-                    * 2
-                    + 1,
-                    max_frequency=self.max_frequency,
-                )[
-                    x[SATELLITE_DATA].shape[1] :
-                ]  # Only want future part
-            else:
-                fourier_features = None
-            return self.query(x, fourier_features), self.pv_query(x, fourier_features)
-        # key, value: B x N x K; query: B x M x K
-        # Attention maps -> B x N x M
-        # Output -> B x M x K
-        # So want query to be B X (T*H*W) X C to reshape to B x T x C x H x W
-        if self.preprocessor is not None:
-            x = self.preprocessor(x[SATELLITE_DATA])
-        y_query = x  # Only want sat channels, the output
-        # y_query = torch.permute(y_query, (0, 2, 3, 1)) # Channel Last
-        # Need to reshape to 3 dimensions, TxHxW or HxWxC
-        # y_query = rearrange(y_query, "b h w d -> b (h w) d")
-        logger.debug(f"Query Shape: {y_query.shape}")
-        return y_query
+    def construct_query(self, x: dict) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.query(x), self.pv_query(x)
 
     def forward(self, x, mask=None, query=None):
         return self.model.forward(x, mask=mask, queries=query)
