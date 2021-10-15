@@ -14,24 +14,12 @@ import torch_optimizer as optim
 import logging
 from nowcasting_dataset.consts import (
     SATELLITE_DATA,
-    SATELLITE_X_COORDS,
-    SATELLITE_Y_COORDS,
-    SATELLITE_DATETIME_INDEX,
     NWP_DATA,
-    NWP_Y_COORDS,
-    NWP_X_COORDS,
     TOPOGRAPHIC_DATA,
-    TOPOGRAPHIC_X_COORDS,
-    TOPOGRAPHIC_Y_COORDS,
-    DATETIME_FEATURE_NAMES,
     GSP_YIELD,
-    GSP_X_COORDS,
-    GSP_Y_COORDS,
     PV_YIELD,
     PV_SYSTEM_ID,
     GSP_ID,
-    PV_SYSTEM_X_COORDS,
-    PV_SYSTEM_Y_COORDS,
     DEFAULT_N_GSP_PER_EXAMPLE,
     DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE,
 )
@@ -260,7 +248,6 @@ class JointPerceiver(BaseModel):
             cross_dim_head=cross_dim_heads,  # number of dimensions per cross attention head
             latent_dim_head=latent_dim_heads,  # number of dimensions per latent self attention head
             weight_tie_layers=weight_tie_layers,  # whether to weight tie layers (optional, as indicated in the diagram)
-            # self_per_cross_attn=self_per_cross_attention,  # number of self attention blocks per cross attention
             sine_only=sin_only,
             fourier_encode_data=encode_fourier,
             output_shape=input_size,  # Shape of output to make the correct sized logits dim, needed so reshaping works
@@ -302,39 +289,19 @@ class JointPerceiver(BaseModel):
         x[TOPOGRAPHIC_DATA] = base_inputs
         return x
 
-    def add_timestep(self, batch_size: int, timestep: int = 1) -> torch.Tensor:
-        times = (torch.eye(self.forecast_steps)[timestep]).unsqueeze(-1).unsqueeze(-1)
-        ones = torch.ones(1, 1, 1)
-        timestep_input = times * ones
-        timestep_input = timestep_input.squeeze(-1)
-        timestep_input = repeat(timestep_input, "... -> b ...", b=batch_size)
-        logger.debug(f"Forecast Step: {timestep_input.size()}")
-        return timestep_input
-
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
-        batch_size = y[SATELLITE_DATA].size(0)
-        # For each future timestep:
-        predictions = []
         query = self.construct_query(x)
         x = self.encode_inputs(x)
-        if self.predict_timesteps_together:
-            # Predicting all future ones at once
-            y_hat = self(x, query=query)
-            y_hat = rearrange(
-                y_hat,
-                "b (t h w) c -> b c t h w",
-                t=self.forecast_steps,
-                h=self.input_size,
-                w=self.input_size,
-            )
-        else:
-            for i in range(self.forecast_steps):
-                x["forecast_time"] = self.add_timestep(batch_size, i).type_as(y)
-                y_hat = self(x, query=query)
-                y_hat = rearrange(y_hat, "b h (w c) -> b c h w", c=self.output_channels)
-                predictions.append(y_hat)
-            y_hat = torch.stack(predictions, dim=1)  # Stack along the timestep dimension
+        # Predicting all future ones at once
+        y_hat = self(x, query=query)
+        y_hat = rearrange(
+            y_hat,
+            "b (t h w) c -> b c t h w",
+            t=self.forecast_steps,
+            h=self.input_size,
+            w=self.input_size,
+        )
         if self.postprocessor is not None:
             y_hat = self.postprocessor(y_hat)
         if self.visualize:
