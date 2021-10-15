@@ -54,6 +54,7 @@ class JointPerceiver(BaseModel):
         queries_dim: int = 32,
         latent_dim_heads: int = 64,
         loss="mse",
+        gsp_loss="mse",
         sin_only: bool = False,
         encode_fourier: bool = True,
         preprocessor_type: Optional[str] = None,
@@ -79,6 +80,7 @@ class JointPerceiver(BaseModel):
         self.nwp_channels = nwp_channels
         self.output_channels = sat_channels
         self.criterion = get_loss(loss)
+        self.gsp_criterion = get_loss(gsp_loss)
         self.input_size = input_size
         self.predict_timesteps_together = predict_timesteps_together
         self.use_learnable_query = use_learnable_query
@@ -291,31 +293,44 @@ class JointPerceiver(BaseModel):
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
-        query = self.construct_query(x)
+        sat_query, gsp_query = self.construct_query(x)
         x = self.encode_inputs(x)
         # Predicting all future ones at once
-        y_hat = self(x, query=query)
-        y_hat = rearrange(
-            y_hat,
+        sat_y_hat = self(x, query=sat_query)
+        gsp_y_hat = self(x, query=gsp_query)
+        sat_y_hat = rearrange(
+            sat_y_hat,
             "b (t h w) c -> b c t h w",
             t=self.forecast_steps,
             h=self.input_size,
             w=self.input_size,
         )
         if self.postprocessor is not None:
-            y_hat = self.postprocessor(y_hat)
+            sat_y_hat = self.postprocessor(sat_y_hat)
         if self.visualize:
-            self.visualize_step(x, y, y_hat, batch_idx, step="train" if is_training else "val")
-        loss = self.criterion(y, y_hat)
-        self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
+            self.visualize_step(x, y, sat_y_hat, batch_idx, step="train" if is_training else "val")
+
+        # Satellite Loss
+        loss = self.criterion(y[SATELLITE_DATA], sat_y_hat)
+        self.log_dict({f"{'train' if is_training else 'val'}/sat_loss": loss})
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
             frame_loss = self.criterion(
-                y_hat[:, f, :, :, :], y[SATELLITE_DATA][:, f, :, :, :]
+                sat_y_hat[:, f, :, :, :], y[SATELLITE_DATA][:, f, :, :, :]
             ).item()
-            frame_loss_dict[f"{'train' if is_training else 'val'}/frame_{f}_loss"] = frame_loss
+            frame_loss_dict[
+                f"{'train' if is_training else 'val'}/sat_timestep_{f}_loss"
+            ] = frame_loss
+        # GSP Loss
+        gsp_loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
+        self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": gsp_loss})
+        for f in range(self.forecast_gsp_steps):
+            frame_loss = self.gsp_criterion(gsp_y_hat[:, f, :], y[GSP_YIELD][:, f, :]).item()
+            frame_loss_dict[
+                f"{'train' if is_training else 'val'}/gsp_timestep_{f}_loss"
+            ] = frame_loss
         self.log_dict(frame_loss_dict)
-        return loss
+        return loss + gsp_loss
 
     def configure_optimizers(self):
         # They use LAMB as the optimizer
