@@ -15,6 +15,8 @@ dotenv.load_dotenv(override=True)
 def main(config: DictConfig):
     """
     Train a satflow model
+    
+    https://hydra.cc/docs/intro/
 
     Args:
         config: the configuration values will be provided by hydra based
@@ -22,7 +24,6 @@ def main(config: DictConfig):
 
     Returns: the output of model training
     """
-    https://hydra.cc/docs/intro/
 
     # Imports should be nested inside @hydra.main to optimize tab completion
     # Read more here: https://github.com/facebookresearch/hydra/issues/934
