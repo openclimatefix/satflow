@@ -1,3 +1,4 @@
+"""A UNet CNN"""
 import torch
 import pytorch_lightning as pl
 from nowcasting_utils.models.base import register_model
@@ -10,6 +11,7 @@ from nowcasting_utils.models.loss import get_loss
 
 @register_model
 class Unet(pl.LightningModule):
+    """A UNet CNN"""
     def __init__(
         self,
         forecast_steps: int,
@@ -22,6 +24,21 @@ class Unet(pl.LightningModule):
         loss: Union[str, torch.nn.Module] = "mse",
         pretrained: bool = False,
     ):
+        """
+        Initialize the model
+
+        Args:
+            forecast_steps: number of timesteps to forecast.
+            input_channels: default is 3
+            num_layers: default is 5
+            hidden_dim: default is 64.
+            bilinear: Use bilinear interpolation for upsampling.
+                Default is False, which uses transposed convolutions.
+            lr: learning rate. default is 0.001
+            visualize: add a visualization step. default is False
+            loss: loss: name of the loss function or torch.nn.Module. Default is "mse"
+            pretrained: Not implemented. Default is False
+        """
         super(Unet, self).__init__()
         self.lr = lr
         self.input_channels = input_channels
@@ -33,6 +50,7 @@ class Unet(pl.LightningModule):
 
     @classmethod
     def from_config(cls, config):
+        """Initialize Unet model from configuration values"""
         return Unet(
             forecast_steps=config.get("forecast_steps", 12),
             input_channels=config.get("in_channels", 12),
@@ -43,14 +61,26 @@ class Unet(pl.LightningModule):
         )
 
     def forward(self, x):
+        """A forward step of the model"""
         return self.model.forward(x)
 
     def configure_optimizers(self):
+        """Get the optimizer with the initialized parameters"""
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
         # optimizer = torch.optim.adam()
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def training_step(self, batch, batch_idx):
+        """
+        Perform a training step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: used to visualize the results of the training step
+
+        Returns:
+            The loss for the training step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -70,6 +100,16 @@ class Unet(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        """
+        Perform a validation step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the validation step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -84,6 +124,16 @@ class Unet(pl.LightningModule):
         return val_loss
 
     def test_step(self, batch, batch_idx):
+        """
+        Perform a testing step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the testing step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -91,6 +141,16 @@ class Unet(pl.LightningModule):
         return loss
 
     def visualize_step(self, x, y, y_hat, batch_idx, step="train"):
+        """
+        Visualize the results of a step of the model
+
+        Args:
+            x: input data
+            y: output
+            y_hat: prediction
+            batch_idx: (int) the global step to record for this batch
+            step: name of the step type. Default is "train"
+        """
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
         images = x[0].cpu().detach()

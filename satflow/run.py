@@ -24,7 +24,6 @@ def main(config: DictConfig):
 
     Returns: the output of model training
     """
-
     # Imports should be nested inside @hydra.main to optimize tab completion
     # Read more here: https://github.com/facebookresearch/hydra/issues/934
     from satflow.core import utils

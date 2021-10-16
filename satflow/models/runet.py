@@ -1,3 +1,4 @@
+"""A recurrent CNN (RUnet) and a recurrent residual CNN (R2Unet) based on U-Net"""
 import antialiased_cnns
 from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
@@ -10,6 +11,7 @@ import numpy as np
 
 @register_model
 class RUnet(pl.LightningModule):
+    """A recurrent CNN based on U-Net"""
     def __init__(
         self,
         input_channels: int = 12,
@@ -21,6 +23,19 @@ class RUnet(pl.LightningModule):
         conv_type: str = "standard",
         pretrained: bool = False,
     ):
+        """
+        Initialize the model
+
+        Args:
+            input_channels: default is 12
+            forecast_steps: number of timesteps to forecast. default is 48.
+            recurrent_steps: default is 2
+            loss: name of the loss function or torch.nn.Module. Default is "mse"
+            lr: learning rate. default is 0.001
+            visualize: add a visualization step. default is False
+            conv_type: conv_type: one of "standard", "coord", "antialiased", or "3d"
+            pretrained: not implemented. default is False.
+        """
         super().__init__()
         self.input_channels = input_channels
         self.forecast_steps = forecast_steps
@@ -36,6 +51,7 @@ class RUnet(pl.LightningModule):
 
     @classmethod
     def from_config(cls, config):
+        """Initialize RUnet model from configuration values"""
         return RUnet(
             forecast_steps=config.get("forecast_steps", 12),
             input_channels=config.get("in_channels", 12),
@@ -43,14 +59,26 @@ class RUnet(pl.LightningModule):
         )
 
     def forward(self, x):
+        """A forward step of the model"""
         return self.model.forward(x)
 
     def configure_optimizers(self):
+        """Get the optimizer with the initialized parameters"""
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
         # optimizer = torch.optim.adam()
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def training_step(self, batch, batch_idx):
+        """
+        Perform a training step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: used to visualize the results of the training step
+
+        Returns:
+            The loss for the training step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -70,6 +98,16 @@ class RUnet(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        """
+        Perform a validation step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the validation step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -84,6 +122,16 @@ class RUnet(pl.LightningModule):
         return val_loss
 
     def test_step(self, batch, batch_idx):
+        """
+        Perform a testing step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the testing step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -91,6 +139,16 @@ class RUnet(pl.LightningModule):
         return loss
 
     def visualize_step(self, x, y, y_hat, batch_idx, step="train"):
+        """
+        Visualize the results of a step of the model
+
+        Args:
+            x: input data
+            y: output
+            y_hat: prediction
+            batch_idx: (int) the global step to record for this batch
+            step: name of the step type. Default is "train"
+        """
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
         images = x[0].cpu().detach()
@@ -108,7 +166,17 @@ class RUnet(pl.LightningModule):
 
 
 class R2U_Net(nn.Module):
+    """A recurrent residual CNN based on U-Net"""
     def __init__(self, img_ch=3, output_ch=1, t=2, conv_type: str = "standard"):
+        """
+        Initialize the module
+
+        Args:
+            img_ch: number of input channels. Default is 3
+            output_ch: number of output channels. Default is 1
+            t: number of recurrent steps. Default is 2
+            conv_type: one of "standard", "coord", "antialiased", or "3d"
+        """
         super(R2U_Net, self).__init__()
         if conv_type == "antialiased":
             self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=1)
@@ -147,6 +215,12 @@ class R2U_Net(nn.Module):
         self.Conv_1x1 = nn.Conv2d(64, output_ch, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
+        """
+        Compute the forward pass
+
+        Args:
+            x: shape(batch, channel, x_dim, y_dim)
+        """
         # encoding path
         x1 = self.RRCNN1(x)
 
