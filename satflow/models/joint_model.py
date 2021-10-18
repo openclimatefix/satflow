@@ -70,6 +70,47 @@ class JointPerceiver(BaseModel):
         use_gsp_data: bool = False,
         use_pv_data: bool = False,
     ):
+        """
+        Joint Satellite Image + GSP PV Output prediction model
+
+        Args:
+            input_channels: Total number of input channels to the model
+            sat_channels: Number of satellite channels
+            nwp_channels: Number of NWP channels
+            base_channels: Number of channels in the base map (i.e. Topographic data)
+            forecast_steps: Number of satellite forecast steps
+            input_size: Input size in pixels for satellite/NWP/Basemap images
+            lr: Learning rate
+            visualize: Whether to visualize the output
+            max_frequency: Max frequency for the Fourier Features
+            depth: Depth of the PerceiverIO
+            num_latents: Number of latents
+            cross_heads: Number of cross-attention heads
+            latent_heads: Number of latent heads
+            cross_dim_heads: Dimension of the cross-attention heads
+            latent_dim: Dimension of the latent space
+            weight_tie_layers: Whether to weight tie layers
+            decoder_ff: Whether to have a feedforward at the end of the decoder in PerceiverIO
+            dim: Dimension
+            logits_dim: Dimension of the logits in PerceiverIO
+            queries_dim: Query dimension in PerceiverIO
+            latent_dim_heads: Number of latent
+            loss: Satellite image loss function
+            gsp_loss: GSP PV output loss function
+            sine_only: Whether to use sin-only for the Fourier Features or not
+            encode_fourier: Whether to encode the inputs with fourier features
+            preprocessor_type: Type of preprocessor for the image inputs
+            postprocessor_type: Type of postprocessor for the image outputs
+            encoder_kwargs: Preprocessor encoder kwargs
+            decoder_kwargs: Preprocessor decoder kwargs
+            pretrained: Whether to download a pre-trained model from HuggingFace, default False
+            predict_timesteps_together: Whether to predict all future timesteps at once or individually
+            nwp_modality: Whether NWPs are being included
+            use_learnable_query: Whether to use the LearnableQuery
+            generate_fourier_features: Whether to generate Fourier Features in the LearnableQuery
+            use_gsp_data: Whether to use GSP data
+            use_pv_data: Whether to use PV data
+        """
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
@@ -85,7 +126,6 @@ class JointPerceiver(BaseModel):
         self.predict_timesteps_together = predict_timesteps_together
         self.use_learnable_query = use_learnable_query
         self.max_frequency = max_frequency
-        self.temporally_consistent_fourier_features = temporally_consistent_fourier_features
         self.use_gsp_data = use_gsp_data
         self.use_pv_data = use_pv_data
 
