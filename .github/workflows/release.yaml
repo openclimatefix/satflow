@@ -45,10 +45,12 @@ jobs:
           prerelease: false
 
   publish:
-    needs: [release]
+    needs: [build, release]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ needs.build.outputs.new_tag }}
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
