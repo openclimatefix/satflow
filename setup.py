@@ -16,7 +16,7 @@ setup(
     author="Jacob Bieker",
     install_requires=install_requires,
     long_description=long_description,
-    ong_description_content_type="text/markdown",
+    long_description_content_type="text/markdown",
     author_email="jacob@openclimatefix.org",
     description="Satellite Optical Flow",
     classifiers=[
