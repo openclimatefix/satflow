@@ -1,25 +1,22 @@
+"""Layers for convolutional LSTM model"""
 import torch
 import torch.nn as nn
 from satflow.models.utils import get_conv_layer
 
 
 class ConvLSTMCell(nn.Module):
+    """Convolutional LSTM"""
     def __init__(self, input_dim, hidden_dim, kernel_size, bias, conv_type: str = "standard"):
         """
         Initialize ConvLSTM cell.
 
-        Parameters
-        ----------
-        input_dim: int
-            Number of channels of input tensor.
-        hidden_dim: int
-            Number of channels of hidden state.
-        kernel_size: (int, int)
-            Size of the convolutional kernel.
-        bias: bool
-            Whether or not to add the bias.
+        Args:
+            input_dim (int): Number of channels of input tensor.
+            hidden_dim (int): Number of channels of hidden state.
+            kernel_size (int, int): Size of the convolutional kernel.
+            bias (bool): Whether or not to add the bias.
+            conv_type: one of "standard", "coord", "antialiased", or "3d"
         """
-
         super(ConvLSTMCell, self).__init__()
 
         self.input_dim = input_dim
@@ -39,6 +36,16 @@ class ConvLSTMCell(nn.Module):
         )
 
     def forward(self, input_tensor, cur_state):
+        """
+        Compute the forward pass
+
+        Args:
+            input_tensor: 5-D Tensor of shape (batch, time, channel, height, width)
+            cur_state: a tuple of (current_hidden_state, current_cell_state)
+        
+        Returns:
+            a tuple of (next_hidden_state, next_cell_state)
+        """
         h_cur, c_cur = cur_state
 
         combined = torch.cat([input_tensor, h_cur], dim=1)  # concatenate along channel axis
@@ -56,6 +63,16 @@ class ConvLSTMCell(nn.Module):
         return h_next, c_next
 
     def init_hidden(self, batch_size, image_size):
+        """
+        Initialize states
+
+        Args:
+            batch_size: dimension of each batch
+            image_size: tuple of (height, width)
+
+        Returns:
+            A tuple of two tensors filled with zeros
+        """
         height, width = image_size
         return (
             torch.zeros(batch_size, self.hidden_dim, height, width, device=self.conv.weight.device),

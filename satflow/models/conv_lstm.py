@@ -1,3 +1,4 @@
+"""An Autoencoder model with Convolutional LSTM cells"""
 from typing import Any, Dict, Union
 
 import pytorch_lightning as pl
@@ -14,6 +15,7 @@ import torchvision
 
 @register_model
 class EncoderDecoderConvLSTM(pl.LightningModule):
+    """An Autoencoder model with Convolutional LSTM cells"""
     def __init__(
         self,
         hidden_dim: int = 64,
@@ -26,6 +28,20 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         pretrained: bool = False,
         conv_type: str = "standard",
     ):
+        """
+        Initialize the model
+
+        Args:
+            hidden_dim: number of channels of hidden state. default is 64
+            input_channels: number of channels of input tensor. default is 12
+            out_channels: number of channels in output. default is 1
+            forecast_steps: number of timesteps to forecast. default is 48.
+            lr: learning rate. default is 0.001
+            visualize: not implemented. default is False.
+            loss: name of the loss function or torch.nn.Module. Default is "mse"
+            pretrained: not implemented. default is False
+            conv_type: one of "standard", "coord", "antialiased", or "3d"
+        """
         super(EncoderDecoderConvLSTM, self).__init__()
         self.forecast_steps = forecast_steps
         self.criterion = get_loss(loss)
@@ -36,6 +52,7 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
 
     @classmethod
     def from_config(cls, config):
+        """Initialize EncoderDecoderConvLSTM model from configuration values"""
         return EncoderDecoderConvLSTM(
             hidden_dim=config.get("num_hidden", 64),
             input_channels=config.get("in_channels", 12),
@@ -45,14 +62,33 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         )
 
     def forward(self, x, future_seq=0, hidden_state=None):
+        """
+        A forward step of the model
+
+        Args:
+            x: 5-D Tensor of shape (batch, time, channel, height, width)
+            future_seq: number of timesteps to forecast. default is 0.
+            hidden_state: not implemented. default is None
+        """
         return self.model.forward(x, future_seq, hidden_state)
 
     def configure_optimizers(self):
+        """Get the optimizer with the initialized parameters"""
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
         # optimizer = torch.optim.adam()
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def training_step(self, batch, batch_idx):
+        """
+        Perform a training step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the training step
+        """
         x, y = batch
         y_hat = self(x, self.forecast_steps)
         y_hat = torch.permute(y_hat, dims=(0, 2, 1, 3, 4))
@@ -72,6 +108,16 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        """
+        Perform a validation step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the validation step
+        """
         x, y = batch
         y_hat = self(x, self.forecast_steps)
         y_hat = torch.permute(y_hat, dims=(0, 2, 1, 3, 4))
@@ -87,12 +133,32 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
         return val_loss
 
     def test_step(self, batch, batch_idx):
+        """
+        Perform a testing step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the testing step
+        """
         x, y = batch
         y_hat = self(x, self.forecast_steps)
         loss = self.criterion(y_hat, y)
         return loss
 
     def visualize_step(self, x, y, y_hat, batch_idx, step="train"):
+        """
+        Visualize the results of a step of the model
+
+        Args:
+            x: input data
+            y: output
+            y_hat: prediction
+            batch_idx: the global step to record for this batch
+            step: name of the step type. Default is "train"
+        """
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
         if len(x.shape) == 5:
@@ -123,13 +189,20 @@ class EncoderDecoderConvLSTM(pl.LightningModule):
 class ConvLSTM(torch.nn.Module):
     def __init__(self, input_channels, hidden_dim, out_channels, conv_type: str = "standard"):
         super().__init__()
-        """ ARCHITECTURE
+        """
+        Initialize the ConvSTM module
 
-        # Encoder (ConvLSTM)
-        # Encoder Vector (final hidden state of encoder)
-        # Decoder (ConvLSTM) - takes Encoder Vector as input
-        # Decoder (3D CNN) - produces regression predictions for our model
+        ARCHITECTURE
+            - Encoder (ConvLSTM)
+            - Encoder Vector (final hidden state of encoder)
+            - Decoder (ConvLSTM) - takes Encoder Vector as input
+            - Decoder (3D CNN) - produces regression predictions for our model
 
+        Args:
+            input_channels: number of channels of input tensor
+            hidden_dim: number of channels of hidden state
+            out_channels: number of channels in output
+            conv_type: one of "standard", "coord", "antialiased", or "3d"
         """
         self.encoder_1_convlstm = ConvLSTMCell(
             input_dim=input_channels,
@@ -171,7 +244,22 @@ class ConvLSTM(torch.nn.Module):
         )
 
     def autoencoder(self, x, seq_len, future_step, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
+        """
+        Compute the forward pass of an autoencoder on the hidden and cell states of lstm cells
 
+        Args:
+            x: 5-D Tensor of shape (batch, time, channel, height, width)
+            seq_len: size of time dimension in x
+            future_step: number of timesteps to forecast
+            h_t: hidden state for first encoder
+            c_t: cell state for first encoder
+            h_t2: hidden state for second encoder
+            c_t2: cell state for second encoder
+            h_t3: hidden state for first decoder
+            c_t3: cell state for first decoder
+            h_t4: hidden state for second decoder
+            c_t4: cell state for second decoder
+        """
         outputs = []
 
         # encoder
@@ -205,14 +293,14 @@ class ConvLSTM(torch.nn.Module):
         return outputs
 
     def forward(self, x, forecast_steps=0, hidden_state=None):
-
         """
-        Parameters
-        ----------
-        input_tensor:
-            5-D Tensor of shape (b, t, c, h, w)        #   batch, time, channel, height, width
-        """
+        Compute the forward pass
 
+        Args:
+            x: 5-D Tensor of shape (batch, time, channel, height, width)
+            forecast_steps: number of timesteps to forecast. default is 0.
+            hidden_state: not implemented
+        """
         # find size of different input dimensions
         b, seq_len, _, h, w = x.size()
 

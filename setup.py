@@ -1,3 +1,4 @@
+"""Setup file for the satflow package"""
 from distutils.core import setup
 from pathlib import Path
 

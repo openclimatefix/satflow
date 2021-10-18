@@ -1,3 +1,4 @@
+"""Implement various generators for GANs"""
 import functools
 import torch
 from torch import nn as nn
@@ -19,18 +20,6 @@ def define_generator(
 ):
     """Create a generator
 
-    Parameters:
-        input_nc (int) -- the number of channels in input images
-        output_nc (int) -- the number of channels in output images
-        ngf (int) -- the number of filters in the last conv layer
-        netG (str) -- the architecture's name: resnet_9blocks | resnet_6blocks | unet_256 | unet_128
-        norm (str) -- the name of normalization layers used in the network: batch | instance | none
-        use_dropout (bool) -- if use dropout layers.
-        init_type (str)    -- the name of our initialization method.
-        init_gain (float)  -- scaling factor for normal, xavier and orthogonal.
-
-    Returns a generator
-
     Our current implementation provides two types of generators:
         U-Net: [unet_128] (for 128x128 input images) and [unet_256] (for 256x256 input images)
         The original U-Net paper: https://arxiv.org/abs/1505.04597
@@ -41,6 +30,19 @@ def define_generator(
 
 
     The generator has been initialized by <init_net>. It uses RELU for non-linearity.
+
+    Args:
+        input_nc (int): the number of channels in input images
+        output_nc (int): the number of channels in output images
+        ngf (int): the number of filters in the last conv layer
+        netG (str): the architecture's name: resnet_9blocks | resnet_6blocks | unet_256 | unet_128
+        norm (str): the name of normalization layers used in the network: batch | instance | none
+        use_dropout (bool): if use dropout layers.
+        init_type (str): the name of our initialization method.
+        init_gain (float): scaling factor for normal, xavier and orthogonal.
+
+    Returns:
+        a generator
     """
     net = None
     norm_layer = get_norm_layer(norm_type=norm)
@@ -70,7 +72,8 @@ def define_generator(
 class ResnetGenerator(nn.Module):
     """Resnet-based generator that consists of Resnet blocks between a few downsampling/upsampling operations.
 
-    We adapt Torch code and idea from Justin Johnson's neural style transfer project(https://github.com/jcjohnson/fast-neural-style)
+    We adapt Torch code and idea from Justin Johnson's neural style transfer project
+    (https://github.com/jcjohnson/fast-neural-style)
     """
 
     def __init__(
@@ -86,14 +89,15 @@ class ResnetGenerator(nn.Module):
     ):
         """Construct a Resnet-based generator
 
-        Parameters:
-            input_nc (int)      -- the number of channels in input images
-            output_nc (int)     -- the number of channels in output images
-            ngf (int)           -- the number of filters in the last conv layer
-            norm_layer          -- normalization layer
-            use_dropout (bool)  -- if use dropout layers
-            n_blocks (int)      -- the number of ResNet blocks
-            padding_type (str)  -- the name of padding layer in conv layers: reflect | replicate | zero
+        Args:
+            input_nc (int): the number of channels in input images
+            output_nc (int): the number of channels in output images
+            ngf (int): the number of filters in the last conv layer
+            norm_layer: normalization layer
+            use_dropout (bool): if use dropout layers
+            n_blocks (int): the number of ResNet blocks
+            padding_type (str): the name of padding layer in conv layers: reflect | replicate | zero
+            conv_type (str): conv_type: one of "standard", "coord", "antialiased", or "3d"
         """
         assert n_blocks >= 0
         super(ResnetGenerator, self).__init__()
@@ -189,10 +193,17 @@ class ResnetBlock(nn.Module):
     ):
         """Initialize the Resnet block
 
-        A resnet block is a conv block with skip connections
-        We construct a conv block with build_conv_block function,
-        and implement skip connections in <forward> function.
+        A resnet block is a conv block with skip connections. We construct a conv block with
+        build_conv_block function, and implement skip connections in <forward> function.
         Original Resnet paper: https://arxiv.org/pdf/1512.03385.pdf
+
+        Args:
+            dim: the number of channels in the conv layer
+            padding_type: the name of padding layer: reflect | replicate | zero
+            norm_layer: normalization layer
+            use_dropout: if use dropout layers.
+            use_bias: if the conv layer uses bias or not
+            conv_type (str): conv_type: one of "standard", "coord", "antialiased", or "3d"
         """
         super(ResnetBlock, self).__init__()
         conv2d = get_conv_layer(conv_type)
@@ -205,14 +216,16 @@ class ResnetBlock(nn.Module):
     ):
         """Construct a convolutional block.
 
-        Parameters:
-            dim (int)           -- the number of channels in the conv layer.
-            padding_type (str)  -- the name of padding layer: reflect | replicate | zero
-            norm_layer          -- normalization layer
-            use_dropout (bool)  -- if use dropout layers.
-            use_bias (bool)     -- if the conv layer uses bias or not
+        Args:
+            dim (int): the number of channels in the conv layer.
+            padding_type (str): the name of padding layer: reflect | replicate | zero
+            norm_layer: normalization layer
+            use_dropout (bool): if use dropout layers.
+            use_bias (bool): if the conv layer uses bias or not
+            conv2d: the convolutional layer to use
 
-        Returns a conv block (with a conv layer, a normalization layer, and a non-linearity layer (ReLU))
+        Returns:
+            a conv block (with a conv layer, a normalization layer, and a non-linearity layer (ReLU))
         """
         conv_block = []
         p = 0
@@ -269,16 +282,19 @@ class UnetGenerator(nn.Module):
         conv_type: str = "standard",
     ):
         """Construct a Unet generator
-        Parameters:
-            input_nc (int)  -- the number of channels in input images
-            output_nc (int) -- the number of channels in output images
-            num_downs (int) -- the number of downsamplings in UNet. For example, # if |num_downs| == 7,
-                                image of size 128x128 will become of size 1x1 # at the bottleneck
-            ngf (int)       -- the number of filters in the last conv layer
-            norm_layer      -- normalization layer
 
         We construct the U-Net from the innermost layer to the outermost layer.
         It is a recursive process.
+
+        Args:
+            input_nc (int): the number of channels in input images
+            output_nc (int): the number of channels in output images
+            num_downs (int): the number of downsamplings in UNet. For example, # if |num_downs| == 7,
+                image of size 128x128 will become of size 1x1 # at the bottleneck
+            ngf (int): the number of filters in the last conv layer
+            norm_layer: normalization layer
+            use_dropout (bool): if use dropout layers
+            conv_type (str): conv_type: one of "standard", "coord", "antialiased", or "3d"
         """
         super(UnetGenerator, self).__init__()
         # construct unet structure
@@ -361,15 +377,16 @@ class UnetSkipConnectionBlock(nn.Module):
     ):
         """Construct a Unet submodule with skip connections.
 
-        Parameters:
-            outer_nc (int) -- the number of filters in the outer conv layer
-            inner_nc (int) -- the number of filters in the inner conv layer
-            input_nc (int) -- the number of channels in input images/features
-            submodule (UnetSkipConnectionBlock) -- previously defined submodules
-            outermost (bool)    -- if this module is the outermost module
-            innermost (bool)    -- if this module is the innermost module
-            norm_layer          -- normalization layer
-            use_dropout (bool)  -- if use dropout layers.
+        Args:
+            outer_nc (int): the number of filters in the outer conv layer
+            inner_nc (int): the number of filters in the inner conv layer
+            input_nc (int): the number of channels in input images/features
+            submodule (UnetSkipConnectionBlock): previously defined submodules
+            outermost (bool): if this module is the outermost module
+            innermost (bool): if this module is the innermost module
+            norm_layer: normalization layer
+            use_dropout (bool): if use dropout layers.
+            conv_type (str): conv_type: one of "standard", "coord", "antialiased", or "3d"
         """
         super(UnetSkipConnectionBlock, self).__init__()
         self.outermost = outermost
@@ -423,6 +440,7 @@ class UnetSkipConnectionBlock(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
+        """Compute the forward pass"""
         if self.outermost:
             return self.model(x)
         else:  # add skip connections

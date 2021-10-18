@@ -1,14 +1,25 @@
+"""A 2D convolution over an input tensor and coordinates on a grid"""
 import torch
 import torch.nn as nn
 
 
 class AddCoords(nn.Module):
+    """"Add input tensors for x and y dimensions that are evenly spaced coordinates from -1 to 1"""
     def __init__(self, with_r=False):
+        """
+        Initialize module
+        
+        Args:
+            with_r: also add an input that is the distance from the center (polar coordinates)
+                Default if False
+        """
         super().__init__()
         self.with_r = with_r
 
     def forward(self, input_tensor):
         """
+        Compute the forward pass
+
         Args:
             input_tensor: shape(batch, channel, x_dim, y_dim)
         """
@@ -42,7 +53,17 @@ class AddCoords(nn.Module):
 
 
 class CoordConv(nn.Module):
+    """A 2D convolution over an input tensor and coordinates on a grid"""
     def __init__(self, in_channels, out_channels, with_r=False, **kwargs):
+        """
+        A 2D convolution over an input tensor and coordinates on a grid
+
+        Args:
+            in_chanels: number of input channels
+            out_channels: number of output channels
+            with_r: also add an input that is the distance from the center (polar coordinates)
+                Default if False
+        """
         super().__init__()
         self.addcoords = AddCoords(with_r=with_r)
         in_size = in_channels + 2
@@ -51,6 +72,12 @@ class CoordConv(nn.Module):
         self.conv = nn.Conv2d(in_size, out_channels, **kwargs)
 
     def forward(self, x):
+        """
+        Compute the forward pass
+
+        Args:
+            x: shape(batch, channel, x_dim, y_dim)
+        """
         ret = self.addcoords(x)
         ret = self.conv(ret)
         return ret

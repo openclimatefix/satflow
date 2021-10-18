@@ -1,3 +1,4 @@
+"""Utility functions for manipulating inputs"""
 import torch
 import einops
 import numpy as np
@@ -5,6 +6,15 @@ from satflow.models.layers import CoordConv
 
 
 def get_conv_layer(conv_type: str = "standard") -> torch.nn.Module:
+    """
+    Get the desired convolutional layer
+
+    Args:
+        conv_type: one of "standard", "coord", "antialiased", or "3d"
+
+    Returns:
+        A convolutional layer
+    """
     if conv_type == "standard":
         conv_layer = torch.nn.Conv2d
     elif conv_type == "coord":
@@ -22,7 +32,17 @@ def get_conv_layer(conv_type: str = "standard") -> torch.nn.Module:
 def reverse_space_to_depth(
     frames: np.ndarray, temporal_block_size: int = 1, spatial_block_size: int = 1
 ) -> np.ndarray:
-    """Reverse space to depth transform."""
+    """
+    Reverse space to depth transform.
+    
+    Args:
+        frames: input array
+        temporal_block_size: default is 1
+        spatial_block_size: default is 1
+
+    Returns:
+        The transformed frames
+    """
     if len(frames.shape) == 4:
         return einops.rearrange(
             frames,
@@ -48,7 +68,17 @@ def reverse_space_to_depth(
 def space_to_depth(
     frames: np.ndarray, temporal_block_size: int = 1, spatial_block_size: int = 1
 ) -> np.ndarray:
-    """Space to depth transform."""
+    """
+    Space to depth transform.
+        
+    Args:
+        frames: input array
+        temporal_block_size: default is 1
+        spatial_block_size: default is 1
+
+    Returns:
+        The transformed frames
+    """
     if len(frames.shape) == 4:
         return einops.rearrange(
             frames,

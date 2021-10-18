@@ -1,3 +1,4 @@
+"""Common functions used for GANs"""
 import functools
 import torch
 from torch.nn import init
@@ -6,11 +7,11 @@ from torch.nn import init
 def get_norm_layer(norm_type="instance"):
     """Return a normalization layer
 
-    Parameters:
-        norm_type (str) -- the name of the normalization layer: batch | instance | none
-
     For BatchNorm, we use learnable affine parameters and track running statistics (mean/stddev).
     For InstanceNorm, we do not use learnable affine parameters. We do not track running statistics.
+
+    Args:
+        norm_type (str): the name of the normalization layer: batch | instance | none
     """
     if norm_type == "batch":
         norm_layer = functools.partial(torch.nn.BatchNorm2d, affine=True, track_running_stats=True)
@@ -31,15 +32,14 @@ def get_norm_layer(norm_type="instance"):
 def init_weights(net, init_type="normal", init_gain=0.02):
     """Initialize network weights.
 
-    Parameters:
-        net (network)   -- network to be initialized
-        init_type (str) -- the name of an initialization method: normal | xavier | kaiming | orthogonal
-        init_gain (float)    -- scaling factor for normal, xavier and orthogonal.
-
     We use 'normal' in the original pix2pix and CycleGAN paper. But xavier and kaiming might
     work better for some applications. Feel free to try yourself.
-    """
 
+    Args:
+        net (network): network to be initialized
+        init_type (str): the name of an initialization method: normal | xavier | kaiming | orthogonal
+        init_gain (float) : scaling factor for normal, xavier and orthogonal.
+    """
     def init_func(m):  # define the initialization function
         classname = m.__class__.__name__
         if hasattr(m, "weight") and (
@@ -70,14 +70,15 @@ def init_weights(net, init_type="normal", init_gain=0.02):
 
 
 def init_net(net, init_type="normal", init_gain=0.02):
-    """Initialize a network: 1. register CPU/GPU device (with multi-GPU support); 2. initialize the network weights
-    Parameters:
-        net (network)      -- the network to be initialized
-        init_type (str)    -- the name of an initialization method: normal | xavier | kaiming | orthogonal
-        gain (float)       -- scaling factor for normal, xavier and orthogonal.
-        gpu_ids (int list) -- which GPUs the network runs on: e.g., 0,1,2
+    """Initialize a network
 
-    Return an initialized network.
+    Args:
+        net (network): the network to be initialized
+        init_type (str): the name of an initialization method: normal | xavier | kaiming | orthogonal
+        init_gain (float): scaling factor for normal, xavier and orthogonal.
+
+    Returns:
+        the initialized network
     """
     init_weights(net, init_type, init_gain=init_gain)
     return net
@@ -88,16 +89,17 @@ def cal_gradient_penalty(
 ):
     """Calculate the gradient penalty loss, used in WGAN-GP paper https://arxiv.org/abs/1704.00028
 
-    Arguments:
-        netD (network)              -- discriminator network
-        real_data (tensor array)    -- real images
-        fake_data (tensor array)    -- generated images from the generator
-        device (str)                -- GPU / CPU: from torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')
-        type (str)                  -- if we mix real and fake data or not [real | fake | mixed].
-        constant (float)            -- the constant used in formula ( ||gradient||_2 - constant)^2
-        lambda_gp (float)           -- weight for this loss
+    Args:
+        netD (network): discriminator network
+        real_data (tensor array): real images
+        fake_data (tensor array): generated images from the generator
+        device (str): GPU / CPU: from torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')
+        type (str): if we mix real and fake data or not [real | fake | mixed].
+        constant (float): the constant used in formula ( ||gradient||_2 - constant)^2
+        lambda_gp (float): weight for this loss
 
-    Returns the gradient penalty loss
+    Returns:
+        a tuple (the gradient penalty loss, the gradients)
     """
     if lambda_gp > 0.0:
         if type == "real":  # either use real images, fake images, or a linear interpolation of two.

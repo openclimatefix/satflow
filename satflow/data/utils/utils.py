@@ -1,3 +1,4 @@
+"""Utility functions for loading and processing data"""
 import datetime
 import io
 import re
@@ -17,9 +18,9 @@ except:
 
 
 def eumetsat_filename_to_datetime(inner_tar_name):
-    """Takes a file from the EUMETSAT API and returns
-    the date and time part of the filename"""
-
+    """
+    Takes a file from the EUMETSAT API and returns the date and time part of the filename
+    """
     p = re.compile("^MSG[23]-SEVI-MSG15-0100-NA-(\d*)\.")
     title_match = p.match(inner_tar_name)
     date_str = title_match.group(1)
@@ -27,13 +28,17 @@ def eumetsat_filename_to_datetime(inner_tar_name):
 
 
 def eumetsat_name_to_datetime(filename: str):
+    """Parse eumetsat name as a datetime"""
     date_str = filename.split("0100-0100-")[-1].split(".")[0]
     return datetime.datetime.strptime(date_str, "%Y%m%d%H%M%S")
 
 
 def retrieve_pixel_value(geo_coord, data_source):
-    """Return floating-point value that corresponds to given point.
-    Taken from https://gis.stackexchange.com/questions/221292/retrieve-pixel-value-with-geographic-coordinate-as-input-with-gdal"""
+    """
+    Return floating-point value that corresponds to given point.
+    
+    Taken from https://gis.stackexchange.com/questions/221292/retrieve-pixel-value-with-geographic-coordinate-as-input-with-gdal
+    """
     x, y = geo_coord[0], geo_coord[1]
     forward_transform = affine.Affine.from_gdal(*data_source.GetGeoTransform())
     reverse_transform = ~forward_transform
@@ -68,13 +73,14 @@ def map_satellite_to_mercator(
 ):
     """
     Opens, transforms to Transverse Mercator over Europe, and optionally saves it to files on disk.
-    :param native_satellite:
-    :param grib_files:
-    :param bufr_files:
-    :param bands:
-    :param save_scene:
-    :param save_loc: Save location
-    :return:
+
+    Args:
+        native_satellite: file path. Default is None.
+        grib_files: file path. Default is None.
+        bufr_files: file path. Default is None.
+        bands: list of bands to load
+        save_scene: name of the writer to use when writing data to disk. Default is "geotiff".
+        save_loc: Save location
     """
     if not _SAT_LIBS:
         raise EnvironmentError("Pyresample or Satpy are not installed, please install them first")
@@ -91,7 +97,7 @@ def map_satellite_to_mercator(
     # By default resamples to 3km, as thats the native resolution of all bands other than HRV
     scene = scene.resample(areas[0])
     if save_loc is not None:
-        # Now the relvant data is all together, just need to save it somehow, or return it to the calling process
+        # Now the relevant data is all together, just need to save it somehow, or return it to the calling process
         scene.save_datasets(writer=save_scene, base_dir=save_loc, enhance=False)
     return scene
 
@@ -106,6 +112,7 @@ def create_time_layer(dt: datetime.datetime, shape):
 
 
 def load_np(data):
+    """Load data from binary stream into numpy"""
     import numpy.lib.format
 
     stream = io.BytesIO(data)
@@ -123,10 +130,13 @@ def create_pixel_coord_layers(x_dim: int, y_dim: int, with_r: bool = False) -> n
     """
     Creates Coord layer for CoordConv model
 
-    :param x_dim: size of x dimension for output
-    :param y_dim: size of y dimension for output
-    :param with_r: Whether to include polar coordinates from center
-    :return: (2, x_dim, y_dim) or (3, x_dim, y_dim) array of the pixel coordinates
+    Args:
+        x_dim: size of x dimension for output
+        y_dim: size of y dimension for output
+        with_r: Whether to include polar coordinates from center
+
+    Returns:
+        (2, x_dim, y_dim) or (3, x_dim, y_dim) array of the pixel coordinates
     """
     xx_ones = np.ones([1, x_dim], dtype=np.int32)
     xx_ones = np.expand_dims(xx_ones, -1)
@@ -162,14 +172,17 @@ def create_pixel_coord_layers(x_dim: int, y_dim: int, with_r: bool = False) -> n
 
 def check_channels(config: dict) -> int:
     """
+    Determine the number of channels needed
+
     Checks the number of channels needed per timestep, to use for preallocating the numpy array
     Is not the same as the one for training, as that includes the number of channels after the array is partly
     flattened
+    
     Args:
-        config:
+        config: configuration values
 
     Returns:
-
+        The number of channels
     """
     channels = len(config.get("bands", []))
     channels = channels + 1 if config.get("use_mask", False) else channels
@@ -197,5 +210,6 @@ def crop_center(img: np.ndarray, cropx: int, cropy: int) -> np.ndarray:
 
 
 def load_config(config_file):
+    """Load a config file from a file path"""
     with open(config_file, "r") as cfg:
         return yaml.load(cfg, Loader=yaml.FullLoader)["config"]
