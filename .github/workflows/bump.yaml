@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Bump version
-      - id: bumper
+        id: bumper
         uses: jaumann/github-bumpversion-action@v0.0.7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
