@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      new_tag: ${{ steps.bumper.outputs.new_tag }}
+      new_tag: ${{ steps.bumper.outputs.new_ver }}
     steps:
       - uses: actions/checkout@v2
       - name: Bump version
