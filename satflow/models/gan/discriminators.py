@@ -1,3 +1,4 @@
+"""Implement various discriminators for GANs"""
 import functools
 import torch
 from torch import nn as nn
@@ -16,18 +17,8 @@ def define_discriminator(
     init_gain=0.02,
     conv_type: str = "standard",
 ):
-    """Create a discriminator
-
-    Parameters:
-        input_nc (int)     -- the number of channels in input images
-        ndf (int)          -- the number of filters in the first conv layer
-        netD (str)         -- the architecture's name: basic | n_layers | pixel
-        n_layers_D (int)   -- the number of conv layers in the discriminator; effective when netD=='n_layers'
-        norm (str)         -- the type of normalization layers used in the network.
-        init_type (str)    -- the name of the initialization method.
-        init_gain (float)  -- scaling factor for normal, xavier and orthogonal.
-
-    Returns a discriminator
+    """
+    Create a discriminator
 
     Our current implementation provides three types of discriminators:
         [basic]: 'PatchGAN' classifier described in the original pix2pix paper.
@@ -43,6 +34,19 @@ def define_discriminator(
         It encourages greater color diversity but has no effect on spatial statistics.
 
     The discriminator has been initialized by <init_net>. It uses Leakly RELU for non-linearity.
+
+    Args:
+        input_nc (int): the number of channels in input images
+        ndf (int): the number of filters in the first conv layer
+        netD (str): the architecture's name: basic | n_layers | pixel
+        n_layers_D (int): the number of conv layers in the discriminator; effective when netD=='n_layers'
+        norm (str): the type of normalization layers used in the network.
+        init_type (str): the name of the initialization method.
+        init_gain (float): scaling factor for normal, xavier and orthogonal.
+        conv_type (str): one of "standard", "coord", "antialiased", or "3d"
+
+    Returns:
+        a discriminator
     """
     net = None
     norm_layer = get_norm_layer(norm_type=norm)
@@ -75,13 +79,13 @@ class GANLoss(nn.Module):
     def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0):
         """Initialize the GANLoss class.
 
-        Parameters:
-            gan_mode (str) - - the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
-            target_real_label (bool) - - label for a real image
-            target_fake_label (bool) - - label of a fake image
-
         Note: Do not use sigmoid as the last layer of Discriminator.
         LSGAN needs no sigmoid. vanilla GANs will handle it with BCEWithLogitsLoss.
+
+        Args:
+            gan_mode (str): the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
+            target_real_label (bool): label for a real image
+            target_fake_label (bool): label of a fake image
         """
         super(GANLoss, self).__init__()
         self.register_buffer("real_label", torch.tensor(target_real_label))
@@ -100,8 +104,8 @@ class GANLoss(nn.Module):
         """Create label tensors with the same size as the input.
 
         Parameters:
-            prediction (tensor) - - tpyically the prediction from a discriminator
-            target_is_real (bool) - - if the ground truth label is for real images or fake images
+            prediction (tensor): typically the prediction from a discriminator
+            target_is_real (bool): if the ground truth label is for real images or fake images
 
         Returns:
             A label tensor filled with ground truth label, and with the size of the input
@@ -117,8 +121,8 @@ class GANLoss(nn.Module):
         """Calculate loss given Discriminator's output and grount truth labels.
 
         Parameters:
-            prediction (tensor) - - tpyically the prediction output from a discriminator
-            target_is_real (bool) - - if the ground truth label is for real images or fake images
+            prediction (tensor): typically the prediction output from a discriminator
+            target_is_real (bool): if the ground truth label is for real images or fake images
 
         Returns:
             the calculated loss.
@@ -143,10 +147,11 @@ class NLayerDiscriminator(nn.Module):
         """Construct a PatchGAN discriminator
 
         Parameters:
-            input_nc (int)  -- the number of channels in input images
-            ndf (int)       -- the number of filters in the last conv layer
-            n_layers (int)  -- the number of conv layers in the discriminator
-            norm_layer      -- normalization layer
+            input_nc (int): the number of channels in input images
+            ndf (int): the number of filters in the last conv layer
+            n_layers (int): the number of conv layers in the discriminator
+            norm_layer: normalization layer
+            conv_type (str): one of "standard", "coord", "antialiased", or "3d"
         """
         super(NLayerDiscriminator, self).__init__()
         if (
@@ -230,9 +235,10 @@ class PixelDiscriminator(nn.Module):
         """Construct a 1x1 PatchGAN discriminator
 
         Parameters:
-            input_nc (int)  -- the number of channels in input images
-            ndf (int)       -- the number of filters in the last conv layer
-            norm_layer      -- normalization layer
+            input_nc (int): the number of channels in input images
+            ndf (int): the number of filters in the last conv layer
+            norm_layer: normalization layer
+            conv_type (str): one of "standard", "coord", "antialiased", or "3d"
         """
         super(PixelDiscriminator, self).__init__()
         if (
@@ -261,7 +267,14 @@ class PixelDiscriminator(nn.Module):
 
 
 class CloudGANBlock(nn.Module):
+    """Implement a block for the CloudGANDiscriminator"""
     def __init__(self, input_channels, conv_type: str = "standard"):
+        """Initialize the block
+
+        Args:
+            input_channels: the number of channels in the input
+            conv_type (str): one of "standard", "coord", "antialiased", or "3d"
+        """
         super().__init__()
         conv2d = get_conv_layer(conv_type)
         self.conv = conv2d(input_channels, input_channels * 2, kernel_size=(3, 3))
@@ -274,6 +287,10 @@ class CloudGANBlock(nn.Module):
             self.blurpool = torch.nn.Identity()
 
     def forward(self, x):
+        """Compute the foward pass
+        
+        A convolutional layer, RelU, max pooling, and blur pool (if conv_type == "antialiased")
+        """
         x = self.conv(x)
         x = self.relu(x)
         x = self.pool(x)
@@ -291,6 +308,15 @@ class CloudGANDiscriminator(nn.Module):
         num_stages: int = 3,
         conv_type: str = "standard",
     ):
+        """
+        Initialize the module
+
+        Args:
+            input_channels: default is 12
+            num_filters: default is 64
+            num_stages: the number of blocks to use. default is 3
+            conv_type (str): one of "standard", "coord", "antialiased", or "3d"
+        """
         super().__init__()
         conv2d = get_conv_layer(conv_type)
         self.conv_1 = conv2d(input_channels, num_filters, kernel_size=1, stride=1, padding=0)
@@ -303,6 +329,7 @@ class CloudGANDiscriminator(nn.Module):
         self.fc = torch.nn.LazyLinear(1)  # Real/Fake
 
     def forward(self, x):
+        """Compute the forward step"""
         x = self.conv_1(x)
         x = self.stages(x)
         x = self.flatten(x)

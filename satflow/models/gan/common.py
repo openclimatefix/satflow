@@ -40,7 +40,6 @@ def init_weights(net, init_type="normal", init_gain=0.02):
         init_type (str): the name of an initialization method: normal | xavier | kaiming | orthogonal
         init_gain (float) : scaling factor for normal, xavier and orthogonal.
     """
-
     def init_func(m):  # define the initialization function
         classname = m.__class__.__name__
         if hasattr(m, "weight") and (
@@ -79,9 +78,7 @@ def init_net(net, init_type="normal", init_gain=0.02):
         init_gain (float): scaling factor for normal, xavier and orthogonal.
 
     Returns:
-        the network
-
-    Return an initialized network.
+        the initialized network
     """
     init_weights(net, init_type, init_gain=init_gain)
     return net
