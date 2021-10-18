@@ -25,6 +25,7 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - run: echo ${{needs.build.outputs.new_tag}}
       - name: Changelog
         uses: scottbrenner/generate-changelog-action@master
         id: Changelog
