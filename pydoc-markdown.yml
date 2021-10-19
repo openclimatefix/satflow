@@ -21,4 +21,4 @@ renderer:
   mkdocs_config:
     site_name: SatFlow
     theme: readthedocs
-    repo_url: https://github.com/openclimatefix/nowcasting-utils
+    repo_url: https://github.com/openclimatefix/satflow
