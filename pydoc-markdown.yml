@@ -1,0 +1,24 @@
+loaders:
+  - type: python
+    search_path: [satflow/]
+processors:
+  - type: filter
+  - type: smart
+renderer:
+  type: mkdocs
+  pages:
+    - title: Home
+      name: index
+      source: README.md
+    - title: API Documentation
+      children:
+        - title: Baseline
+          contents: [baseline, baseline.*]
+        - title: Core
+          contents: [core, core.*]
+        - title: Models
+          contents: [models, models.*]
+  mkdocs_config:
+    site_name: SatFlow
+    theme: readthedocs
+    repo_url: https://github.com/openclimatefix/nowcasting-utils
