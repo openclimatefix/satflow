@@ -60,7 +60,7 @@ jobs:
           prerelease: false
 
   push_to_registries:
-    needs: [release]
+    needs: [release, build]
     name: Push Docker image to multiple registries
     runs-on: ubuntu-latest
     permissions:
@@ -96,5 +96,5 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: v${{ needs.build.outputs.new_tag }}
           labels: ${{ steps.meta.outputs.labels }}
