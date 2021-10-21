@@ -60,6 +60,7 @@ jobs:
           prerelease: false
 
   push_to_registries:
+    needs: [release]
     name: Push Docker image to multiple registries
     runs-on: ubuntu-latest
     permissions:
