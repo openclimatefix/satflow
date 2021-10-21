@@ -19,4 +19,11 @@ setup(
     ong_description_content_type="text/markdown",
     author_email="jacob@openclimatefix.org",
     description="Satellite Optical Flow",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3.9",
+    ],
 )
