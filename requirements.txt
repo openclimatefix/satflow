@@ -18,5 +18,5 @@ einops>=0.3.2
 metnet>=0.0.3
 skillful_nowcasting>=0.0.2
 perceiver-model>=0.7.0
-nowcasting-dataset
-nowcasting-utils
+nowcasting-dataset>=1.0.21
+nowcasting-utils>=0.0.8
