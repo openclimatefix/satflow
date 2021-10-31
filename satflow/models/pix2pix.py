@@ -1,3 +1,4 @@
+"""A conditional GAN for image translation: https://arxiv.org/abs/1611.07004"""
 import torch
 import torchvision
 import numpy as np
@@ -11,6 +12,7 @@ from satflow.models.gan import define_generator
 
 @register_model
 class Pix2Pix(pl.LightningModule):
+    """A conditional GAN for image translation: https://arxiv.org/abs/1611.07004"""
     def __init__(
         self,
         forecast_steps: int = 48,
@@ -31,6 +33,29 @@ class Pix2Pix(pl.LightningModule):
         channels_per_timestep: int = 12,
         pretrained: bool = False,
     ):
+        """
+        Initialize the model
+
+        Args:
+            forecast_steps: number of timesteps to forecast. default is 48.
+            input_channels: default is 12
+            lr: learning rate. default is 0.0002
+            beta1: first beta value for adam optimizer. default is 0.5
+            beta2: second beta value for adam optimizer. default is 0.999
+            num_filters: the number of filters in the last layer of the generator
+                and the first layer of the discriminator
+            generator_model: the architecture's name: resnet_9blocks | resnet_6blocks | unet_256 | unet_128
+            norm: the name of normalization layers used in the network: batch | instance | none
+            use_dropout: whether to use dropout layers. default is False.
+            discriminator_model: the architecture's name: basic | n_layers | pixel
+            discriminator_layers: the number of conv layers in the discriminator; effective when discriminator_model=="n_layers"
+            loss: the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
+            scheduler: the method for the learning rate scheduler. One of "plateau" or "cosine"
+            lr_epochs: if scheduler == "cosine", this is the max number of iterations
+            lambda_l1: a penalty term that will be multiplied by the l1 loss. default is 100
+            channels_per_timestep: used in the visualization step. the number of images per row.
+            pretrained: not implemented. default is False.
+        """
         super().__init__()
         self.lr = lr
         self.b1 = beta1
@@ -64,9 +89,20 @@ class Pix2Pix(pl.LightningModule):
         self.save_hyperparameters()
 
     def forward(self, x):
+        """A forward pass of the generator"""
         return self.generator(x)
 
     def visualize_step(self, x, y, y_hat, batch_idx, step):
+        """
+        Visualize the results of a step of the model
+
+        Args:
+            x: input data
+            y: output
+            y_hat: prediction
+            batch_idx: (int) the global step to record for this batch
+            step: name of the step type. Default is "train"
+        """
         # the logger you used (in this case tensorboard)
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
@@ -84,6 +120,17 @@ class Pix2Pix(pl.LightningModule):
         tensorboard.add_image(f"{step}/Generated_Image_Stack", image_grid, global_step=batch_idx)
 
     def training_step(self, batch, batch_idx, optimizer_idx):
+        """
+        Perform a training step of the model
+
+        Args:
+            batch: tuple of (images, future_images, future_masks)
+            batch_idx: used to visualize the results of the training step
+            optimizer_idx: the iteration number for the optimizer
+
+        Returns:
+            A dictionary with information about the loss
+        """
         images, future_images, future_masks = batch
         # train generator
         if optimizer_idx == 0:
@@ -124,6 +171,16 @@ class Pix2Pix(pl.LightningModule):
             return output
 
     def validation_step(self, batch, batch_idx):
+        """
+        Perform a validation step of the model
+
+        Args:
+            batch: tuple of (images, future_images, future_masks)
+            batch_idx: used to visualize the results of the training step
+
+        Returns:
+            A dictionary with information about the loss
+        """
         images, future_images, future_masks = batch
         # generate images
         generated_images = self(images)
@@ -158,6 +215,12 @@ class Pix2Pix(pl.LightningModule):
         return output
 
     def configure_optimizers(self):
+        """
+        Get the optimizers and the learning rate schedulers for the generator and discriminator
+
+        Returns:
+            A tuple of [g_optimizer, d_optimizer], [g_scheduler, d_scheduler]
+        """
         lr = self.lr
         b1 = self.b1
         b2 = self.b2
