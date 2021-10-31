@@ -33,7 +33,7 @@ class RUnet(pl.LightningModule):
             loss: name of the loss function or torch.nn.Module. Default is "mse"
             lr: learning rate. default is 0.001
             visualize: add a visualization step. default is False
-            conv_type: conv_type: one of "standard", "coord", "antialiased", or "3d"
+            conv_type: one of "standard", "coord", "antialiased", or "3d"
             pretrained: not implemented. default is False.
         """
         super().__init__()

@@ -1,3 +1,4 @@
+"""Attention gates integrated into U-Net model architectures"""
 from typing import Union
 from satflow.models.layers.RUnetLayers import *
 import pytorch_lightning as pl
@@ -10,6 +11,7 @@ from nowcasting_utils.models.base import register_model
 
 @register_model
 class AttentionUnet(pl.LightningModule):
+    """A model with attention gates integrated into a U-Net architecture: https://arxiv.org/abs/1804.03999"""
     def __init__(
         self,
         input_channels: int = 12,
@@ -20,6 +22,18 @@ class AttentionUnet(pl.LightningModule):
         conv_type: str = "standard",
         pretrained: bool = False,
     ):
+        """
+        Initialize the model
+
+        Args:
+            input_channels: default is 12
+            forecast_steps: number of timesteps to forecast. default is 12.
+            loss: name of the loss function or torch.nn.Module. Default is "mse"
+            lr: learning rate. default is 0.001.
+            visualize: add a visualization step. default is False
+            conv_type: one of "standard", "coord", "antialiased", or "3d"
+            pretrained: not implemented. default is False.
+        """
         super().__init__()
         self.lr = lr
         self.visualize = visualize
@@ -32,14 +46,26 @@ class AttentionUnet(pl.LightningModule):
         self.criterion = get_loss(loss)
 
     def forward(self, x):
+        """A forward step of the model"""
         return self.model.forward(x)
 
     def configure_optimizers(self):
+        """Get the optimizer with initialized parameters"""
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
         # optimizer = torch.optim.adam()
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def training_step(self, batch, batch_idx):
+        """
+        Perform a training step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: used to visualize the results of the training step
+
+        Returns:
+            The loss for the training step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -59,6 +85,16 @@ class AttentionUnet(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        """
+        Perform a validation step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the validation step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -73,6 +109,16 @@ class AttentionUnet(pl.LightningModule):
         return val_loss
 
     def test_step(self, batch, batch_idx):
+        """
+        Perform a testing step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the testing step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -80,6 +126,16 @@ class AttentionUnet(pl.LightningModule):
         return loss
 
     def visualize_step(self, x, y, y_hat, batch_idx, step):
+        """
+        Visualize the results of a step of the model
+
+        Args:
+            x: input data
+            y: output
+            y_hat: prediction
+            batch_idx: (int) the global step to record for this batch
+            step: name of the step type. Default is "train"
+        """
         # the logger you used (in this case tensorboard)
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
@@ -99,6 +155,7 @@ class AttentionUnet(pl.LightningModule):
 
 @register_model
 class AttentionRUnet(pl.LightningModule):
+    """A model with attention gates integrated into a RU-Net architecture"""
     def __init__(
         self,
         input_channels: int = 12,
@@ -109,6 +166,18 @@ class AttentionRUnet(pl.LightningModule):
         lr: float = 0.001,
         pretrained: bool = False,
     ):
+        """
+        Initialize the model
+
+        Args:
+            input_channels: default is 12
+            forecast_steps: number of timesteps to forecast. default is 12.
+            recurrent_blocks: default is 2
+            visualize: add a visualization step. default is False
+            loss: name of the loss function or torch.nn.Module. Default is "mse"
+            lr: learning rate. default is 0.001.
+            pretrained: not implemented. default is False.
+        """
         super().__init__()
         self.lr = lr
         self.input_channels = input_channels
@@ -121,14 +190,26 @@ class AttentionRUnet(pl.LightningModule):
         self.criterion = get_loss(loss)
 
     def forward(self, x):
+        """A forward step of the model"""
         return self.model.forward(x)
 
     def configure_optimizers(self):
+        """Get the optimizer with initialized parameters"""
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
         # optimizer = torch.optim.adam()
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def training_step(self, batch, batch_idx):
+        """
+        Perform a training step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: used to visualize the results of the training step
+
+        Returns:
+            The loss for the training step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -148,6 +229,16 @@ class AttentionRUnet(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        """
+        Perform a validation step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the validation step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -162,6 +253,16 @@ class AttentionRUnet(pl.LightningModule):
         return val_loss
 
     def test_step(self, batch, batch_idx):
+        """
+        Perform a testing step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+
+        Returns:
+            The loss for the testing step
+        """
         x, y = batch
         x = x.float()
         y_hat = self(x)
@@ -169,6 +270,16 @@ class AttentionRUnet(pl.LightningModule):
         return loss
 
     def visualize_step(self, x, y, y_hat, batch_idx, step):
+        """
+        Visualize the results of a step of the model
+
+        Args:
+            x: input data
+            y: output
+            y_hat: prediction
+            batch_idx: (int) the global step to record for this batch
+            step: name of the step type. Default is "train"
+        """
         # the logger you used (in this case tensorboard)
         tensorboard = self.logger.experiment[0]
         # Add all the different timesteps for a single prediction, 0.1% of the time
@@ -187,7 +298,16 @@ class AttentionRUnet(pl.LightningModule):
 
 
 class AttU_Net(nn.Module):
+    """An network of attention gates and convolutional blocks"""
     def __init__(self, input_channels=3, output_channels=1, conv_type: str = "standard"):
+        """
+        Initialize the module
+
+        Args:
+            input_channels: default is 3
+            output_channels: default is 1
+            conv_type: one of "standard", "coord", "antialiased", or "3d"
+        """
         super(AttU_Net, self).__init__()
 
         self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -217,6 +337,7 @@ class AttU_Net(nn.Module):
         self.Conv_1x1 = nn.Conv2d(64, output_channels, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
+        """Perform the encoding, decoding, and concatenation"""
         # encoding path
         x1 = self.Conv1(x)
 
@@ -259,7 +380,17 @@ class AttU_Net(nn.Module):
 
 
 class R2AttU_Net(nn.Module):
+    """A recurrent residual network of attention gates and convolutional blocks"""
     def __init__(self, input_channels=3, output_channels=1, t=2, conv_type: str = "standard"):
+        """
+        Initialize the module
+
+        Args:
+            input_channels: default is 3
+            output_channels: default is 1
+            t: number of recurrent blocks. default is 2
+            conv_type: one of "standard", "coord", "antialiased", or "3d"
+        """
         super(R2AttU_Net, self).__init__()
 
         self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -294,6 +425,7 @@ class R2AttU_Net(nn.Module):
         self.Conv_1x1 = nn.Conv2d(64, output_channels, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
+        """Perform the encoding, decoding, and concatenation"""
         # encoding path
         x1 = self.RRCNN1(x)
 
