@@ -1,3 +1,4 @@
+"""A network for weather forecasting: https://arxiv.org/abs/2003.12140"""
 import einops
 import numpy as np
 import torch
@@ -25,6 +26,7 @@ head_to_module = {"identity": nn.Identity()}
 
 @register_model
 class LitMetNet(BaseModel):
+    """A network for weather forecasting: https://arxiv.org/abs/2003.12140"""
     def __init__(
         self,
         image_encoder: str = "downsampler",
@@ -44,6 +46,27 @@ class LitMetNet(BaseModel):
         visualize: bool = False,
         loss: str = "mse",
     ):
+        """
+        Initialize the model
+
+        Args:
+            image_encoder: the method for encoding the image. default is "downsampler"
+            input_channels: default is 12
+            sat_channels: number of satellite channels
+            input_size: the size of the image to use for center crop. default is 256
+            output_channels: default is 12
+            hidden_dim: number of hidden dimensions. default is 64
+            kernel_size: size of the convolutional kernel. default is 3
+            num_layers: number of convolutional layers to have. default is 1
+            num_att_layers: number of attention layers to ahve. default is 1
+            head: the name of the final layer of the network. default is "identity"
+            forecast_steps: number of timesteps to forecast. default is 48.
+            temporal_dropout: dropout rate to use in the temporal encoder
+            lr: learning rate. default is 0.001
+            pretrained: default is False.
+            visualize: add a visualization step. default is False
+            loss: the name of the loss function to use. default is "mse"
+        """
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
@@ -73,9 +96,11 @@ class LitMetNet(BaseModel):
         self.save_hyperparameters()
 
     def forward(self, imgs, **kwargs) -> Any:
+        """Compute the forward pass"""
         return self.model(imgs)
 
     def configure_optimizers(self):
+        """Get the optimizer and the learning rate scheduler for the initialized parameters"""
         # DeepSpeedCPUAdam provides 5x to 7x speedup over torch.optim.adam(w)
         # optimizer = torch.optim.adam()
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
@@ -118,6 +143,14 @@ class LitMetNet(BaseModel):
         return input_data
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
+        """
+        Perform a step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+            is_training: whether or not this is a training step. default is True.
+        """
         x, y = batch
         y[SATELLITE_DATA] = y[SATELLITE_DATA].float()
 

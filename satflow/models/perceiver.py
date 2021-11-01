@@ -1,3 +1,4 @@
+"""General perception with iterative attention: https://arxiv.org/pdf/2103.03206.pdf"""
 from perceiver_pytorch import MultiPerceiver
 from perceiver_pytorch.modalities import InputModality
 from perceiver_pytorch.encoders import ImageEncoder
@@ -32,6 +33,7 @@ logger.setLevel(logging.WARN)
 
 @register_model
 class Perceiver(BaseModel):
+    """General perception with iterative attention: https://arxiv.org/pdf/2103.03206.pdf"""
     def __init__(
         self,
         input_channels: int = 22,
@@ -71,6 +73,48 @@ class Perceiver(BaseModel):
         generate_fourier_features: bool = True,
         temporally_consistent_fourier_features: bool = False,
     ):
+        """
+        Initialize the model
+
+        Args:
+            input_channels: default is 22
+            sat_channels: number of satellite channels. default is 12
+            nwp_channels: default is 10
+            base_channels: default is 1
+            forecast_steps: number of timesteps to forecast.
+            history_steps:
+            input_size:
+            lr: learning_rate. default is 5e-4
+            visualize: add a visualization step. default is True.
+            max_frequency: used in Fourier features. should be tuned based on how fine the data is
+            depth: depth of the network. default is 6
+            num_latents: number of latents, or induced set points, or centroids. different papers giving it different names
+            cross_heads: number of heads for cross attention. default is 1.
+            latent_heads: number of heads for latent self attention. default is 8.
+            cross_dim_heads: number of dimensions per cross attention head.
+            latent_dim: latent dimension. default is 512.
+            weight_tie_layers: whether to weight tie layers. Default is False.
+            decoder_ff: use a feed-forward decoder. default is True
+            dim: dimension of sequence to be encoded
+            logits_dim: dimension of final logits
+            queries_dim: dimension of decoder queries
+            latent_dim_heads: number of dimensions per latent self attention head
+            loss: loss: name of the loss function or torch.nn.Module. Default is "mse"
+            sin_only: whether to only use sine for Fourier encoding
+            encoder_fourier: Whether to encode position with Fourier features
+            preprocessor_type: an optional preprocessing step. Default is None.
+            postprocessor_type: an optional preprocessing step. Default is None.
+            encoder_kwargs: arguments to pass to the ImageEncoder chosen in the preprocessing step
+            decoder_kwargs: arguments to pass to the ImageDecoder chosen in the postprocessing step
+            pretrained: Default is False.
+            predict_timesteps_together: predict future timesteps all at once.
+                Otherwise, iterate over each forecast step. Default is False
+            nwp_modality: Whether to add NWP data as an input. Default is False
+            datetime_modality: Whether to add datetime features as an input. Default is False.
+            use_learnable_query: Whether to use the LearnableQuery. Default is True
+            generate_fourier_features: whether to use fourier features in the LearnableQuery. Default is True.
+            temporally_consistent_fourier_features: Default is False.
+        """
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
         self.input_channels = input_channels
@@ -266,6 +310,15 @@ class Perceiver(BaseModel):
         self.save_hyperparameters()
 
     def encode_inputs(self, x: dict) -> Dict[str, torch.Tensor]:
+        """
+        Perform preprocessing steps (if specified) on input data
+
+        Args:
+            x: a dictionary mapping keys to input data as tensors
+
+        Returns:
+            A dictionary with processed tensors
+        """
         video_inputs = x[SATELLITE_DATA]
         nwp_inputs = x.get(NWP_DATA, [])
         base_inputs = x.get(
@@ -290,6 +343,13 @@ class Perceiver(BaseModel):
         return x
 
     def add_timestep(self, batch_size: int, timestep: int = 1) -> torch.Tensor:
+        """
+        Add a timestep input
+
+        Args:
+            batch_size: dimension of of each batch
+            timestep: the index of future timestep that is being predicted
+        """
         times = (torch.eye(self.forecast_steps)[timestep]).unsqueeze(-1).unsqueeze(-1)
         ones = torch.ones(1, 1, 1)
         timestep_input = times * ones
@@ -299,6 +359,14 @@ class Perceiver(BaseModel):
         return timestep_input
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
+        """
+        Perform a step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: not implemented
+            is_training: whether or not this is a training step. default is True.
+        """
         x, y = batch
         batch_size = y[SATELLITE_DATA].size(0)
         # For each future timestep:
@@ -338,6 +406,7 @@ class Perceiver(BaseModel):
         return loss
 
     def configure_optimizers(self):
+        """Get the optimizer and the learning rate scheduler for the initialized parameters"""
         # They use LAMB as the optimizer
         optimizer = optim.Lamb(self.parameters(), lr=self.lr, betas=(0.9, 0.999))
         scheduler = LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=10, max_epochs=100)
@@ -360,6 +429,12 @@ class Perceiver(BaseModel):
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
     def construct_query(self, x: dict):
+        """
+        The LearnableQuery to pass to the model
+
+        Args:
+            x: a dictionary mapping keys to input data as tensors
+        """
         if self.use_learnable_query:
             if self.temporally_consistent_fourier_features:
                 fourier_features = encode_position(
@@ -395,4 +470,5 @@ class Perceiver(BaseModel):
         return y_query
 
     def forward(self, x, mask=None, query=None):
+        """A forward pass of the model"""
         return self.model.forward(x, mask=mask, queries=query)
