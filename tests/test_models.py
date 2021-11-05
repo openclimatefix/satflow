@@ -1,26 +1,36 @@
-from satflow.models import LitMetNet, Perceiver
-from nowcasting_utils.models.base import list_models, create_model
-from nowcasting_dataset.consts import (
-    SATELLITE_DATA,
-    SATELLITE_X_COORDS,
-    SATELLITE_Y_COORDS,
-    SATELLITE_DATETIME_INDEX,
-    NWP_DATA,
-    NWP_Y_COORDS,
-    NWP_X_COORDS,
-    TOPOGRAPHIC_DATA,
-    TOPOGRAPHIC_X_COORDS,
-    TOPOGRAPHIC_Y_COORDS,
-    DATETIME_FEATURE_NAMES,
-)
-import yaml
-import torch
 import pytest
+import torch
+import yaml
+from nowcasting_dataloader.fake import FakeDataset
+from nowcasting_dataset.config import Configuration, InputData
+from nowcasting_dataset.consts import NWP_DATA, SATELLITE_DATA, TOPOGRAPHIC_DATA
+from nowcasting_utils.models.base import create_model, list_models
+
+from satflow.models import JointPerceiver, LitMetNet, Perceiver
 
 
 def load_config(config_file):
     with open(config_file, "r") as cfg:
         return yaml.load(cfg, Loader=yaml.FullLoader)
+
+
+@pytest.fixture
+def configuration():
+    """Create Configuration object for tests"""
+    con = Configuration()
+    con.input_data = InputData.set_all_to_defaults()
+    con.process.batch_size = 4
+    return con
+
+
+def test_joint_perceiver(configuration):
+    config = load_config("satflow/configs/model/perceiver.yaml")
+    config.pop("_target_")  # This is only for Hydra
+    model = JointPerceiver(**config)
+    dataset = FakeDataset(configuration)
+    example = next(iter(dataset))
+    model(example)
+    pass
 
 
 def test_perceiver_creation():
