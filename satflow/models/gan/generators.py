@@ -1,10 +1,12 @@
 import functools
+from typing import Union
+
+import antialiased_cnns
 import torch
 from torch import nn as nn
-from typing import Union
+
 from satflow.models.gan.common import get_norm_layer, init_net
 from satflow.models.utils import get_conv_layer
-import antialiased_cnns
 
 
 def define_generator(

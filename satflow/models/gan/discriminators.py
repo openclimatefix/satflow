@@ -1,9 +1,11 @@
 import functools
+
+import antialiased_cnns
 import torch
 from torch import nn as nn
-from satflow.models.utils import get_conv_layer
+
 from satflow.models.gan.common import get_norm_layer, init_net
-import antialiased_cnns
+from satflow.models.utils import get_conv_layer
 
 
 def define_discriminator(

@@ -1,28 +1,29 @@
-from perceiver_pytorch import MultiPerceiver
-from perceiver_pytorch.modalities import InputModality
-from perceiver_pytorch.encoders import ImageEncoder
-from perceiver_pytorch.decoders import ImageDecoder
-from perceiver_pytorch.queries import LearnableQuery
-from perceiver_pytorch.utils import encode_position
-import torch
-from typing import Iterable, Dict, Optional, Any, Union, Tuple
-from nowcasting_utils.models.base import register_model, BaseModel
-from einops import rearrange, repeat
-from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
-from nowcasting_utils.models.loss import get_loss
-import torch_optimizer as optim
 import logging
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
+
+import torch
+import torch_optimizer as optim
+from einops import rearrange, repeat
 from nowcasting_dataset.consts import (
-    SATELLITE_DATA,
-    NWP_DATA,
-    TOPOGRAPHIC_DATA,
-    GSP_YIELD,
-    PV_YIELD,
-    PV_SYSTEM_ID,
-    GSP_ID,
     DEFAULT_N_GSP_PER_EXAMPLE,
     DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE,
+    GSP_ID,
+    GSP_YIELD,
+    NWP_DATA,
+    PV_SYSTEM_ID,
+    PV_YIELD,
+    SATELLITE_DATA,
+    TOPOGRAPHIC_DATA,
 )
+from nowcasting_utils.models.base import BaseModel, register_model
+from nowcasting_utils.models.loss import get_loss
+from perceiver_pytorch import MultiPerceiver
+from perceiver_pytorch.decoders import ImageDecoder
+from perceiver_pytorch.encoders import ImageEncoder
+from perceiver_pytorch.modalities import InputModality
+from perceiver_pytorch.queries import LearnableQuery
+from perceiver_pytorch.utils import encode_position
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 logger = logging.getLogger("satflow.model")
 logger.setLevel(logging.WARN)

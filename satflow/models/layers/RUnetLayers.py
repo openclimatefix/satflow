@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-from satflow.models.utils import get_conv_layer
 from torch.nn import init
+
+from satflow.models.utils import get_conv_layer
 
 
 def init_weights(net, init_type="normal", gain=0.02):

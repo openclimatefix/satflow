@@ -1,2 +1,2 @@
-from .discriminators import GANLoss, PixelDiscriminator, NLayerDiscriminator, define_discriminator
+from .discriminators import GANLoss, NLayerDiscriminator, PixelDiscriminator, define_discriminator
 from .generators import define_generator

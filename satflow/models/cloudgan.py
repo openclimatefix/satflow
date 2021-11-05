@@ -1,14 +1,16 @@
+from collections import OrderedDict
+
+import numpy as np
 import pytorch_lightning as pl
 import torch
-from torch.optim import lr_scheduler
 import torchvision
-from collections import OrderedDict
-from satflow.models import R2U_Net, ConvLSTM
-from satflow.models.gan import GANLoss, define_generator, define_discriminator
-from satflow.models.layers import ConditionTime
 from nowcasting_utils.models.loss import get_loss
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
-import numpy as np
+from torch.optim import lr_scheduler
+
+from satflow.models import ConvLSTM, R2U_Net
+from satflow.models.gan import GANLoss, define_discriminator, define_generator
+from satflow.models.layers import ConditionTime
 
 
 class CloudGAN(pl.LightningModule):

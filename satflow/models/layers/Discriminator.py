@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from torch.nn import init
 
 from satflow.models.layers.Normalization import ConditionalNorm, SpectralNorm
-
 
 # from Module.Attention import SelfAttention
 # from Module.GResBlock import GResBlock
