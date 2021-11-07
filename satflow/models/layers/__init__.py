@@ -1,3 +1,4 @@
+"""Different layers to be used in model architectures"""
 from .TimeDistributed import TimeDistributed
 from .ConvLSTM import ConvLSTMCell
 from .SpatioTemporalLSTMCell_memory_decoupling import SpatioTemporalLSTMCell
