@@ -1,3 +1,4 @@
+"""Creates CloudGAN, based off of https://www.climatechange.ai/papers/icml2021/54"""
 import pytorch_lightning as pl
 import torch
 from torch.optim import lr_scheduler
@@ -12,6 +13,7 @@ import numpy as np
 
 
 class CloudGAN(pl.LightningModule):
+    """Creates CloudGAN, based off of https://www.climatechange.ai/papers/icml2021/54"""
     def __init__(
         self,
         forecast_steps: int = 48,
@@ -36,6 +38,7 @@ class CloudGAN(pl.LightningModule):
     ):
         """
         Creates CloudGAN, based off of https://www.climatechange.ai/papers/icml2021/54
+        
         Changes include allowing outputs for all timesteps, optionally conditioning on time
         for single timestep output
 
@@ -58,6 +61,7 @@ class CloudGAN(pl.LightningModule):
             l1_loss: Loss to use for the L1 in the slides, default is L1, also SSIM is available
             channels_per_timestep: Channels per input timestep
             condition_time: Whether to condition on a future timestep, similar to MetNet
+            pretrained: not implemented. default is False.
         """
         super().__init__()
         self.lr = lr
@@ -120,18 +124,20 @@ class CloudGAN(pl.LightningModule):
         self, images: torch.Tensor, future_images: torch.Tensor, optimizer_idx: int, batch_idx: int
     ):
         """
-        For training with conditioning on time, so when the model is giving a single output
+        For training with conditioning on time
+        
+        When the model is giving a single output, this goes through every timestep
+        in forecast_steps and runs the training
 
-        This goes through every timestep in forecast_steps and runs the training
         Args:
             images: (Batch, Timestep, Channels, Width, Height)
             future_images: (Batch, Timestep, Channels, Width, Height)
-            optimizer_idx: int, the optiimizer to use
+            optimizer_idx: int, the optimizer to use
+            batch_idx: int
 
         Returns:
-
+            A dictionary with loss information
         """
-
         if optimizer_idx == 0:
             # generate images
             total_loss = 0
@@ -191,14 +197,15 @@ class CloudGAN(pl.LightningModule):
     ):
         """
         Train on all timesteps, instead of single timestep at a time. No conditioning on future timestep
+
         Args:
-            images:
-            future_images:
-            optimizer_idx:
-            batch_idx:
+            images: (Batch, Timestep, Channels, Width, Height)
+            future_images: (Batch, Timestep, Channels, Width, Height)
+            optimizer_idx: int, the optimizer to use
+            batch_idx: int
 
         Returns:
-
+            A dictionary with loss information
         """
         if optimizer_idx == 0:
             # generate images
@@ -240,6 +247,16 @@ class CloudGAN(pl.LightningModule):
             return output
 
     def training_step(self, batch, batch_idx, optimizer_idx):
+        """
+        Perform a training step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: int
+            optimizer_idx: int, the optimizer to use
+        Returns:
+            A dictionary with loss information
+        """
         images, future_images = batch
         if self.condition_time:
             return self.train_per_timestep(images, future_images, optimizer_idx, batch_idx)
@@ -247,6 +264,17 @@ class CloudGAN(pl.LightningModule):
             return self.train_all_timestep(images, future_images, optimizer_idx, batch_idx)
 
     def val_all_timestep(self, images, future_images, batch_idx):
+        """
+        Validate on all timesteps, instead of single timestep at a time. No conditioning on future timestep
+
+        Args:
+            images: (Batch, Timestep, Channels, Width, Height)
+            future_images: (Batch, Timestep, Channels, Width, Height)
+            batch_idx: int
+
+        Returns:
+            A dictionary with loss information
+        """
         # generate images
         generated_images = self(images)
         fake = torch.cat((images, generated_images), 1)
@@ -279,6 +307,20 @@ class CloudGAN(pl.LightningModule):
         return output
 
     def val_per_timestep(self, images, future_images, batch_idx):
+        """
+        For validation with conditioning on time
+        
+        When the model is giving a single output, this goes through every timestep
+        in forecast_steps and runs the validation
+
+        Args:
+            images: (Batch, Timestep, Channels, Width, Height)
+            future_images: (Batch, Timestep, Channels, Width, Height)
+            batch_idx: int
+
+        Returns:
+            A dictionary with loss information
+        """
         total_g_loss = 0
         total_d_loss = 0
         vis_step = True if np.random.random() < 0.01 else False
@@ -323,6 +365,16 @@ class CloudGAN(pl.LightningModule):
         return output
 
     def validation_step(self, batch, batch_idx):
+        """
+        Perform a validation step of the model
+
+        Args:
+            batch: tuple of (x, y)
+            batch_idx: int
+            optimizer_idx: int, the optimizer to use
+        Returns:
+            A dictionary with loss information
+        """
         images, future_images = batch
         if self.condition_time:
             return self.val_per_timestep(images, future_images, batch_idx)
@@ -330,9 +382,16 @@ class CloudGAN(pl.LightningModule):
             return self.val_all_timestep(images, future_images, batch_idx)
 
     def forward(self, x, **kwargs):
+        """A forward step of the generator"""
         return self.generator.forward(x, **kwargs)
 
     def configure_optimizers(self):
+        """
+        Get the optimizers and the learning rate schedulers for the generator and discriminator
+
+        Returns:
+            A tuple of [g_optimizer, d_optimizer], [g_scheduler, d_scheduler]
+        """
         lr = self.lr
         b1 = self.b1
         b2 = self.b2
@@ -364,6 +423,16 @@ class CloudGAN(pl.LightningModule):
     def visualize_step(
         self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
     ):
+        """
+        Visualize the results of a step of the model
+
+        Args:
+            x: input data
+            y: output
+            y_hat: prediction
+            batch_idx: (int) the global step to record for this batch
+            step: name of the step type.
+        """
         # the logger you used (in this case tensorboard)
         tensorboard = self.logger.experiment[0]
         # Image input is either (B, C, H, W) or (B, T, C, H, W)
