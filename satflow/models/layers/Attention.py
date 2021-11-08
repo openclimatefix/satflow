@@ -1,3 +1,4 @@
+"""Attention Layers"""
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -5,9 +6,20 @@ from torch.nn import init
 
 
 class SeparableAttn(nn.Module):
+    """A sequence of separable attention cells"""
     def __init__(
         self, in_dim, activation=F.relu, pooling_factor=2, padding_mode="constant", padding_value=0
     ):
+        """
+        Initialize the module
+
+        Args:
+            in_dim: Number of input channels
+            activation: activation function to use. Default is torch.nn.functional.relu
+            pooling_factor: The stride of the window to use on the first dimension
+            padding_mode: not implemented. Default is "constant"
+            padding_value: not implemented. Default is 0
+        """
         super().__init__()
         self.model = nn.Sequential(
             SeparableAttnCell(in_dim, "T", activation, pooling_factor, padding_mode, padding_value),
@@ -16,11 +28,12 @@ class SeparableAttn(nn.Module):
         )
 
     def forward(self, x):
-
+        """Compute the forward pass of the layer"""
         return self.model(x)
 
 
 class SeparableAttnCell(nn.Module):
+    """A separable attention cell"""
     def __init__(
         self,
         in_dim,
@@ -30,6 +43,17 @@ class SeparableAttnCell(nn.Module):
         padding_mode="constant",
         padding_value=0,
     ):
+        """
+        Initialize the module
+
+        Args:
+            in_dim: Number of input channels
+            attn_id: The dimension to use. "T": timestep, "W": image width, "H": image height
+            activation: activation function to use. Default is torch.nn.functional.relu
+            pooling_factor: The stride of the window to use on the first dimension
+            padding_mode: not implemented. Default is "constant"
+            padding_value: not implemented. Default is 0
+        """
         super().__init__()
         self.attn_id = attn_id
         self.activation = activation
@@ -51,11 +75,19 @@ class SeparableAttnCell(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def init_conv(self, conv, glu=True):
+        """Initialize network weights"""
         init.xavier_uniform_(conv.weight)
         if conv.bias is not None:
             conv.bias.data.zero_()
 
     def forward(self, x):
+        """
+        Compute the output of the separable attention cell
+
+        Args:
+            x: a tensor with dimensions (batch_size, num_channels, timesteps, width, height).
+                timesteps, width, and height dimensions must all have even sizexw
+        """
 
         batch_size, C, T, W, H = x.size()
 
@@ -110,8 +142,16 @@ class SeparableAttnCell(nn.Module):
 
 
 class SelfAttention(nn.Module):
+    """A self attention layer"""
     def __init__(self, in_dim, activation=F.relu, pooling_factor=2):  # TODO for better compability
+        """
+        Initialize the module
 
+        Args:
+            in_dim: Number of input channels
+            activation: activation function to use. Default is torch.nn.functional.relu
+            pooling_factor: the stride for all dimensions of the pooling layer
+        """
         super(SelfAttention, self).__init__()
         self.activation = activation
 
@@ -129,11 +169,19 @@ class SelfAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def init_conv(self, conv, glu=True):
+        """Initialize network weights"""
         init.xavier_uniform_(conv.weight)
         if conv.bias is not None:
             conv.bias.data.zero_()
 
     def forward(self, x):
+        """
+        Compute the output of the layer
+
+        Args:
+            x: a tensor with shape (batch_size, num_channels, width, height) or
+                (batch_size, num_channels, timesteps, width, height)
+        """
 
         if len(x.size()) == 4:
             batch_size, C, W, H = x.size()
@@ -171,8 +219,9 @@ class SelfAttention(nn.Module):
 
 
 class SelfAttention2d(nn.Module):
-    r"""Self Attention Module as proposed in the paper `"Self-Attention Generative Adversarial
-    Networks by Han Zhang et. al." <https://arxiv.org/abs/1805.08318>`_
+    """
+    Self Attention Module as proposed in the paper `"Self-Attention Generative Adversarial Networks by Han Zhang et. al." <https://arxiv.org/abs/1805.08318>`
+    
     .. math:: attention = softmax((query(x))^T * key(x))
     .. math:: output = \gamma * value(x) * attention + x
     where
@@ -180,16 +229,20 @@ class SelfAttention2d(nn.Module):
     - :math:`key` : 2D Convolution Operation
     - :math:`value` : 2D Convolution Operation
     - :math:`x` : Input
-    Args:
-        input_dims (int): The input channel dimension in the input ``x``.
-        output_dims (int, optional): The output channel dimension. If ``None`` the output
-            channel value is computed as ``input_dims // 8``. So if the ``input_dims`` is **less
-            than 8** then the layer will give an error.
-        return_attn (bool, optional): Set it to ``True`` if you want the attention values to be
-            returned.
     """
 
     def __init__(self, input_dims, output_dims=None, return_attn=False):
+        """
+        Initialize the module
+
+        Args:
+            input_dims (int): The input channel dimension in the input ``x``.
+            output_dims (int, optional): The output channel dimension. If ``None`` the output
+                channel value is computed as ``input_dims // 8``. So if the ``input_dims`` is **less
+                than 8** then the layer will give an error.
+            return_attn (bool, optional): Set it to ``True`` if you want the attention values to be
+                returned. Default is False
+        """
         output_dims = input_dims // 8 if output_dims is None else output_dims
         if output_dims == 0:
             raise Exception(
@@ -204,9 +257,11 @@ class SelfAttention2d(nn.Module):
         self.return_attn = return_attn
 
     def forward(self, x):
-        r"""Computes the output of the Self Attention Layer
+        """Computes the output of the Self Attention Layer
+
         Args:
             x (torch.Tensor): A 4D Tensor with the channel dimension same as ``input_dims``.
+        
         Returns:
             A tuple of the ``output`` and the ``attention`` if ``return_attn`` is set to ``True``
             else just the ``output`` tensor.
