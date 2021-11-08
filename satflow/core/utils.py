@@ -1,3 +1,4 @@
+"""Core utility functions"""
 import logging
 import typing as Dict
 from nowcasting_dataset.config.load import load_yaml_configuration
@@ -6,12 +7,23 @@ import yaml
 
 
 def load_config(file_path: str) -> Dict:
+    """Load yaml config file from file path"""
     with open(file_path, "r") as f:
         config = yaml.load(f)
     return config
 
 
 def make_logger(name: str, level=logging.DEBUG) -> logging.Logger:
+    """
+    Get a named logger at a specified level
+
+    Args:
+        name: name of the logger
+        level: level of the logger. Default is logging.DEBUG
+
+    Returns:
+        The logger
+    """
     logger = logging.getLogger(name)
     logger.setLevel(level=level)
     return logger
@@ -30,7 +42,6 @@ from pytorch_lightning.utilities import rank_zero_only
 
 def get_logger(name=__name__, level=logging.INFO) -> logging.Logger:
     """Initializes multi-GPU-friendly python logger."""
-
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
@@ -43,19 +54,21 @@ def get_logger(name=__name__, level=logging.INFO) -> logging.Logger:
 
 
 def extras(config: DictConfig) -> None:
-    """A couple of optional utilities, controlled by main config file:
-    - disabling warnings
-    - easier access to debug mode
-    - forcing debug friendly configuration
-    - forcing multi-gpu friendly configuration
-    - Ensure correct number of timesteps/etc for all of them
+    """
+    A couple of optional utilities, controlled by main config file
+
+    Utilities include
+        - disabling warnings
+        - easier access to debug mode
+        - forcing debug friendly configuration
+        - forcing multi-gpu friendly configuration
+        - Ensure correct number of timesteps/etc for all of them
 
     Modifies DictConfig in place.
 
     Args:
         config (DictConfig): Configuration composed by Hydra.
     """
-
     log = get_logger()
 
     # enable adding new keys to config
@@ -150,10 +163,9 @@ def print_config(
     Args:
         config (DictConfig): Configuration composed by Hydra.
         fields (Sequence[str], optional): Determines which main fields from config will
-        be printed and in what order.
+            be printed and in what order.
         resolve (bool, optional): Whether to resolve reference fields of DictConfig.
     """
-
     style = "dim"
     tree = rich.tree.Tree(":gear: CONFIG", style=style, guide_style=style)
 
@@ -180,12 +192,17 @@ def log_hyperparameters(
     model: pl.LightningModule,
     trainer: pl.Trainer,
 ) -> None:
-    """This method controls which parameters from Hydra config are saved by Lightning loggers.
+    """
+    This method controls which parameters from Hydra config are saved by Lightning loggers.
 
     Additionaly saves:
         - number of trainable model parameters
-    """
 
+    Args:
+        config (DictConfig): Configuration composed by Hydra.
+        model (pl.LightningModule): the model with parameters to save
+        trainer (pl.Trainer): the trainer with hyperparams
+    """
     hparams = {}
 
     # choose which parts of hydra config will be saved to loggers

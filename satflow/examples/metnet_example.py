@@ -1,9 +1,16 @@
+"""Example of metnet model"""
 from satflow.models import LitMetNet
 import torch
 import urllib.request
 
 
 def get_input_target(number: int):
+    """
+    Load a single input
+
+    Args:
+        number: input number
+    """
     url = f"https://github.com/openclimatefix/satflow/releases/download/v0.0.3/input_{number}.pth"
     filename, headers = urllib.request.urlretrieve(url, filename=f"input_{number}.pth")
     input_data = torch.load(filename)
