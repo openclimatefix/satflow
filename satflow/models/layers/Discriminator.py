@@ -13,10 +13,13 @@ from satflow.models.layers.Normalization import ConditionalNorm, SpectralNorm
 
 ########################################################################################
 class Spectral_Norm:
+    """Compute the spectral norm of a module"""
     def __init__(self, name):
+        """Initialize the module"""
         self.name = name
 
     def compute_weight(self, module):
+        """Compute the weight"""
         weight = getattr(module, self.name + "_orig")
         u = getattr(module, self.name + "_u")
         size = weight.size()
@@ -34,6 +37,7 @@ class Spectral_Norm:
 
     @staticmethod
     def apply(module, name):
+        """Apply the spectral norm to the module"""
         fn = Spectral_Norm(name)
 
         weight = getattr(module, name)
@@ -49,18 +53,21 @@ class Spectral_Norm:
         return fn
 
     def __call__(self, module, input):
+        """Call this module"""
         weight_sn, u = self.compute_weight(module)
         setattr(module, self.name, weight_sn)
         setattr(module, self.name + "_u", u)
 
 
 def spectral_norm(module, name="weight"):
+    """Apply the Spectral_Norm module to the input"""
     Spectral_Norm.apply(module, name)
 
     return module
 
 
 def spectral_init(module, gain=1):
+    """Initialize network and apply a spectral norm"""
     init.xavier_uniform_(module.weight, gain)
     if module.bias is not None:
         module.bias.data.zero_()
@@ -69,24 +76,33 @@ def spectral_init(module, gain=1):
 
 
 def init_linear(linear):
+    """Initialize a linear layer"""
     init.xavier_uniform_(linear.weight)
     linear.bias.data.zero_()
 
 
 def init_conv(conv, glu=True):
+    """Initialize a convolutional layer"""
     init.xavier_uniform_(conv.weight)
     if conv.bias is not None:
         conv.bias.data.zero_()
 
 
 def leaky_relu(input):
+    """A leaky relu layer with negative_slove = 0.2"""
     return F.leaky_relu(input, negative_slope=0.2)
 
 
 class SelfAttention(nn.Module):
-    """ Self attention Layer"""
-
+    """Self attention Layer"""
     def __init__(self, in_dim, activation=F.relu):
+        """
+        Initialize the module
+
+        Args:
+            in_dim: number of input channels
+            activation: activation function to use. Default is torch.nn.functional.relu
+        """
         super(SelfAttention, self).__init__()
         self.chanel_in = in_dim
         self.activation = activation
@@ -104,11 +120,13 @@ class SelfAttention(nn.Module):
 
     def forward(self, x):
         """
-        inputs :
+        Compute the output of the self attention layer
+
+        Args:
             x : input feature maps( B X C X W X H)
-        returns :
+
+        Returns:
             out : self attention value + input feature
-            attention: B X N X N (N is Width*Height)
         """
         m_batchsize, C, width, height = x.size()
         proj_query = (
@@ -127,7 +145,15 @@ class SelfAttention(nn.Module):
 
 
 class ConditionalNorm(nn.Module):
+    """Conditional Norm"""
     def __init__(self, in_channel, n_condition=148):
+        """
+        Initialize the module
+
+        Args:
+            in_channel: number of input channels
+            n_condition: size of second dimension of class_id
+        """
         super().__init__()
 
         self.bn = nn.BatchNorm2d(in_channel, affine=False)
@@ -137,6 +163,7 @@ class ConditionalNorm(nn.Module):
         self.embed.weight.data[:, in_channel:] = 0
 
     def forward(self, input, class_id):
+        """Compute the conditional norm"""
         out = self.bn(input)
         # print(class_id.dtype)
         # print('class_id', class_id.size()) # torch.Size([4, 148])
@@ -168,6 +195,19 @@ class GBlock(nn.Module):
         upsample=True,
         downsample=False,
     ):
+        """
+        Args:
+            in_channel: Number of input channels
+            out_channel: Number of output channels
+            kernel_size: kernel size in convolutional blocks. Default [3, 3]
+            padding: padding in convolutional blocks. default is 1
+            stride: stride in convolutional blocks. default is 1
+            n_class: not implemented. default is 1
+            bn: whether to add conditional norm to the output. Default is True
+            activation: activation function to use. Default is torch.nn.functional.relu
+            upsample: whether to add upsampling. Default is True
+            downsample: whether to add downsampling. Default is False.
+        """
         super().__init__()
 
         gain = 2 ** 0.5
@@ -197,6 +237,7 @@ class GBlock(nn.Module):
             self.HyperBN_1 = ConditionalNorm(out_channel, 148)
 
     def forward(self, input, condition=None):
+        """Compute the forward pass"""
         out = input
 
         if self.bn:
@@ -231,7 +272,15 @@ class GBlock(nn.Module):
 
 
 class SpatialDiscriminator(nn.Module):
+    """A spatial discriminator"""
     def __init__(self, chn=128, n_class=4):
+        """
+        Initialize the module
+
+        Args:
+            chn: number of channels. default is 128
+            n_class number of classes. default is 4
+        """
         super().__init__()
 
         self.pre_conv = nn.Sequential(
@@ -261,6 +310,7 @@ class SpatialDiscriminator(nn.Module):
         self.embed = SpectralNorm(self.embed)
 
     def forward(self, x, class_id):
+        """Compute the foward pass"""
         # reshape input tensor from BxTxCxHxW to BTxCxHxW
         batch_size, T, C, W, H = x.size()
 
@@ -311,11 +361,19 @@ class SpatialDiscriminator(nn.Module):
 
 
 def conv3x3x3(in_planes, out_planes, stride=1):
-    # 3x3x3 convolution with padding
+    """
+    3x3x3 convolution with padding
+
+    Args:
+        in_planes: Number of channels in the input image
+        out_planes: Number of channels produced by the convolution
+        stride: default is 1.
+    """
     return nn.Conv3d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
 
 
 class Res3dBlock(nn.Module):
+    """A Res3dBlock"""
     def __init__(
         self,
         in_channel,
@@ -329,6 +387,21 @@ class Res3dBlock(nn.Module):
         upsample=True,
         downsample=False,
     ):
+        """
+        Initialize the module
+
+        Args:
+            in_channel: number of input channels
+            out_channel: number of output channels
+            kernel_size: default is [3, 3, 3]
+            padding: default is 1
+            stride: default is 1
+            n_class: not implemented. Default is None
+            bn: whether to add ConditionalNorm to the module. Default is True.
+            activation: activation function to use. Default is torch.nn.functional.relu
+            upsample: whether to add upsampling. Default is True
+            downsample: whether to add downsampling. Default is False.
+        """
         super().__init__()
 
         gain = 2 ** 0.5
@@ -358,6 +431,7 @@ class Res3dBlock(nn.Module):
             self.HyperBN_1 = ConditionalNorm(out_channel, 148)
 
     def forward(self, input, condition=None):
+        """Compute the Res3dBlock"""
         out = input
 
         if self.bn:
@@ -392,7 +466,15 @@ class Res3dBlock(nn.Module):
 
 
 class TemporalDiscriminator(nn.Module):
+    """A temporal discriminator"""
     def __init__(self, chn=128, n_class=4):
+        """
+        Initialize the module
+
+        Args:
+            chn: number of channels. default is 128
+            n_class: number of classes. default is 4
+        """
         super().__init__()
 
         gain = 2 ** 0.5
@@ -422,6 +504,7 @@ class TemporalDiscriminator(nn.Module):
         self.embed = SpectralNorm(self.embed)
 
     def forward(self, x, class_id):
+        """Compute the forward pass"""
         # pre-process with avg_pool2d to reduce tensor size
         # B, T, C, H, W = x.size()
         # x = F.avg_pool2d(x.view(B * T, C, H, W), kernel_size=2)

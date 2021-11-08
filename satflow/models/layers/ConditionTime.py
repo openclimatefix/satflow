@@ -1,3 +1,4 @@
+"""A layer to add time information to the input"""
 import torch
 from torch import nn as nn
 
