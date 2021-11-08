@@ -11,7 +11,19 @@ import torch.nn as nn
 
 
 class SpatioTemporalLSTMCell(nn.Module):
+    """A SpatioTemporalLSTMCell. PredNN v2 adapted from https://github.com/thuml/predrnn-pytorch"""
     def __init__(self, in_channel, num_hidden, width, filter_size, stride, layer_norm):
+        """
+        Initialize the module
+
+        Args:
+            in_channel: number of input channels
+            num_hidden: size of hidden layer
+            width: width of image
+            filter_size: kernel size in convolutions
+            stride: stride in convolutions
+            layer_norm: whether to add LayerNorm after each convolution
+        """
         super(SpatioTemporalLSTMCell, self).__init__()
 
         self.num_hidden = num_hidden
@@ -108,6 +120,7 @@ class SpatioTemporalLSTMCell(nn.Module):
         )
 
     def forward(self, x_t, h_t, c_t, m_t):
+        """Compute the forward pass"""
         x_concat = self.conv_x(x_t)
         h_concat = self.conv_h(h_t)
         m_concat = self.conv_m(m_t)

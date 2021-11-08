@@ -1,3 +1,4 @@
+"""Layers for generators"""
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -13,7 +14,19 @@ from satflow.models.layers.Attention import SelfAttention, SeparableAttn
 
 
 class Generator(nn.Module):
+    """A generator layer"""
     def __init__(self, in_dim=120, latent_dim=4, n_class=4, ch=32, n_frames=48, hierar_flag=False):
+        """
+        Initialize the module
+
+        Args:
+            in_dim: input dimension. default is 120
+            latent_dim: latent dimension. default is 4
+            n_class: number of classes. default is 4
+            ch: number of channels. default is 32
+            n_frames: number of frames
+            hierar_flag: default is False
+        """
         super().__init__()
 
         self.in_dim = in_dim
@@ -71,7 +84,7 @@ class Generator(nn.Module):
         self.colorize = SpectralNorm(nn.Conv2d(2 * ch, 3, kernel_size=(3, 3), padding=1))
 
     def forward(self, x, class_id):
-
+        """Compute the foward pass"""
         if self.hierar_flag is True:
             noise_emb = torch.split(x, self.in_dim, dim=1)
         else:
