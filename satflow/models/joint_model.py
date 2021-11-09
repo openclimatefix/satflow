@@ -341,8 +341,9 @@ class JointPerceiver(BaseModel):
             The dictionary with the position encodings being added to the inputs
         """
         for modality in self.modalities:
-            x[modality.name] = torch.cat([x[modality.name], x[modality.name +
-                                                              "_position_encoding"]], dim = 1)
+            x[modality.name] = torch.cat(
+                [x[modality.name], x[modality.name + "_position_encoding"]], dim=1
+            )
         return x
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
