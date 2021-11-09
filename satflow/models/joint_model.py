@@ -22,7 +22,6 @@ from perceiver_pytorch.decoders import ImageDecoder
 from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.modalities import InputModality
 from perceiver_pytorch.queries import LearnableQuery
-from perceiver_pytorch.utils import encode_position
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 logger = logging.getLogger("satflow.model")
@@ -57,7 +56,7 @@ class JointPerceiver(BaseModel):
         loss="mse",
         gsp_loss="mse",
         sin_only: bool = False,
-        encode_fourier: bool = True,
+        encode_fourier: bool = False,
         preprocessor_type: Optional[str] = None,
         postprocessor_type: Optional[str] = None,
         encoder_kwargs: Optional[Dict[str, Any]] = None,
@@ -277,7 +276,7 @@ class JointPerceiver(BaseModel):
                 fourier_encode=encode_fourier,
             )
             modalities.append(pv_id_modality)
-
+        self.modalities = modalities
         self.model = MultiPerceiver(
             modalities=modalities,
             dim=dim,  # dimension of sequence to be encoded
@@ -332,10 +331,25 @@ class JointPerceiver(BaseModel):
         x[TOPOGRAPHIC_DATA] = base_inputs
         return x
 
+    def add_input_position_encodings(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """
+        Add position encodings for all inputs
+        Args:
+            x: Dictionary of tensors
+
+        Returns:
+            The dictionary with the position encodings being added to the inputs
+        """
+        for modality in self.modalities:
+            x[modality.name] = torch.cat([x[modality.name], x[modality.name +
+                                                              "_position_encoding"]], dim = 1)
+        return x
+
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
         sat_query, gsp_query = self.construct_query(x)
         x = self.encode_inputs(x)
+        x = self.add_input_position_encodings(x)
         # Predicting all future ones at once
         sat_y_hat = self(x, query=sat_query)
         gsp_y_hat = self(x, query=gsp_query)
