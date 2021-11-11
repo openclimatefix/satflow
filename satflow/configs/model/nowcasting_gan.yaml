@@ -1,4 +1,4 @@
-_target_: satflow.models.nowcasting_gan.NowcastingGAN
+_target_: satflow.models.skillful_nowcasting.NowcastingGAN
 forecast_steps: 24
 input_channels: 1
 output_shape: 128

@@ -17,8 +17,8 @@ hydra:
   # learn more here: https://hydra.cc/docs/next/plugins/optuna_sweeper
   sweeper:
     _target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
-    storage: "sqlite:///nowcasting_gan.db"
-    study_name: nowcasting_gan
+    storage: "sqlite:///skillful_nowcasting.db"
+    study_name: skillful_nowcasting
     n_jobs: 1
 
     # 'minimize' or 'maximize' the objective
