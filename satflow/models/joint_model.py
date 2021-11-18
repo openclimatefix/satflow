@@ -64,6 +64,8 @@ class JointPerceiver(BaseModel):
         pretrained: bool = False,
         predict_timesteps_together: bool = False,
         nwp_modality: bool = False,
+        sat_modality: bool = True,
+        hrv_sat_modality: bool = True,
         topographic_modality: bool = False,
         use_learnable_query: bool = True,
         generate_fourier_features: bool = True,
@@ -128,6 +130,8 @@ class JointPerceiver(BaseModel):
         self.max_frequency = max_frequency
         self.use_gsp_data = use_gsp_data
         self.use_pv_data = use_pv_data
+        self.sat_modality = sat_modality
+        self.hrv_sat_modality = hrv_sat_modality
 
         if use_learnable_query:
             self.query = LearnableQuery(
@@ -147,7 +151,7 @@ class JointPerceiver(BaseModel):
                 query_shape=(self.forecast_steps, 1)  # Only need one number for GSP
                 if predict_timesteps_together
                 else (1, 1),
-                conv_layer="3d",
+                conv_layer="2d",
                 max_frequency=max_frequency,
                 num_frequency_bands=input_size,
                 sine_only=sin_only,
@@ -196,17 +200,30 @@ class JointPerceiver(BaseModel):
 
         # The preprocessor will change the number of channels in the input
         modalities = []
-        # Timeseries input
-        sat_modality = InputModality(
-            name=SATELLITE_DATA,
-            input_channels=video_input_channels,
-            input_axis=3,  # number of axes, 3 for video
-            num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
-            max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
-            sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
-            fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
-        )
-        modalities.append(sat_modality)
+        if sat_modality:
+            # Timeseries input
+            sat_modality = InputModality(
+                name=SATELLITE_DATA,
+                input_channels=video_input_channels,
+                input_axis=3,  # number of axes, 3 for video
+                num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
+                sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
+                fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
+            )
+            modalities.append(sat_modality)
+        if hrv_sat_modality:
+            hrv_sat_modality = InputModality(
+                name="hrv_"+SATELLITE_DATA,
+                input_channels=video_input_channels,
+                input_axis=3,  # number of axes, 3 for video
+                num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
+                sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
+                fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
+                )
+            modalities.append(hrv_sat_modality)
+
         if nwp_modality:
             nwp_modality = InputModality(
                 name=NWP_DATA,
@@ -246,12 +263,12 @@ class JointPerceiver(BaseModel):
             modalities.append(gsp_modality)
             gsp_id_modality = InputModality(
                 name=GSP_ID,
-                input_channels=1,  # number of channels for mono audio
-                input_axis=1,  # number of axes, 2 for images
+                input_channels=1,
+                input_axis=1,
                 num_freq_bands=DEFAULT_N_GSP_PER_EXAMPLE,  # number of freq bands, with original value (2 * K + 1)
-                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                max_freq=2 * DEFAULT_N_GSP_PER_EXAMPLE - 1,  # maximum frequency, hyperparameter depending on how fine the data is
                 sin_only=sin_only,
-                fourier_encode=encode_fourier,
+                fourier_encode=True,
             )
             modalities.append(gsp_id_modality)
 
@@ -272,9 +289,9 @@ class JointPerceiver(BaseModel):
                 input_channels=1,  # number of channels for mono audio
                 input_axis=1,  # number of axes, 2 for images
                 num_freq_bands=DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE,  # number of freq bands, with original value (2 * K + 1)
-                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                max_freq=2 * DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE - 1,  # maximum frequency, hyperparameter depending on how fine the data is
                 sin_only=sin_only,
-                fourier_encode=encode_fourier,
+                fourier_encode=True, # IDs have no spatial area, so just normal fourier encoding
             )
             modalities.append(pv_id_modality)
         self.modalities = modalities
@@ -334,6 +351,18 @@ class JointPerceiver(BaseModel):
         x[SATELLITE_DATA] = video_inputs
         return x
 
+    def extract_tensors_from_dict(self, x: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+        """
+        Extract tensors from dictionary
+
+        Args:
+            x: Dictionary containing modality keys
+
+        Returns:
+            dictionary containing the modality keys and position encodings
+        """
+        print(x.keys())
+
     def add_input_position_encodings(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """
         Add position encodings for all inputs
@@ -359,6 +388,7 @@ class JointPerceiver(BaseModel):
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
+        x.pop("batch_size")
         sat_query, gsp_query = self.construct_query(x)
         x = self.encode_inputs(x)
         x = self.add_input_position_encodings(x)

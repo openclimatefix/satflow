@@ -24,12 +24,14 @@ def configuration():
 
 
 def test_joint_perceiver(configuration):
-    config = load_config("satflow/configs/model/perceiver.yaml")
+    config = load_config("satflow/configs/model/joint_perceiver.yaml")
     config.pop("_target_")  # This is only for Hydra
-    model = JointPerceiver(**config)
+    model: JointPerceiver = JointPerceiver(**config)
     dataset = FakeDataset(configuration, add_position_encoding=True)
     example = next(iter(dataset))
-    print(example)
+    example.pop("batch_size")
+    example = model.extract_tensors_from_dict(example)
+    print(example.keys())
     model(example)
     pass
 
