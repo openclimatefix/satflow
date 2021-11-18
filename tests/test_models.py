@@ -29,6 +29,7 @@ def test_joint_perceiver(configuration):
     model = JointPerceiver(**config)
     dataset = FakeDataset(configuration)
     example = next(iter(dataset))
+    print(example)
     model(example)
     pass
 
