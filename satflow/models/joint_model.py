@@ -64,9 +64,9 @@ class JointPerceiver(BaseModel):
         pretrained: bool = False,
         predict_timesteps_together: bool = False,
         nwp_modality: bool = False,
+        topographic_modality: bool = False,
         use_learnable_query: bool = True,
         generate_fourier_features: bool = True,
-        temporally_consistent_fourier_features: bool = False,
         use_gsp_data: bool = False,
         use_pv_data: bool = False,
     ):
@@ -160,8 +160,7 @@ class JointPerceiver(BaseModel):
         # Warn if using frequency is smaller than Nyquist Frequency
         if max_frequency < input_size / 2:
             print(
-                f"Max frequency is less than Nyquist frequency, currently set to {max_frequency} while "
-                f"the Nyquist frequency for input of size {input_size} is {input_size / 2}"
+                f"Max frequency is less than Nyquist frequency, currently set to {max_frequency} while the Nyquist frequency for input of size {input_size} is {input_size / 2}"
             )
 
         # Preprocessor, if desired, on top of the other processing done
@@ -219,17 +218,19 @@ class JointPerceiver(BaseModel):
                 fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
             )
             modalities.append(nwp_modality)
-        # Use image modality for latlon, elevation, other base data?
-        image_modality = InputModality(
-            name=TOPOGRAPHIC_DATA,
-            input_channels=image_input_channels,
-            input_axis=2,  # number of axes, 2 for images
-            num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
-            max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
-            sin_only=sin_only,
-            fourier_encode=encode_fourier,
-        )
-        modalities.append(image_modality)
+
+        if topographic_modality:
+            # Use image modality for latlon, elevation, other base data?
+            image_modality = InputModality(
+                name=TOPOGRAPHIC_DATA,
+                input_channels=image_input_channels,
+                input_axis=2,  # number of axes, 2 for images
+                num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
+                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
+                sin_only=sin_only,
+                fourier_encode=encode_fourier,
+            )
+            modalities.append(image_modality)
 
         if use_gsp_data:
             # Sort audio for timestep one-hot encode? Or include under other modality?
@@ -318,17 +319,19 @@ class JointPerceiver(BaseModel):
         if self.preprocessor is not None:
             # Expects Channel first
             video_inputs = self.preprocessor(video_inputs)
-            base_inputs = self.preprocessor(base_inputs)
+            if base_inputs:
+                base_inputs = self.preprocessor(base_inputs)
             if nwp_inputs:
                 nwp_inputs = self.preprocessor(nwp_inputs)
         video_inputs = video_inputs.permute(0, 1, 3, 4, 2)  # Channel last
         if nwp_inputs:
             nwp_inputs = nwp_inputs.permute(0, 1, 3, 4, 2)  # Channel last
             x[NWP_DATA] = nwp_inputs
-        base_inputs = base_inputs.permute(0, 2, 3, 1)  # Channel last
-        logger.debug(f"Timeseries: {video_inputs.size()} Base: {base_inputs.size()}")
+        if base_inputs:
+            base_inputs = base_inputs.permute(0, 2, 3, 1)  # Channel last
+            x[TOPOGRAPHIC_DATA] = base_inputs
+        logger.debug(f"Timeseries: {video_inputs.size()}")
         x[SATELLITE_DATA] = video_inputs
-        x[TOPOGRAPHIC_DATA] = base_inputs
         return x
 
     def add_input_position_encodings(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -341,8 +344,16 @@ class JointPerceiver(BaseModel):
             The dictionary with the position encodings being added to the inputs
         """
         for modality in self.modalities:
+            # Satellite and GSP modalities also have future encodings, so need to only add the past
+            # steps
+            if modality.name == SATELLITE_DATA:
+                pos_encoding = x[modality.name + "_position_encoding"][:, :, self.forecast_steps:]
+            elif modality.name == GSP_YIELD:
+                pos_encoding = x[modality.name + "_position_encoding"][:, :, self.gsp_forecast_steps:]
+            else:
+                pos_encoding = x[modality.name + "_position_encoding"]
             x[modality.name] = torch.cat(
-                [x[modality.name], x[modality.name + "_position_encoding"]], dim=1
+                [x[modality.name], pos_encoding], dim=1
             )
         return x
 
