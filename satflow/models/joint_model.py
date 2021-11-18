@@ -214,14 +214,14 @@ class JointPerceiver(BaseModel):
             modalities.append(sat_modality)
         if hrv_sat_modality:
             hrv_sat_modality = InputModality(
-                name="hrv_"+SATELLITE_DATA,
+                name="hrv_" + SATELLITE_DATA,
                 input_channels=video_input_channels,
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
                 sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
                 fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
-                )
+            )
             modalities.append(hrv_sat_modality)
 
         if nwp_modality:
@@ -266,7 +266,8 @@ class JointPerceiver(BaseModel):
                 input_channels=1,
                 input_axis=1,
                 num_freq_bands=DEFAULT_N_GSP_PER_EXAMPLE,  # number of freq bands, with original value (2 * K + 1)
-                max_freq=2 * DEFAULT_N_GSP_PER_EXAMPLE - 1,  # maximum frequency, hyperparameter depending on how fine the data is
+                max_freq=2 * DEFAULT_N_GSP_PER_EXAMPLE
+                - 1,  # maximum frequency, hyperparameter depending on how fine the data is
                 sin_only=sin_only,
                 fourier_encode=True,
             )
@@ -289,9 +290,10 @@ class JointPerceiver(BaseModel):
                 input_channels=1,  # number of channels for mono audio
                 input_axis=1,  # number of axes, 2 for images
                 num_freq_bands=DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE,  # number of freq bands, with original value (2 * K + 1)
-                max_freq=2 * DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE - 1,  # maximum frequency, hyperparameter depending on how fine the data is
+                max_freq=2 * DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE
+                - 1,  # maximum frequency, hyperparameter depending on how fine the data is
                 sin_only=sin_only,
-                fourier_encode=True, # IDs have no spatial area, so just normal fourier encoding
+                fourier_encode=True,  # IDs have no spatial area, so just normal fourier encoding
             )
             modalities.append(pv_id_modality)
         self.modalities = modalities
