@@ -27,7 +27,7 @@ def test_joint_perceiver(configuration):
     config = load_config("satflow/configs/model/perceiver.yaml")
     config.pop("_target_")  # This is only for Hydra
     model = JointPerceiver(**config)
-    dataset = FakeDataset(configuration)
+    dataset = FakeDataset(configuration, add_position_encoding = True)
     example = next(iter(dataset))
     print(example)
     model(example)
