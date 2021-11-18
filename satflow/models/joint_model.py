@@ -347,14 +347,14 @@ class JointPerceiver(BaseModel):
             # Satellite and GSP modalities also have future encodings, so need to only add the past
             # steps
             if modality.name == SATELLITE_DATA:
-                pos_encoding = x[modality.name + "_position_encoding"][:, :, self.forecast_steps:]
+                pos_encoding = x[modality.name + "_position_encoding"][:, :, self.forecast_steps :]
             elif modality.name == GSP_YIELD:
-                pos_encoding = x[modality.name + "_position_encoding"][:, :, self.gsp_forecast_steps:]
+                pos_encoding = x[modality.name + "_position_encoding"][
+                    :, :, self.gsp_forecast_steps :
+                ]
             else:
                 pos_encoding = x[modality.name + "_position_encoding"]
-            x[modality.name] = torch.cat(
-                [x[modality.name], pos_encoding], dim=1
-            )
+            x[modality.name] = torch.cat([x[modality.name], pos_encoding], dim=1)
         return x
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
