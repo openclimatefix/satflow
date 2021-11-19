@@ -4,12 +4,7 @@ _target_: pytorch_lightning.Trainer
 gpus: 1
 
 min_epochs: 1
-max_epochs: 9999
-min_steps: 0
-max_steps: 999999999
-limit_train_batches: 2000
-limit_val_batches: 2000
-limit_test_batches: 10000
+max_epochs: 200
 
 terminate_on_nan: False
 auto_lr_find: False
@@ -18,8 +13,6 @@ accumulate_grad_batches: 1
 precision: 32
 # stochastic_weight_avg: True
 fast_dev_run: False
-
-reload_dataloaders_every_epoch: True
 
 weights_summary: null
 progress_bar_refresh_rate: 1
