@@ -354,12 +354,10 @@ class JointPerceiver(BaseModel):
             if len(x.get(key, [])) > 0:
                 x[key] = self.run_preprocessor(x[key])
                 x[key] = x[key].permute(0, 2, 3, 4, 1)  # Channels last
-        for key in [GSP_ID]:
-            print(x[key].shape)
+        for key in [GSP_ID, PV_SYSTEM_ID]:
             x[key] = torch.unsqueeze(x[key], dim=2)
-            print(x[key].shape)
         for key in [TOPOGRAPHIC_DATA]:
-            print(x[key].shape)
+            x[key] = torch.squeeze(x[key], dim=2).permute(0,2,3,1)
             # x[key] = x[key].permute(0,2,3,1) # Channels last
         return x
 
