@@ -291,7 +291,7 @@ class JointPerceiver(BaseModel):
             max_freq=2 * DEFAULT_N_GSP_PER_EXAMPLE
             + 1,  # maximum frequency, hyperparameter depending on how fine the data is
             sin_only=sine_only,
-            fourier_encode=True,
+            fourier_encode=False,
         )
         modalities.append(gsp_id_modality)
 
@@ -315,7 +315,7 @@ class JointPerceiver(BaseModel):
                 max_freq=2 * DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE
                 + 1,  # maximum frequency, hyperparameter depending on how fine the data is
                 sin_only=sine_only,
-                fourier_encode=True,  # IDs have no spatial area, so just normal fourier encoding
+                fourier_encode=False,  # IDs have no spatial area, so just normal fourier encoding
             )
             modalities.append(pv_id_modality)
         self.modalities = modalities
