@@ -351,10 +351,11 @@ class JointPerceiver(BaseModel):
                 x[key] = x[key].permute(0, 2, 3, 4, 1)  # Channels last
         for key in [GSP_ID]:
             print(x[key].shape)
-            x[key] = torch.unsqueeze(x[key], dim=1)
+            x[key] = torch.unsqueeze(x[key], dim=2)
             print(x[key].shape)
         for key in [TOPOGRAPHIC_DATA]:
-            x[key] = x[key].permute(0,2,3,1) # Channels last
+            print(x[key].shape)
+            #x[key] = x[key].permute(0,2,3,1) # Channels last
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
