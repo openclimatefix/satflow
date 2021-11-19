@@ -557,4 +557,5 @@ class JointPerceiver(BaseModel):
         ]:
             print(key)
             print(x[key].shape)
+            x[key] = x[key].float()
         return self.model.forward(x, mask=mask, queries=query)
