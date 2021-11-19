@@ -1,4 +1,4 @@
-_target_: nowcasting_dataloader.data.datamodules.SatFlowDataModule
+_target_: nowcasting_dataloader.datamodules.SatFlowDataModule
 
 temp_path: "."
 n_train_data: 24900
@@ -6,17 +6,7 @@ n_val_data: 1000
 cloud: "local"
 num_workers: 8
 pin_memory: True
-configuration_filename: "satflow/configs/configurations/local.yaml"
-fake_data: False
-required_keys:
-  - sat_data
-  - nwp_data
-  - topo_data
-  - sat_x_coords
-  - sat_y_coords
-  - hour_of_day_sin
-  - hour_of_day_cos
-  - day_of_year_sin
-  - day_of_year_cos
+configuration_filename: "nowcasting_dataset/nowcasting_dataset/config/on_premises.yaml"
 history_minutes: 30
-forecast_minutes: 60
+forecast_minutes: 120
+
