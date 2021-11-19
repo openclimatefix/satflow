@@ -39,7 +39,10 @@ class JointPerceiver(BaseModel):
         nwp_channels: int = 10,
         base_channels: int = 1,
         forecast_steps: int = 48,
-        input_size: int = 64,
+        sat_input_size: int = 24,
+        hrv_sat_input_size: int = 64,
+        nwp_input_size: int = 64,
+        topo_input_size: int = 64,
         lr: float = 5e-4,
         visualize: bool = True,
         max_frequency: float = 4.0,
@@ -57,7 +60,7 @@ class JointPerceiver(BaseModel):
         latent_dim_heads: int = 64,
         loss="mse",
         gsp_loss="mse",
-        sin_only: bool = False,
+        sine_only: bool = False,
         encode_fourier: bool = False,
         preprocessor_type: Optional[str] = None,
         postprocessor_type: Optional[str] = None,
@@ -85,7 +88,7 @@ class JointPerceiver(BaseModel):
             nwp_channels: Number of NWP channels
             base_channels: Number of channels in the base map (i.e. Topographic data)
             forecast_steps: Number of satellite forecast steps
-            input_size: Input size in pixels for satellite/NWP/Basemap images
+            sat_input_size: Input size in pixels for satellite/NWP/Basemap images
             lr: Learning rate
             visualize: Whether to visualize the output
             max_frequency: Max frequency for the Fourier Features
@@ -130,7 +133,10 @@ class JointPerceiver(BaseModel):
         self.output_channels = sat_channels
         self.criterion = get_loss(loss)
         self.gsp_criterion = get_loss(gsp_loss)
-        self.input_size = input_size
+        self.sat_input_size = sat_input_size
+        self.nwp_input_size = nwp_input_size
+        self.hrv_sat_input_size = hrv_sat_input_size
+        self.topo_input_size = topo_input_size
         self.predict_timesteps_together = predict_timesteps_together
         self.use_learnable_query = use_learnable_query
         self.max_frequency = max_frequency
@@ -149,32 +155,32 @@ class JointPerceiver(BaseModel):
                 else (1, 1),
                 conv_layer="2d",
                 max_frequency=max_frequency,
-                num_frequency_bands=input_size,
-                sine_only=sin_only,
+                num_frequency_bands=sat_input_size,
+                sine_only=sine_only,
                 generate_fourier_features=generate_fourier_features,
             )
             if self.predict_satellite:
                 self.sat_query = LearnableQuery(
                     channel_dim=queries_dim,
-                    query_shape=(self.forecast_steps, self.input_size, self.input_size)
+                    query_shape=(self.forecast_steps, self.sat_input_size, self.sat_input_size)
                     if predict_timesteps_together
-                    else (self.input_size, self.input_size),
+                    else (self.sat_input_size, self.sat_input_size),
                     conv_layer="3d",
                     max_frequency=max_frequency,
-                    num_frequency_bands=input_size,
-                    sine_only=sin_only,
+                    num_frequency_bands=sat_input_size,
+                    sine_only=sine_only,
                     generate_fourier_features=generate_fourier_features,
                 )
             if self.predict_hrv_satellite:
                 self.hrv_sat_query = LearnableQuery(
                     channel_dim=queries_dim,
-                    query_shape=(self.forecast_steps, self.input_size, self.input_size)
+                    query_shape=(self.forecast_steps, self.hrv_sat_input_size, self.hrv_sat_input_size)
                     if predict_timesteps_together
-                    else (self.input_size, self.input_size),
+                    else (self.hrv_sat_input_size, self.hrv_sat_input_size),
                     conv_layer="3d",
                     max_frequency=max_frequency,
-                    num_frequency_bands=input_size,
-                    sine_only=sin_only,
+                    num_frequency_bands=sat_input_size,
+                    sine_only=sine_only,
                     generate_fourier_features=generate_fourier_features,
                 )
         else:
@@ -183,9 +189,10 @@ class JointPerceiver(BaseModel):
             self.hrv_sat_query = None
 
         # Warn if using frequency is smaller than Nyquist Frequency
-        if max_frequency < input_size / 2:
+        if max_frequency < sat_input_size / 2:
             print(
-                f"Max frequency is less than Nyquist frequency, currently set to {max_frequency} while the Nyquist frequency for input of size {input_size} is {input_size / 2}"
+                f"Max frequency is less than Nyquist frequency, currently set to {max_frequency}"
+                f" while the Nyquist frequency for input of size {sat_input_size} is {sat_input_size / 2}"
             )
 
         # Preprocessor, if desired, on top of the other processing done
@@ -195,7 +202,7 @@ class JointPerceiver(BaseModel):
             if preprocessor_type == "metnet":
                 # MetNet processing
                 self.preprocessor = ImageEncoder(
-                    crop_size=input_size,
+                    crop_size=sat_input_size,
                     prep_type="metnet",
                 )
                 video_input_channels = (
@@ -227,9 +234,9 @@ class JointPerceiver(BaseModel):
                 name=SATELLITE_DATA,
                 input_channels=video_input_channels,
                 input_axis=3,  # number of axes, 3 for video
-                num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
+                num_freq_bands=sat_input_size,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
-                sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
+                sin_only=sine_only,  # Whether if sine only for Fourier encoding, TODO test more
                 fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
             )
             modalities.append(sat_modality)
@@ -238,9 +245,9 @@ class JointPerceiver(BaseModel):
                 name=HRV_KEY,
                 input_channels=video_input_channels,
                 input_axis=3,  # number of axes, 3 for video
-                num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
+                num_freq_bands=hrv_sat_input_size,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
-                sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
+                sin_only=sine_only,  # Whether if sine only for Fourier encoding, TODO test more
                 fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
             )
             modalities.append(hrv_sat_modality)
@@ -250,9 +257,9 @@ class JointPerceiver(BaseModel):
                 name=NWP_DATA,
                 input_channels=nwp_input_channels,
                 input_axis=3,  # number of axes, 3 for video
-                num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
+                num_freq_bands=nwp_input_size,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
-                sin_only=sin_only,  # Whether if sine only for Fourier encoding, TODO test more
+                sin_only=sine_only,  # Whether if sine only for Fourier encoding, TODO test more
                 fourier_encode=encode_fourier,  # Whether to encode position with Fourier features
             )
             modalities.append(nwp_modality)
@@ -263,9 +270,9 @@ class JointPerceiver(BaseModel):
                 name=TOPOGRAPHIC_DATA,
                 input_channels=image_input_channels,
                 input_axis=2,  # number of axes, 2 for images
-                num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
+                num_freq_bands=topo_input_size,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
-                sin_only=sin_only,
+                sin_only=sine_only,
                 fourier_encode=encode_fourier,
             )
             modalities.append(image_modality)
@@ -278,7 +285,7 @@ class JointPerceiver(BaseModel):
                 input_axis=1,  # number of axes, 2 for images
                 num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
-                sin_only=sin_only,
+                sin_only=sine_only,
                 fourier_encode=encode_fourier,
             )
             modalities.append(gsp_modality)
@@ -289,7 +296,7 @@ class JointPerceiver(BaseModel):
                 num_freq_bands=DEFAULT_N_GSP_PER_EXAMPLE,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=2 * DEFAULT_N_GSP_PER_EXAMPLE
                 - 1,  # maximum frequency, hyperparameter depending on how fine the data is
-                sin_only=sin_only,
+                sin_only=sine_only,
                 fourier_encode=True,
             )
             modalities.append(gsp_id_modality)
@@ -302,7 +309,7 @@ class JointPerceiver(BaseModel):
                 input_axis=1,  # number of axes, 2 for images
                 num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
-                sin_only=sin_only,
+                sin_only=sine_only,
                 fourier_encode=encode_fourier,
             )
             modalities.append(pv_modality)
@@ -313,7 +320,7 @@ class JointPerceiver(BaseModel):
                 num_freq_bands=DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=2 * DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE
                 - 1,  # maximum frequency, hyperparameter depending on how fine the data is
-                sin_only=sin_only,
+                sin_only=sine_only,
                 fourier_encode=True,  # IDs have no spatial area, so just normal fourier encoding
             )
             modalities.append(pv_id_modality)
@@ -331,9 +338,9 @@ class JointPerceiver(BaseModel):
             cross_dim_head=cross_dim_heads,  # number of dimensions per cross attention head
             latent_dim_head=latent_dim_heads,  # number of dimensions per latent self attention head
             weight_tie_layers=weight_tie_layers,  # whether to weight tie layers (optional, as indicated in the diagram)
-            sine_only=sin_only,
+            sine_only=sine_only,
             fourier_encode_data=encode_fourier,
-            output_shape=input_size,  # Shape of output to make the correct sized logits dim, needed so reshaping works
+            output_shape=sat_input_size,  # TODO Change Shape of output to make the correct sized logits dim, needed so reshaping works
             decoder_ff=decoder_ff,  # Optional decoder FF
         )
 
@@ -370,13 +377,14 @@ class JointPerceiver(BaseModel):
             tensor = tensor.permute(0, 2, 3, 4, 1)  # Channels last
         return tensor
 
-    def predict_satellite_imagery(self, x, query) -> torch.Tensor:
+    def predict_satellite_imagery(self, x: dict, query: torch.Tensor, output_size: int) -> torch.Tensor:
         """
         Run the predictions for satellite imagery, and optionally postprocesses them
 
         Args:
             x: Input data
             query: Query to use
+            output_size: Size of the image output
 
         Returns:
             The reshaped output from the query, optioanlly postprocessed
@@ -386,8 +394,8 @@ class JointPerceiver(BaseModel):
             y_hat,
             "b (t h w) c -> b c t h w",
             t=self.forecast_steps,
-            h=self.input_size,
-            w=self.input_size,
+            h=output_size,
+            w=output_size,
         )
         if self.postprocessor is not None:
             y_hat = self.postprocessor(y_hat)
@@ -431,7 +439,7 @@ class JointPerceiver(BaseModel):
         frame_loss_dict = {}
         losses = []
         if self.predict_satellite:
-            sat_y_hat = self.predict_satellite_imagery(x, sat_query)
+            sat_y_hat = self.predict_satellite_imagery(x, sat_query, self.sat_input_size)
             # Satellite losses
             sat_loss, sat_frame_loss = self.compute_per_timestep_loss(
                 predictions=sat_y_hat, y=y, key="sat", is_training=is_training
@@ -439,7 +447,7 @@ class JointPerceiver(BaseModel):
             losses.append(sat_loss)
             frame_loss_dict.update(sat_frame_loss)
         if self.predict_hrv_satellite:
-            hrv_sat_y_hat = self.predict_satellite_imagery(x, hrv_sat_query)
+            hrv_sat_y_hat = self.predict_satellite_imagery(x, hrv_sat_query, self.hrv_sat_input_size)
             # HRV Satellite losses
             hrv_sat_loss, sat_frame_loss = self.compute_per_timestep_loss(
                 predictions=hrv_sat_y_hat, y=y, key="hrv_sat", is_training=is_training
