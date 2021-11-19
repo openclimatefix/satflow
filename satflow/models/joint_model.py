@@ -451,7 +451,6 @@ class JointPerceiver(BaseModel):
             x.pop(k, None)
         return x
 
-
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
         gsp_query, sat_query, hrv_sat_query = self.construct_query(x)
