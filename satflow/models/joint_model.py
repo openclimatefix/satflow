@@ -359,6 +359,7 @@ class JointPerceiver(BaseModel):
         for key in [TOPOGRAPHIC_DATA]:
             x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
             # x[key] = x[key].permute(0,2,3,1) # Channels last
+        x = self.remove_non_modalities(x)
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -430,6 +431,27 @@ class JointPerceiver(BaseModel):
             ] = frame_loss
         return loss, frame_loss_dict
 
+    def remove_non_modalities(self, x: dict) -> dict[str, torch.Tensor]:
+        """
+        Remove keys that are not modalities
+        Args:
+            x: Dictionary of inputs
+
+        Returns:
+            Cleaned dictionary without the keys that are not modalities
+        """
+        keys_to_keep = []
+        for modality in self.modalities:
+            keys_to_keep.append(modality)
+        keys_to_remove = []
+        for k in x.keys():
+            if k not in keys_to_keep:
+                keys_to_remove.append(k)
+        for k in keys_to_remove:
+            x.pop(k, None)
+        return x
+
+
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
         gsp_query, sat_query, hrv_sat_query = self.construct_query(x)
@@ -438,9 +460,6 @@ class JointPerceiver(BaseModel):
         # Predicting all future ones at once
         frame_loss_dict = {}
         losses = []
-        for key in [SATELLITE_DATA, PV_YIELD, HRV_KEY, TOPOGRAPHIC_DATA, GSP_ID, PV_SYSTEM_ID]:
-            print(key)
-            print(x[key].shape)
         if self.predict_satellite:
             sat_y_hat = self.predict_satellite_imagery(x, sat_query, self.sat_input_size)
             # Satellite losses
