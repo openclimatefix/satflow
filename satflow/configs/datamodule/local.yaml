@@ -1,8 +1,6 @@
 _target_: nowcasting_dataloader.datamodules.SatFlowDataModule
 
 temp_path: "."
-n_train_data: 4000
-n_val_data: 400
 cloud: "local"
 num_workers: 8
 pin_memory: True
