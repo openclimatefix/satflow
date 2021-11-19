@@ -338,7 +338,7 @@ class JointPerceiver(BaseModel):
             decoder_ff=decoder_ff,  # Optional decoder FF
         )
 
-        self.model = self.model.float()
+        self.model = self.model.double()
 
         if postprocessor_type is not None:
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
@@ -445,7 +445,6 @@ class JointPerceiver(BaseModel):
         keys_to_keep = []
         for modality in self.modalities:
             keys_to_keep.append(modality.name)
-        print(keys_to_keep)
         keys_to_remove = []
         for k in x.keys():
             if k not in keys_to_keep:
@@ -547,5 +546,5 @@ class JointPerceiver(BaseModel):
 
     def forward(self, x, mask=None, query=None):
         for key in self.modalities:
-            x[key.name] = x[key.name].float()
+            x[key.name] = x[key.name].double()
         return self.model.forward(x, mask=mask, queries=query)
