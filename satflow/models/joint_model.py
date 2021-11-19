@@ -525,7 +525,15 @@ class JointPerceiver(BaseModel):
         return gsp_query, sat_query, hrv_sat_query
 
     def forward(self, x, mask=None, query=None):
-        for key in [SATELLITE_DATA, PV_YIELD, HRV_KEY, TOPOGRAPHIC_DATA, GSP_ID, PV_SYSTEM_ID, NWP_DATA]:
+        for key in [
+            SATELLITE_DATA,
+            PV_YIELD,
+            HRV_KEY,
+            TOPOGRAPHIC_DATA,
+            GSP_ID,
+            PV_SYSTEM_ID,
+            NWP_DATA,
+        ]:
             print(key)
             print(x[key].shape)
         return self.model.forward(x, mask=mask, queries=query)
