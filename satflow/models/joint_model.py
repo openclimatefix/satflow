@@ -259,7 +259,7 @@ class JointPerceiver(BaseModel):
         if nwp_modality:
             nwp_modality = InputModality(
                 name=NWP_DATA,
-                input_channels=nwp_input_channels,
+                input_channels=102,
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * nwp_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
@@ -273,7 +273,7 @@ class JointPerceiver(BaseModel):
             # Use image modality for latlon, elevation, other base data?
             image_modality = InputModality(
                 name=TOPOGRAPHIC_DATA,
-                input_channels=image_input_channels,
+                input_channels=67,
                 input_axis=2,  # number of axes, 2 for images
                 num_freq_bands=2 * topo_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
@@ -299,7 +299,7 @@ class JointPerceiver(BaseModel):
             # Sort audio for timestep one-hot encode? Or include under other modality?
             pv_modality = InputModality(
                 name=PV_YIELD,
-                input_channels=1,  # number of channels for mono audio
+                input_channels=7,  # number of channels for mono audio
                 input_axis=1,  # number of axes, 2 for images
                 num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
