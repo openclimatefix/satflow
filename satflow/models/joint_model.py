@@ -442,7 +442,7 @@ class JointPerceiver(BaseModel):
         """
         keys_to_keep = []
         for modality in self.modalities:
-            keys_to_keep.append(modality)
+            keys_to_keep.append(modality.name)
         keys_to_remove = []
         for k in x.keys():
             if k not in keys_to_keep:
