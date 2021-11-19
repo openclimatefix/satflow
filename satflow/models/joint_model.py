@@ -338,6 +338,8 @@ class JointPerceiver(BaseModel):
             decoder_ff=decoder_ff,  # Optional decoder FF
         )
 
+        self.model = self.model.float()
+
         if postprocessor_type is not None:
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
                 raise ValueError("Invalid postprocessor_type!")
