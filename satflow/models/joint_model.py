@@ -388,13 +388,15 @@ class JointPerceiver(BaseModel):
             t=self.forecast_steps,
             h=self.input_size,
             w=self.input_size,
-            )
+        )
         if self.postprocessor is not None:
             y_hat = self.postprocessor(y_hat)
 
         return y_hat
 
-    def compute_per_timestep_loss(self, predictions, y, key: str, is_training: bool) -> Tuple[torch.Tensor, dict]:
+    def compute_per_timestep_loss(
+        self, predictions, y, key: str, is_training: bool
+    ) -> Tuple[torch.Tensor, dict]:
         """
         Computes the per timestep loss for predicted imagery
         Args:
@@ -413,7 +415,7 @@ class JointPerceiver(BaseModel):
         for f in range(self.forecast_steps):
             frame_loss = self.criterion(
                 predictions[:, f, :, :, :], y[SATELLITE_DATA][:, f, :, :, :]
-                ).item()
+            ).item()
             frame_loss_dict[
                 f"{'train' if is_training else 'val'}/{key}_timestep_{f}_loss"
             ] = frame_loss
@@ -431,13 +433,17 @@ class JointPerceiver(BaseModel):
         if self.predict_satellite:
             sat_y_hat = self.predict_satellite_imagery(x, sat_query)
             # Satellite losses
-            sat_loss, sat_frame_loss = self.compute_per_timestep_loss(predictions = sat_y_hat, y=y, key='sat', is_training = is_training)
+            sat_loss, sat_frame_loss = self.compute_per_timestep_loss(
+                predictions=sat_y_hat, y=y, key="sat", is_training=is_training
+            )
             losses.append(sat_loss)
             frame_loss_dict.update(sat_frame_loss)
         if self.predict_hrv_satellite:
             hrv_sat_y_hat = self.predict_satellite_imagery(x, hrv_sat_query)
             # HRV Satellite losses
-            hrv_sat_loss, sat_frame_loss = self.compute_per_timestep_loss(predictions=hrv_sat_y_hat, y=y, key='hrv_sat', is_training = is_training)
+            hrv_sat_loss, sat_frame_loss = self.compute_per_timestep_loss(
+                predictions=hrv_sat_y_hat, y=y, key="hrv_sat", is_training=is_training
+            )
             losses.append(hrv_sat_loss)
             frame_loss_dict.update(sat_frame_loss)
 
