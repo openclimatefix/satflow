@@ -1,4 +1,4 @@
-_target_: satflow.data.datamodules.SatFlowDataModule
+_target_: nowcasting_dataloader.data.datamodules.SatFlowDataModule
 
 temp_path: "."
 n_train_data: 24900
