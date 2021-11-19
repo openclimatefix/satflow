@@ -497,18 +497,18 @@ class JointPerceiver(BaseModel):
         if self.predict_satellite:
             sat_query = x[SATELLITE_DATA + "_query"]
             if self.use_learnable_query:
-                sat_query = self.sat_query(x, sat_query)
+                sat_query = self.sat_query(x[SATELLITE_DATA], sat_query)
         else:
             sat_query = None
         if self.predict_hrv_satellite:
             hrv_sat_query = x[HRV_KEY + "_query"]
             if self.use_learnable_query:
-                hrv_sat_query = self.hrv_sat_query(x, hrv_sat_query)
+                hrv_sat_query = self.hrv_sat_query(x[HRV_KEY], hrv_sat_query)
         else:
             hrv_sat_query = None
         gsp_query = x[GSP_YIELD + "_query"]
         if self.use_learnable_query:
-            gsp_query = self.gsp_query(x, gsp_query)
+            gsp_query = self.gsp_query(x[GSP_ID], gsp_query)
         return gsp_query, sat_query, hrv_sat_query
 
     def forward(self, x, mask=None, query=None):
