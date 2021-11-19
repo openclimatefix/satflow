@@ -4,7 +4,10 @@ sat_channels: 12
 nwp_channels: 10
 forecast_steps: 12
 lr: 0.0005
-input_size: 64
+sat_input_size: 24
+hrv_sat_input_size: 64
+nwp_input_size: 64
+topo_input_size: 64
 max_frequency: 32.0
 depth: 6
 num_latents: 256

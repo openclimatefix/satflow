@@ -74,8 +74,7 @@ class JointPerceiver(BaseModel):
         topographic_modality: bool = False,
         use_learnable_query: bool = True,
         generate_fourier_features: bool = True,
-        use_gsp_data: bool = False,
-        use_pv_data: bool = False,
+        pv_modality: bool = False,
         predict_satellite: bool = False,
         predict_hrv_satellite: bool = False,
     ):
@@ -118,7 +117,7 @@ class JointPerceiver(BaseModel):
             use_learnable_query: Whether to use the LearnableQuery
             generate_fourier_features: Whether to generate Fourier Features in the LearnableQuery
             use_gsp_data: Whether to use GSP data
-            use_pv_data: Whether to use PV data
+            pv_modality: Whether to use PV data
             predict_satellite: Whether to predict non-HRV satellite imagery
             predict_hrv_satellite: Whether to predict HRV satellite imagery
         """
@@ -140,8 +139,7 @@ class JointPerceiver(BaseModel):
         self.predict_timesteps_together = predict_timesteps_together
         self.use_learnable_query = use_learnable_query
         self.max_frequency = max_frequency
-        self.use_gsp_data = use_gsp_data
-        self.use_pv_data = use_pv_data
+        self.use_pv_data = pv_modality
         self.sat_modality = sat_modality
         self.hrv_sat_modality = hrv_sat_modality
         self.predict_satellite = predict_satellite
@@ -281,31 +279,19 @@ class JointPerceiver(BaseModel):
             )
             modalities.append(image_modality)
 
-        if use_gsp_data:
-            # Sort audio for timestep one-hot encode? Or include under other modality?
-            gsp_modality = InputModality(
-                name=GSP_YIELD,
-                input_channels=1,  # number of channels for mono audio
-                input_axis=1,  # number of axes, 2 for images
-                num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
-                max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
-                sin_only=sine_only,
-                fourier_encode=encode_fourier,
-            )
-            modalities.append(gsp_modality)
-            gsp_id_modality = InputModality(
-                name=GSP_ID,
-                input_channels=1,
-                input_axis=1,
-                num_freq_bands=DEFAULT_N_GSP_PER_EXAMPLE,  # number of freq bands, with original value (2 * K + 1)
-                max_freq=2 * DEFAULT_N_GSP_PER_EXAMPLE
-                - 1,  # maximum frequency, hyperparameter depending on how fine the data is
-                sin_only=sine_only,
-                fourier_encode=True,
-            )
-            modalities.append(gsp_id_modality)
+        gsp_id_modality = InputModality(
+            name=GSP_ID,
+            input_channels=1,
+            input_axis=1,
+            num_freq_bands=DEFAULT_N_GSP_PER_EXAMPLE,  # number of freq bands, with original value (2 * K + 1)
+            max_freq=2 * DEFAULT_N_GSP_PER_EXAMPLE
+            - 1,  # maximum frequency, hyperparameter depending on how fine the data is
+            sin_only=sine_only,
+            fourier_encode=True,
+        )
+        modalities.append(gsp_id_modality)
 
-        if use_pv_data:
+        if pv_modality:
             # Sort audio for timestep one-hot encode? Or include under other modality?
             pv_modality = InputModality(
                 name=PV_YIELD,

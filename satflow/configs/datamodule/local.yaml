@@ -11,5 +11,5 @@ history_minutes: 30
 forecast_minutes: 120
 normalize: True
 add_position_encoding: True
-add_satellite_target: True
-add_hrv_satellite_target: True
+add_satellite_target: False
+add_hrv_satellite_target: False
