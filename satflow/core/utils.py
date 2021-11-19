@@ -50,12 +50,6 @@ def extras(config: DictConfig) -> None:
     # enable adding new keys to config
     OmegaConf.set_struct(config, False)
 
-    # Update number of iterations per epoch based on accumulate
-    if config.trainer.get("accumulate_grad_batches"):
-        config.trainer.limit_train_batches = (
-            config.trainer.limit_train_batches * config.trainer.accumulate_grad_batches
-        )
-
     # disable python warnings if <config.ignore_warnings=True>
     if config.get("ignore_warnings"):
         log.info("Disabling python warnings! <config.ignore_warnings=True>")
