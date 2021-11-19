@@ -27,7 +27,8 @@ from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 logger = logging.getLogger("satflow.model")
 logger.setLevel(logging.WARN)
 
-HRV_KEY = "hrv_"+SATELLITE_DATA
+HRV_KEY = "hrv_" + SATELLITE_DATA
+
 
 @register_model
 class JointPerceiver(BaseModel):
@@ -73,7 +74,7 @@ class JointPerceiver(BaseModel):
         use_gsp_data: bool = False,
         use_pv_data: bool = False,
         predict_satellite: bool = False,
-        predict_hrv_satellite: bool = False
+        predict_hrv_satellite: bool = False,
     ):
         """
         Joint Satellite Image + GSP PV Output prediction model
@@ -163,7 +164,7 @@ class JointPerceiver(BaseModel):
                     num_frequency_bands=input_size,
                     sine_only=sin_only,
                     generate_fourier_features=generate_fourier_features,
-                    )
+                )
             if self.predict_hrv_satellite:
                 self.hrv_sat_query = LearnableQuery(
                     channel_dim=queries_dim,
@@ -175,7 +176,7 @@ class JointPerceiver(BaseModel):
                     num_frequency_bands=input_size,
                     sine_only=sin_only,
                     generate_fourier_features=generate_fourier_features,
-                    )
+                )
         else:
             self.gsp_query = None
             self.sat_query = None
@@ -366,7 +367,7 @@ class JointPerceiver(BaseModel):
         """
         if self.preprocessor is not None:
             tensor = self.preprocessor(tensor)
-            tensor = tensor.permute(0, 2, 3, 4, 1) # Channels last
+            tensor = tensor.permute(0, 2, 3, 4, 1)  # Channels last
         return tensor
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
@@ -434,9 +435,9 @@ class JointPerceiver(BaseModel):
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
     def construct_query(self, x: dict) -> Tuple[torch.Tensor, torch.Tensor]:
-        sat_fourier_features = x[SATELLITE_DATA+"_query"]
-        hrv_sat_fourier_features = x["hrv_"+SATELLITE_DATA+"_query"]
-        gsp_fourier_features = x[GSP_YIELD+"_query"]
+        sat_fourier_features = x[SATELLITE_DATA + "_query"]
+        hrv_sat_fourier_features = x["hrv_" + SATELLITE_DATA + "_query"]
+        gsp_fourier_features = x[GSP_YIELD + "_query"]
         return self.sat_query(x, sat_fourier_features), self.gsp_query(x, gsp_fourier_features)
 
     def forward(self, x, mask=None, query=None):
