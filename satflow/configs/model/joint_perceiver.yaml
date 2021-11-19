@@ -1,4 +1,4 @@
-_target_: satflow.models.join_model.JointPerceiver
+_target_: satflow.models.joint_model.JointPerceiver
 input_channels: 23
 sat_channels: 12
 nwp_channels: 10
