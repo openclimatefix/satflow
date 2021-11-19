@@ -422,7 +422,6 @@ class JointPerceiver(BaseModel):
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
-        x.pop("batch_size")
         gsp_query, sat_query, hrv_sat_query = self.construct_query(x)
         x = self.encode_inputs(x)
         # Now run predictions for all the queries
