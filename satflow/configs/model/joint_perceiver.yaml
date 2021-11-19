@@ -28,3 +28,4 @@ nwp_modality: True
 topographic_modality: True
 sat_modality: True
 hrv_sat_modality: True
+pv_modality: True
