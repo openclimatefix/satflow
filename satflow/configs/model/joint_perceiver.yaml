@@ -23,3 +23,5 @@ use_learnable_query: True
 predict_timesteps_together: True
 nwp_modality: True
 topographic_modality: True
+sat_modality: True
+hrv_sat_modality: True

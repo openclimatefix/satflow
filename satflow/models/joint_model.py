@@ -27,6 +27,7 @@ from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 logger = logging.getLogger("satflow.model")
 logger.setLevel(logging.WARN)
 
+HRV_KEY = "hrv_"+SATELLITE_DATA
 
 @register_model
 class JointPerceiver(BaseModel):
@@ -71,6 +72,8 @@ class JointPerceiver(BaseModel):
         generate_fourier_features: bool = True,
         use_gsp_data: bool = False,
         use_pv_data: bool = False,
+        predict_satellite: bool = False,
+        predict_hrv_satellite: bool = False
     ):
         """
         Joint Satellite Image + GSP PV Output prediction model
@@ -112,6 +115,8 @@ class JointPerceiver(BaseModel):
             generate_fourier_features: Whether to generate Fourier Features in the LearnableQuery
             use_gsp_data: Whether to use GSP data
             use_pv_data: Whether to use PV data
+            predict_satellite: Whether to predict non-HRV satellite imagery
+            predict_hrv_satellite: Whether to predict HRV satellite imagery
         """
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
@@ -132,21 +137,11 @@ class JointPerceiver(BaseModel):
         self.use_pv_data = use_pv_data
         self.sat_modality = sat_modality
         self.hrv_sat_modality = hrv_sat_modality
+        self.predict_satellite = predict_satellite
+        self.predict_hrv_satellite = predict_hrv_satellite
 
         if use_learnable_query:
-            self.query = LearnableQuery(
-                channel_dim=queries_dim,
-                query_shape=(self.forecast_steps, self.input_size, self.input_size)
-                if predict_timesteps_together
-                else (self.input_size, self.input_size),
-                conv_layer="3d",
-                max_frequency=max_frequency,
-                num_frequency_bands=input_size,
-                sine_only=sin_only,
-                generate_fourier_features=generate_fourier_features,
-            )
-            # Need second query as well
-            self.pv_query = LearnableQuery(
+            self.gsp_query = LearnableQuery(
                 channel_dim=queries_dim,
                 query_shape=(self.forecast_steps, 1)  # Only need one number for GSP
                 if predict_timesteps_together
@@ -157,9 +152,34 @@ class JointPerceiver(BaseModel):
                 sine_only=sin_only,
                 generate_fourier_features=generate_fourier_features,
             )
+            if self.predict_satellite:
+                self.sat_query = LearnableQuery(
+                    channel_dim=queries_dim,
+                    query_shape=(self.forecast_steps, self.input_size, self.input_size)
+                    if predict_timesteps_together
+                    else (self.input_size, self.input_size),
+                    conv_layer="3d",
+                    max_frequency=max_frequency,
+                    num_frequency_bands=input_size,
+                    sine_only=sin_only,
+                    generate_fourier_features=generate_fourier_features,
+                    )
+            if self.predict_hrv_satellite:
+                self.hrv_sat_query = LearnableQuery(
+                    channel_dim=queries_dim,
+                    query_shape=(self.forecast_steps, self.input_size, self.input_size)
+                    if predict_timesteps_together
+                    else (self.input_size, self.input_size),
+                    conv_layer="3d",
+                    max_frequency=max_frequency,
+                    num_frequency_bands=input_size,
+                    sine_only=sin_only,
+                    generate_fourier_features=generate_fourier_features,
+                    )
         else:
-            self.pv_query = None
-            self.query = None
+            self.gsp_query = None
+            self.sat_query = None
+            self.hrv_sat_query = None
 
         # Warn if using frequency is smaller than Nyquist Frequency
         if max_frequency < input_size / 2:
@@ -214,7 +234,7 @@ class JointPerceiver(BaseModel):
             modalities.append(sat_modality)
         if hrv_sat_modality:
             hrv_sat_modality = InputModality(
-                name="hrv_" + SATELLITE_DATA,
+                name=HRV_KEY,
                 input_channels=video_input_channels,
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=input_size,  # number of freq bands, with original value (2 * K + 1)
@@ -328,72 +348,32 @@ class JointPerceiver(BaseModel):
         self.save_hyperparameters()
 
     def encode_inputs(self, x: dict) -> Dict[str, torch.Tensor]:
-        video_inputs = x[SATELLITE_DATA]
-        nwp_inputs = x.get(NWP_DATA, [])
-        base_inputs = x.get(
-            TOPOGRAPHIC_DATA, []
-        )  # Base maps should be the same for all timesteps in a sample
+        for key in [SATELLITE_DATA, HRV_KEY, NWP_DATA, TOPOGRAPHIC_DATA]:
+            if len(x.get(key, [])) > 0:
+                x[key] = self.run_preprocessor(x[key])
 
-        # Run the preprocessors here when encoding the inputs
+        return x
+
+    def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
+        """
+        Run the processing step for a tensor
+
+        Args:
+            tensor: Teh tensor to transform
+
+        Returns:
+            The preprocessed tensor
+        """
         if self.preprocessor is not None:
-            # Expects Channel first
-            video_inputs = self.preprocessor(video_inputs)
-            if base_inputs:
-                base_inputs = self.preprocessor(base_inputs)
-            if nwp_inputs:
-                nwp_inputs = self.preprocessor(nwp_inputs)
-        video_inputs = video_inputs.permute(0, 1, 3, 4, 2)  # Channel last
-        if nwp_inputs:
-            nwp_inputs = nwp_inputs.permute(0, 1, 3, 4, 2)  # Channel last
-            x[NWP_DATA] = nwp_inputs
-        if base_inputs:
-            base_inputs = base_inputs.permute(0, 2, 3, 1)  # Channel last
-            x[TOPOGRAPHIC_DATA] = base_inputs
-        logger.debug(f"Timeseries: {video_inputs.size()}")
-        x[SATELLITE_DATA] = video_inputs
-        return x
-
-    def extract_tensors_from_dict(self, x: Dict[str, Any]) -> Dict[str, torch.Tensor]:
-        """
-        Extract tensors from dictionary
-
-        Args:
-            x: Dictionary containing modality keys
-
-        Returns:
-            dictionary containing the modality keys and position encodings
-        """
-        print(x.keys())
-
-    def add_input_position_encodings(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        """
-        Add position encodings for all inputs
-        Args:
-            x: Dictionary of tensors
-
-        Returns:
-            The dictionary with the position encodings being added to the inputs
-        """
-        for modality in self.modalities:
-            # Satellite and GSP modalities also have future encodings, so need to only add the past
-            # steps
-            if modality.name == SATELLITE_DATA:
-                pos_encoding = x[modality.name + "_position_encoding"][:, :, self.forecast_steps :]
-            elif modality.name == GSP_YIELD:
-                pos_encoding = x[modality.name + "_position_encoding"][
-                    :, :, self.gsp_forecast_steps :
-                ]
-            else:
-                pos_encoding = x[modality.name + "_position_encoding"]
-            x[modality.name] = torch.cat([x[modality.name], pos_encoding], dim=1)
-        return x
+            tensor = self.preprocessor(tensor)
+            tensor = tensor.permute(0, 2, 3, 4, 1) # Channels last
+        return tensor
 
     def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
         x, y = batch
         x.pop("batch_size")
         sat_query, gsp_query = self.construct_query(x)
         x = self.encode_inputs(x)
-        x = self.add_input_position_encodings(x)
         # Predicting all future ones at once
         sat_y_hat = self(x, query=sat_query)
         gsp_y_hat = self(x, query=gsp_query)
@@ -454,13 +434,10 @@ class JointPerceiver(BaseModel):
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
     def construct_query(self, x: dict) -> Tuple[torch.Tensor, torch.Tensor]:
-        sat_fourier_features = x[SATELLITE_DATA + "_position_encoding"][
-            :, :, : -self.forecast_steps
-        ]  # Only want future steps
-        gsp_fourier_features = x[GSP_YIELD + "_position_encoding"][
-            :, :, : -self.gsp_forecast_steps
-        ]  # Only want future features
-        return self.query(x, sat_fourier_features), self.pv_query(x, gsp_fourier_features)
+        sat_fourier_features = x[SATELLITE_DATA+"_query"]
+        hrv_sat_fourier_features = x["hrv_"+SATELLITE_DATA+"_query"]
+        gsp_fourier_features = x[GSP_YIELD+"_query"]
+        return self.sat_query(x, sat_fourier_features), self.gsp_query(x, gsp_fourier_features)
 
     def forward(self, x, mask=None, query=None):
         return self.model.forward(x, mask=mask, queries=query)
