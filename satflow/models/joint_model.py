@@ -357,7 +357,7 @@ class JointPerceiver(BaseModel):
         for key in [GSP_ID, PV_SYSTEM_ID]:
             x[key] = torch.unsqueeze(x[key], dim=2)
         for key in [TOPOGRAPHIC_DATA]:
-            x[key] = torch.squeeze(x[key], dim=2).permute(0,2,3,1)
+            x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
             # x[key] = x[key].permute(0,2,3,1) # Channels last
         return x
 
