@@ -370,47 +370,91 @@ class JointPerceiver(BaseModel):
             tensor = tensor.permute(0, 2, 3, 4, 1)  # Channels last
         return tensor
 
-    def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
-        x, y = batch
-        x.pop("batch_size")
-        sat_query, gsp_query = self.construct_query(x)
-        x = self.encode_inputs(x)
-        # Predicting all future ones at once
-        sat_y_hat = self(x, query=sat_query)
-        gsp_y_hat = self(x, query=gsp_query)
-        sat_y_hat = rearrange(
-            sat_y_hat,
+    def predict_satellite_imagery(self, x, query) -> torch.Tensor:
+        """
+        Run the predictions for satellite imagery, and optionally postprocesses them
+
+        Args:
+            x: Input data
+            query: Query to use
+
+        Returns:
+            The reshaped output from the query, optioanlly postprocessed
+        """
+        y_hat = self(x, query=query)
+        y_hat = rearrange(
+            y_hat,
             "b (t h w) c -> b c t h w",
             t=self.forecast_steps,
             h=self.input_size,
             w=self.input_size,
-        )
+            )
         if self.postprocessor is not None:
-            sat_y_hat = self.postprocessor(sat_y_hat)
-        if self.visualize:
-            self.visualize_step(x, y, sat_y_hat, batch_idx, step="train" if is_training else "val")
+            y_hat = self.postprocessor(y_hat)
+
+        return y_hat
+
+    def compute_per_timestep_loss(self, predictions, y, key: str, is_training: bool) -> Tuple[torch.Tensor, dict]:
+        """
+        Computes the per timestep loss for predicted imagery
+        Args:
+            predictions:
+            y:
+            is_training:
+
+        Returns:
+            Dictionary of the loss for the per-timestep and the overall loss
+        """
 
         # Satellite Loss
-        loss = self.criterion(y[SATELLITE_DATA], sat_y_hat)
-        self.log_dict({f"{'train' if is_training else 'val'}/sat_loss": loss})
+        loss = self.criterion(y[SATELLITE_DATA], predictions)
+        self.log_dict({f"{'train' if is_training else 'val'}/{key}_loss": loss})
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
             frame_loss = self.criterion(
-                sat_y_hat[:, f, :, :, :], y[SATELLITE_DATA][:, f, :, :, :]
-            ).item()
+                predictions[:, f, :, :, :], y[SATELLITE_DATA][:, f, :, :, :]
+                ).item()
             frame_loss_dict[
-                f"{'train' if is_training else 'val'}/sat_timestep_{f}_loss"
+                f"{'train' if is_training else 'val'}/{key}_timestep_{f}_loss"
             ] = frame_loss
+        return loss, frame_loss_dict
+
+    def _train_or_validate_step(self, batch, batch_idx, is_training: bool = True):
+        x, y = batch
+        x.pop("batch_size")
+        gsp_query, sat_query, hrv_sat_query = self.construct_query(x)
+        x = self.encode_inputs(x)
+        # Now run predictions for all the queries
+        # Predicting all future ones at once
+        frame_loss_dict = {}
+        losses = []
+        if self.predict_satellite:
+            sat_y_hat = self.predict_satellite_imagery(x, sat_query)
+            # Satellite losses
+            sat_loss, sat_frame_loss = self.compute_per_timestep_loss(predictions = sat_y_hat, y=y, key='sat', is_training = is_training)
+            losses.append(sat_loss)
+            frame_loss_dict.update(sat_frame_loss)
+        if self.predict_hrv_satellite:
+            hrv_sat_y_hat = self.predict_satellite_imagery(x, hrv_sat_query)
+            # HRV Satellite losses
+            hrv_sat_loss, sat_frame_loss = self.compute_per_timestep_loss(predictions=hrv_sat_y_hat, y=y, key='hrv_sat', is_training = is_training)
+            losses.append(hrv_sat_loss)
+            frame_loss_dict.update(sat_frame_loss)
+
+        gsp_y_hat = self(x, query=gsp_query)
         # GSP Loss
-        gsp_loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
-        self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": gsp_loss})
+        loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
+        self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
         for f in range(self.forecast_gsp_steps):
             frame_loss = self.gsp_criterion(gsp_y_hat[:, f, :], y[GSP_YIELD][:, f, :]).item()
             frame_loss_dict[
                 f"{'train' if is_training else 'val'}/gsp_timestep_{f}_loss"
             ] = frame_loss
+        losses.append(loss)
         self.log_dict(frame_loss_dict)
-        return loss + gsp_loss
+        for sat_loss in losses:
+            loss += sat_loss
+        return loss
 
     def configure_optimizers(self):
         # They use LAMB as the optimizer
@@ -434,11 +478,32 @@ class JointPerceiver(BaseModel):
         }
         return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
-    def construct_query(self, x: dict) -> Tuple[torch.Tensor, torch.Tensor]:
-        sat_fourier_features = x[SATELLITE_DATA + "_query"]
-        hrv_sat_fourier_features = x["hrv_" + SATELLITE_DATA + "_query"]
-        gsp_fourier_features = x[GSP_YIELD + "_query"]
-        return self.sat_query(x, sat_fourier_features), self.gsp_query(x, gsp_fourier_features)
+    def construct_query(self, x: dict) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Constructs teh queries for the output
+
+        Args:
+            x:
+
+        Returns:
+
+        """
+        if self.predict_satellite:
+            sat_query = x[SATELLITE_DATA + "_query"]
+            if self.use_learnable_query:
+                sat_query = self.sat_query(x, sat_query)
+        else:
+            sat_query = None
+        if self.predict_hrv_satellite:
+            hrv_sat_query = x[HRV_KEY + "_query"]
+            if self.use_learnable_query:
+                hrv_sat_query = self.hrv_sat_query(x, hrv_sat_query)
+        else:
+            hrv_sat_query = None
+        gsp_query = x[GSP_YIELD + "_query"]
+        if self.use_learnable_query:
+            gsp_query = self.gsp_query(x, gsp_query)
+        return gsp_query, sat_query, hrv_sat_query
 
     def forward(self, x, mask=None, query=None):
         return self.model.forward(x, mask=mask, queries=query)
