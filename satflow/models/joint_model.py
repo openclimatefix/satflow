@@ -116,7 +116,6 @@ class JointPerceiver(BaseModel):
             nwp_modality: Whether NWPs are being included
             use_learnable_query: Whether to use the LearnableQuery
             generate_fourier_features: Whether to generate Fourier Features in the LearnableQuery
-            use_gsp_data: Whether to use GSP data
             pv_modality: Whether to use PV data
             predict_satellite: Whether to predict non-HRV satellite imagery
             predict_hrv_satellite: Whether to predict HRV satellite imagery
