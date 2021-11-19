@@ -49,35 +49,6 @@ def extras(config: DictConfig) -> None:
 
     # enable adding new keys to config
     OmegaConf.set_struct(config, False)
-    # Ensure that model and dataloader are doing the same thing
-    config.datamodule.config.forecast_times = (
-        config.model.forecast_steps * 5
-    )  # Convert from steps to minutes
-    # Get number of channels from config
-    dataset_config = load_yaml_configuration(config.datamodule.configuration_filename)
-
-    channels = len(dataset_config.process.sat_channels)
-    log.info(f"Channels: (Bands) {channels}")
-    channels = channels + 1 if "topo_data" in config.datamodule.required_keys else channels
-    channels = (
-        channels + len(dataset_config.process.nwp_channels)
-        if "nwp_data" in config.datamodule.required_keys
-        else channels
-    )
-    log.info(f"Channels: (Use Topo) {channels}")
-    # Check lat/lon, would only use one coord for MetNet, basic check if using Perceiver or not, only single set of coords
-    # Perceiver input channels also makes less sense, as each one is put in separately, so NWP and Sat won't be concatenated
-    if (
-        "sat_x_coords" in config.datamodule.required_keys
-        and "nwp_x_coords" not in config.datamodule.required_keys
-    ):
-        channels = channels + 2 if "sat_x_coords" in config.datamodule.required_keys else channels
-        # If one datetime is in there, all will be, 1 layer for each value
-        channels = (
-            channels + 4 if "hour_of_day_sin" in config.datamodule.required_keys else channels
-        )
-
-    config.model.input_channels = channels
 
     # Update number of iterations per epoch based on accumulate
     if config.trainer.get("accumulate_grad_batches"):
