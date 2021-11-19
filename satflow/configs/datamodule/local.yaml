@@ -1,12 +1,15 @@
 _target_: nowcasting_dataloader.datamodules.SatFlowDataModule
 
 temp_path: "."
-n_train_data: 24900
-n_val_data: 1000
+n_train_data: 4000
+n_val_data: 400
 cloud: "local"
 num_workers: 8
 pin_memory: True
 configuration_filename: "nowcasting_dataset/nowcasting_dataset/config/on_premises.yaml"
 history_minutes: 30
 forecast_minutes: 120
-
+normalize: True
+add_position_encoding: True
+add_satellite_target: True
+add_hrv_satellite_target: True
