@@ -236,7 +236,8 @@ class JointPerceiver(BaseModel):
                 name=SATELLITE_DATA,
                 input_channels=video_input_channels,
                 input_axis=3,  # number of axes, 3 for video
-                num_freq_bands=2 * sat_input_size + 1,  # number of freq bands, with original value (2 * K + 1)
+                num_freq_bands=2 * sat_input_size
+                + 1,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
                 sin_only=sine_only,  # Whether if sine only for Fourier encoding, TODO test more
                 fourier_encode=False,  # Whether to encode position with Fourier features
@@ -247,7 +248,8 @@ class JointPerceiver(BaseModel):
                 name=HRV_KEY,
                 input_channels=video_input_channels,
                 input_axis=3,  # number of axes, 3 for video
-                num_freq_bands=2 * hrv_sat_input_size + 1,  # number of freq bands, with original value (2 * K + 1)
+                num_freq_bands=2 * hrv_sat_input_size
+                + 1,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
                 sin_only=sine_only,  # Whether if sine only for Fourier encoding, TODO test more
                 fourier_encode=False,  # Whether to encode position with Fourier features
@@ -259,7 +261,8 @@ class JointPerceiver(BaseModel):
                 name=NWP_DATA,
                 input_channels=nwp_input_channels,
                 input_axis=3,  # number of axes, 3 for video
-                num_freq_bands=2 * nwp_input_size +1,  # number of freq bands, with original value (2 * K + 1)
+                num_freq_bands=2 * nwp_input_size
+                + 1,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is, should be Nyquist frequency (i.e. 112 for 224 input image)
                 sin_only=sine_only,  # Whether if sine only for Fourier encoding, TODO test more
                 fourier_encode=False,  # Whether to encode position with Fourier features
@@ -272,7 +275,8 @@ class JointPerceiver(BaseModel):
                 name=TOPOGRAPHIC_DATA,
                 input_channels=image_input_channels,
                 input_axis=2,  # number of axes, 2 for images
-                num_freq_bands=2 * topo_input_size + 1,  # number of freq bands, with original value (2 * K + 1)
+                num_freq_bands=2 * topo_input_size
+                + 1,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
                 sin_only=sine_only,
                 fourier_encode=False,
