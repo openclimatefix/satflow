@@ -22,7 +22,7 @@ logits_dim: null
 queries_dim: 32
 latent_dim_heads: 64
 visualize: False
-use_learnable_query: True
+use_learnable_query: False
 predict_timesteps_together: True
 nwp_modality: True
 topographic_modality: True
