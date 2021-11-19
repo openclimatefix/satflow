@@ -4,7 +4,7 @@ temp_path: "."
 cloud: "local"
 num_workers: 8
 pin_memory: True
-configuration_filename: "nowcasting_dataset/nowcasting_dataset/config/on_premises.yaml"
+configuration: "/home/jacob/nowcasting_dataset/nowcasting_dataset/config/on_premises.yaml"
 history_minutes: 30
 forecast_minutes: 120
 normalize: True
