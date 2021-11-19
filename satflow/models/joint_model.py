@@ -174,7 +174,11 @@ class JointPerceiver(BaseModel):
             if self.predict_hrv_satellite:
                 self.hrv_sat_query = LearnableQuery(
                     channel_dim=queries_dim,
-                    query_shape=(self.forecast_steps, self.hrv_sat_input_size, self.hrv_sat_input_size)
+                    query_shape=(
+                        self.forecast_steps,
+                        self.hrv_sat_input_size,
+                        self.hrv_sat_input_size,
+                    )
                     if predict_timesteps_together
                     else (self.hrv_sat_input_size, self.hrv_sat_input_size),
                     conv_layer="3d",
@@ -377,7 +381,9 @@ class JointPerceiver(BaseModel):
             tensor = tensor.permute(0, 2, 3, 4, 1)  # Channels last
         return tensor
 
-    def predict_satellite_imagery(self, x: dict, query: torch.Tensor, output_size: int) -> torch.Tensor:
+    def predict_satellite_imagery(
+        self, x: dict, query: torch.Tensor, output_size: int
+    ) -> torch.Tensor:
         """
         Run the predictions for satellite imagery, and optionally postprocesses them
 
@@ -447,7 +453,9 @@ class JointPerceiver(BaseModel):
             losses.append(sat_loss)
             frame_loss_dict.update(sat_frame_loss)
         if self.predict_hrv_satellite:
-            hrv_sat_y_hat = self.predict_satellite_imagery(x, hrv_sat_query, self.hrv_sat_input_size)
+            hrv_sat_y_hat = self.predict_satellite_imagery(
+                x, hrv_sat_query, self.hrv_sat_input_size
+            )
             # HRV Satellite losses
             hrv_sat_loss, sat_frame_loss = self.compute_per_timestep_loss(
                 predictions=hrv_sat_y_hat, y=y, key="hrv_sat", is_training=is_training
