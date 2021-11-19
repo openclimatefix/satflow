@@ -355,7 +355,7 @@ class JointPerceiver(BaseModel):
             print(x[key].shape)
         for key in [TOPOGRAPHIC_DATA]:
             print(x[key].shape)
-            #x[key] = x[key].permute(0,2,3,1) # Channels last
+            # x[key] = x[key].permute(0,2,3,1) # Channels last
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
