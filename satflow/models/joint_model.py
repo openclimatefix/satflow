@@ -234,7 +234,7 @@ class JointPerceiver(BaseModel):
             # Timeseries input
             sat_modality = InputModality(
                 name=SATELLITE_DATA,
-                input_channels=video_input_channels,
+                input_channels=103,
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * sat_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
@@ -246,7 +246,7 @@ class JointPerceiver(BaseModel):
         if hrv_sat_modality:
             hrv_sat_modality = InputModality(
                 name=HRV_KEY,
-                input_channels=video_input_channels,
+                input_channels=93,
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * hrv_sat_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
@@ -525,7 +525,7 @@ class JointPerceiver(BaseModel):
         return gsp_query, sat_query, hrv_sat_query
 
     def forward(self, x, mask=None, query=None):
-        for key in [SATELLITE_DATA, PV_YIELD, HRV_KEY, TOPOGRAPHIC_DATA, GSP_ID, PV_SYSTEM_ID]:
+        for key in [SATELLITE_DATA, PV_YIELD, HRV_KEY, TOPOGRAPHIC_DATA, GSP_ID, PV_SYSTEM_ID, NWP_DATA]:
             print(key)
             print(x[key].shape)
         return self.model.forward(x, mask=mask, queries=query)
