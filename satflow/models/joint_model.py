@@ -348,7 +348,10 @@ class JointPerceiver(BaseModel):
         for key in [SATELLITE_DATA, HRV_KEY, NWP_DATA, TOPOGRAPHIC_DATA]:
             if len(x.get(key, [])) > 0:
                 x[key] = self.run_preprocessor(x[key])
-
+        for key in [GSP_ID]:
+            print(x[key].shape)
+            x[key] = torch.unsqueeze(x[key], dim=1)
+            print(x[key].shape)
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -363,7 +366,7 @@ class JointPerceiver(BaseModel):
         """
         if self.preprocessor is not None:
             tensor = self.preprocessor(tensor)
-            tensor = tensor.permute(0, 2, 3, 4, 1)  # Channels last
+        tensor = tensor.permute(0, 2, 3, 4, 1)  # Channels last
         return tensor
 
     def predict_satellite_imagery(
