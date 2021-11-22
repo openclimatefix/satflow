@@ -429,14 +429,15 @@ class JointPerceiver(BaseModel):
         return y_hat
 
     def compute_per_timestep_loss(
-        self, predictions, y, key: str, is_training: bool
+        self, predictions: torch.Tensor, targets: torch.Tensor, key: str, is_training: bool
     ) -> Tuple[torch.Tensor, dict]:
         """
         Computes the per timestep loss for predicted imagery
+
         Args:
-            predictions:
-            y:
-            is_training:
+            predictions: Predictions Tensor
+            targets: Ground truth Tensor
+            is_training: Key for saving the loss
 
         Returns:
             Dictionary of the loss for the per-timestep and the overall loss
@@ -448,7 +449,7 @@ class JointPerceiver(BaseModel):
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
             frame_loss = self.criterion(
-                predictions[:, f, :, :, :], y[SATELLITE_DATA][:, f, :, :, :]
+                predictions[:, f, :, :, :], targets[:, f, :, :, :]
             ).item()
             frame_loss_dict[
                 f"{'train' if is_training else 'val'}/{key}_timestep_{f}_loss"
@@ -487,7 +488,7 @@ class JointPerceiver(BaseModel):
             sat_y_hat = self.predict_satellite_imagery(x, sat_query, self.sat_input_size)
             # Satellite losses
             sat_loss, sat_frame_loss = self.compute_per_timestep_loss(
-                predictions=sat_y_hat, y=y, key="sat", is_training=is_training
+                predictions=sat_y_hat, targets=y[SATELLITE_DATA], key="sat", is_training=is_training
             )
             losses.append(sat_loss)
             frame_loss_dict.update(sat_frame_loss)
@@ -497,7 +498,7 @@ class JointPerceiver(BaseModel):
             )
             # HRV Satellite losses
             hrv_sat_loss, sat_frame_loss = self.compute_per_timestep_loss(
-                predictions=hrv_sat_y_hat, y=y, key="hrv_sat", is_training=is_training
+                predictions=hrv_sat_y_hat, targets=y[HRV_KEY], key="hrv_sat", is_training=is_training
             )
             losses.append(hrv_sat_loss)
             frame_loss_dict.update(sat_frame_loss)
@@ -505,6 +506,7 @@ class JointPerceiver(BaseModel):
         gsp_y_hat = self(x, query=gsp_query)
         # GSP Loss
         # Final linear layer from query shape down to GSP shape?
+        print(f"Query: {gsp_query.shape} Output: {gsp_y_hat.shape}")
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
         # TODO Remove nan to num when fixed
