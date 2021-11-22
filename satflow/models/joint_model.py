@@ -340,7 +340,7 @@ class JointPerceiver(BaseModel):
         )
 
         self.model = self.model.double()
-        self.gsp_linear = torch.nn.Linear(368*288, 6).double()  # TODO Change hardcoded values
+        self.gsp_linear = torch.nn.Linear(368 * 288, 6).double()  # TODO Change hardcoded values
         if postprocessor_type is not None:
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
                 raise ValueError("Invalid postprocessor_type!")
@@ -487,7 +487,7 @@ class JointPerceiver(BaseModel):
         print(gsp_query.shape)
         # Final linear layer from query shape down to GSP shape?
         print(f"Y Hat: {gsp_y_hat.shape}")
-        gsp_y_hat = einops.rearrange(gsp_y_hat, 'b c t -> b (c t)')
+        gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
         print(f"Y Hat After Linear: {gsp_y_hat.shape}")
         print(y[GSP_YIELD].shape)
