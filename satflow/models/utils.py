@@ -1,6 +1,7 @@
-import torch
 import einops
 import numpy as np
+import torch
+
 from satflow.models.layers import CoordConv
 
 

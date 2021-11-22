@@ -1,12 +1,14 @@
+from collections import OrderedDict
+
+import numpy as np
+import pytorch_lightning as pl
 import torch
 import torchvision
-import numpy as np
-from collections import OrderedDict
-from torch.optim import lr_scheduler
-import pytorch_lightning as pl
 from nowcasting_utils.models.base import register_model
-from satflow.models.gan.discriminators import define_discriminator, GANLoss
+from torch.optim import lr_scheduler
+
 from satflow.models.gan import define_generator
+from satflow.models.gan.discriminators import GANLoss, define_discriminator
 
 
 @register_model

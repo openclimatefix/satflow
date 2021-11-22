@@ -1,9 +1,10 @@
 import cv2
-from satflow.data.datasets import OpticalFlowDataset, SatFlowDataset
+import numpy as np
+import torch.nn.functional as F
 import webdataset as wds
 import yaml
-import torch.nn.functional as F
-import numpy as np
+
+from satflow.data.datasets import OpticalFlowDataset, SatFlowDataset
 
 
 def load_config(config_file):

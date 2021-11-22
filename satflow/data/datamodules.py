@@ -1,25 +1,26 @@
+import logging
 import os
-from nowcasting_dataset.dataset.datasets import worker_init_fn
+from typing import List, Optional, Tuple, Union
+
+import torch
 from nowcasting_dataset.config.load import load_yaml_configuration
-from satflow.data.datasets import SatFlowDataset
-from typing import Union, List, Tuple, Optional
 from nowcasting_dataset.consts import (
+    DATETIME_FEATURE_NAMES,
+    NWP_DATA,
+    NWP_X_COORDS,
+    NWP_Y_COORDS,
     SATELLITE_DATA,
+    SATELLITE_DATETIME_INDEX,
     SATELLITE_X_COORDS,
     SATELLITE_Y_COORDS,
-    SATELLITE_DATETIME_INDEX,
-    NWP_DATA,
-    NWP_Y_COORDS,
-    NWP_X_COORDS,
-    DATETIME_FEATURE_NAMES,
     TOPOGRAPHIC_DATA,
     TOPOGRAPHIC_X_COORDS,
     TOPOGRAPHIC_Y_COORDS,
 )
-import logging
-import torch
+from nowcasting_dataset.dataset.datasets import worker_init_fn
 from pytorch_lightning import LightningDataModule
 
+from satflow.data.datasets import SatFlowDataset
 
 _LOG = logging.getLogger(__name__)
 _LOG.setLevel(logging.DEBUG)
