@@ -489,7 +489,7 @@ class JointPerceiver(BaseModel):
         # Final linear layer from query shape down to GSP shape?
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
-        y[GSP_YIELD] = torch.nan_to_num(y[GSP_YIELD][:, :, 0].double(), neginf = 0.0, posinf = 0.0)
+        y[GSP_YIELD] = torch.nan_to_num(y[GSP_YIELD][:, :, 0].double(), neginf=0.0, posinf=0.0)
         loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
         for f in range(gsp_y_hat.shape[1]):
