@@ -6,7 +6,7 @@ defaults:
   - model: joint_perceiver.yaml
   - datamodule: local.yaml
   - callbacks: default.yaml # set this to null if you don't want to use callbacks
-  - logger: neptune.yaml # set logger here or use command line (e.g. `python run.py logger=wandb`)
+  - logger: null # set logger here or use command line (e.g. `python run.py logger=wandb`)
 
   - experiment: null
   - hparams_search: null
