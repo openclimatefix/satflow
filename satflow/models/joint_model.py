@@ -40,6 +40,7 @@ class JointPerceiver(BaseModel):
         nwp_channels: int = 10,
         base_channels: int = 1,
         forecast_steps: int = 48,
+        gsp_forecast_steps: int = 12,
         sat_input_size: int = 24,
         hrv_sat_input_size: int = 64,
         nwp_input_size: int = 64,
@@ -78,6 +79,7 @@ class JointPerceiver(BaseModel):
         pv_modality: bool = False,
         predict_satellite: bool = False,
         predict_hrv_satellite: bool = False,
+            number_fourier_bands: int = 16,
     ):
         """
         Joint Satellite Image + GSP PV Output prediction model
@@ -88,6 +90,7 @@ class JointPerceiver(BaseModel):
             nwp_channels: Number of NWP channels
             base_channels: Number of channels in the base map (i.e. Topographic data)
             forecast_steps: Number of satellite forecast steps
+            gsp_forecast_steps: Number of forecast steps for GSPs
             sat_input_size: Input size in pixels for satellite/NWP/Basemap images
             lr: Learning rate
             visualize: Whether to visualize the output
@@ -120,6 +123,7 @@ class JointPerceiver(BaseModel):
             pv_modality: Whether to use PV data
             predict_satellite: Whether to predict non-HRV satellite imagery
             predict_hrv_satellite: Whether to predict HRV satellite imagery
+            number_fourier_bands: Number of Fourier bands given to the dataloader for the inputs
         """
         super(BaseModel, self).__init__()
         self.forecast_steps = forecast_steps
@@ -144,6 +148,7 @@ class JointPerceiver(BaseModel):
         self.hrv_sat_modality = hrv_sat_modality
         self.predict_satellite = predict_satellite
         self.predict_hrv_satellite = predict_hrv_satellite
+        self.gsp_forecast_steps = gsp_forecast_steps
 
         if use_learnable_query:
             self.gsp_query = LearnableQuery(
@@ -340,8 +345,7 @@ class JointPerceiver(BaseModel):
         )
 
         self.model = self.model.double()
-        self.gsp_linear = torch.nn.Linear(368 * 288, 6)  # TODO Change hardcoded values
-        self.gsp_linear = self.gsp_linear.double()
+        self.gsp_linear = torch.nn.LazyLinear(self.gsp_forecast_steps).double()
         if postprocessor_type is not None:
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
                 raise ValueError("Invalid postprocessor_type!")
@@ -362,10 +366,10 @@ class JointPerceiver(BaseModel):
             x[key] = torch.unsqueeze(x[key], dim=2)
         for key in [TOPOGRAPHIC_DATA]:
             x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
-            # x[key] = x[key].permute(0,2,3,1) # Channels last
         x = self.remove_non_modalities(x)
         for key in x.keys():
-            x[key] = torch.nan_to_num(x[key], posinf=0.0, neginf=0.0)
+            # TODO Remove when data is fixed
+            x[key] = torch.nan_to_num(x[key])
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -489,7 +493,8 @@ class JointPerceiver(BaseModel):
         # Final linear layer from query shape down to GSP shape?
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
-        y[GSP_YIELD] = torch.nan_to_num(y[GSP_YIELD][:, :, 0].double(), neginf=0.0, posinf=0.0)
+        # TODO Remove nan to num when fixed
+        y[GSP_YIELD] = torch.nan_to_num(y[GSP_YIELD][:, :, 0].double())
         loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
         for f in range(gsp_y_hat.shape[1]):
