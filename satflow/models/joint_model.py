@@ -485,6 +485,7 @@ class JointPerceiver(BaseModel):
         # GSP Loss
         print(gsp_query.shape)
         print(y[GSP_YIELD].shape)
+        print(y[GSP_ID].shape)
         loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
         for f in range(self.forecast_gsp_steps):
