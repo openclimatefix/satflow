@@ -580,6 +580,7 @@ class JointPerceiver(BaseModel):
             gsp_query = self.gsp_query(x[GSP_ID], gsp_query)
         else:
             # concat to channels of data and flatten axis
+            print(f"GSP Query Pre-Change: {gsp_query.shape}")
             gsp_query = einops.rearrange(gsp_query, "b ... d -> b (...) d")
         return gsp_query, sat_query, hrv_sat_query
 
