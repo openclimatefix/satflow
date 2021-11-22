@@ -364,6 +364,8 @@ class JointPerceiver(BaseModel):
             x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
             # x[key] = x[key].permute(0,2,3,1) # Channels last
         x = self.remove_non_modalities(x)
+        for key in x.keys():
+            x[key] = torch.nan_to_num(x[key], posinf = 0.0, neginf = 0.0)
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -492,10 +494,11 @@ class JointPerceiver(BaseModel):
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
         print(f"Y Hat After Linear: {gsp_y_hat.shape}")
         print(f"Change output: {y[GSP_YIELD][:,:,0].shape}")
-        loss = self.gsp_criterion(y[GSP_YIELD][:, :, 0].double(), gsp_y_hat)
+        y[GSP_YIELD] = torch.nan_to_num(y[GSP_YIELD][:, :, 0].double(), neginf = 0.0, posinf = 0.0)
+        loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
         for f in range(gsp_y_hat.shape[1]):
-            frame_loss = self.gsp_criterion(gsp_y_hat[:, f], y[GSP_YIELD][:, f, 0].double()).item()
+            frame_loss = self.gsp_criterion(gsp_y_hat[:, f], y[GSP_YIELD][:, f]).item()
             frame_loss_dict[
                 f"{'train' if is_training else 'val'}/gsp_timestep_{f}_loss"
             ] = frame_loss
