@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
+import einops
 import torch
 import torch_optimizer as optim
 from einops import rearrange, repeat
@@ -23,7 +24,6 @@ from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.modalities import InputModality
 from perceiver_pytorch.queries import LearnableQuery
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
-import einops
 
 logger = logging.getLogger("satflow.model")
 logger.setLevel(logging.WARN)
