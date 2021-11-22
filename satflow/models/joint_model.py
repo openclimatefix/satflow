@@ -444,7 +444,7 @@ class JointPerceiver(BaseModel):
         """
 
         # Satellite Loss
-        loss = self.criterion(y[SATELLITE_DATA], predictions)
+        loss = self.criterion(targets, predictions)
         self.log_dict({f"{'train' if is_training else 'val'}/{key}_loss": loss})
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
