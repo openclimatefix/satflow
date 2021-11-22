@@ -365,7 +365,7 @@ class JointPerceiver(BaseModel):
             # x[key] = x[key].permute(0,2,3,1) # Channels last
         x = self.remove_non_modalities(x)
         for key in x.keys():
-            x[key] = torch.nan_to_num(x[key], posinf = 0.0, neginf = 0.0)
+            x[key] = torch.nan_to_num(x[key], posinf=0.0, neginf=0.0)
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
