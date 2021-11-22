@@ -79,7 +79,7 @@ class JointPerceiver(BaseModel):
         pv_modality: bool = False,
         predict_satellite: bool = False,
         predict_hrv_satellite: bool = False,
-            number_fourier_bands: int = 16,
+        number_fourier_bands: int = 16,
     ):
         """
         Joint Satellite Image + GSP PV Output prediction model
@@ -345,7 +345,7 @@ class JointPerceiver(BaseModel):
         )
 
         self.model = self.model.double()
-        self.gsp_linear = torch.nn.Linear(368*288, self.gsp_forecast_steps).double()
+        self.gsp_linear = torch.nn.Linear(368 * 288, self.gsp_forecast_steps).double()
         if postprocessor_type is not None:
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
                 raise ValueError("Invalid postprocessor_type!")
