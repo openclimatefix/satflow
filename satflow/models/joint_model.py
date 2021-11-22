@@ -486,14 +486,9 @@ class JointPerceiver(BaseModel):
 
         gsp_y_hat = self(x, query=gsp_query)
         # GSP Loss
-        print("Final outputs")
-        print(gsp_query.shape)
         # Final linear layer from query shape down to GSP shape?
-        print(f"Y Hat: {gsp_y_hat.shape}")
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
-        print(f"Y Hat After Linear: {gsp_y_hat.shape}")
-        print(f"Change output: {y[GSP_YIELD][:,:,0].shape}")
         y[GSP_YIELD] = torch.nan_to_num(y[GSP_YIELD][:, :, 0].double(), neginf = 0.0, posinf = 0.0)
         loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
@@ -564,7 +559,6 @@ class JointPerceiver(BaseModel):
         else:
             # concat to channels of data and flatten axis
             gsp_query = einops.rearrange(gsp_query, "b ... d -> b (...) d")
-        print(f"GSP Query: {gsp_query.shape}")
         return gsp_query, sat_query, hrv_sat_query
 
     def forward(self, x, mask=None, query=None):
