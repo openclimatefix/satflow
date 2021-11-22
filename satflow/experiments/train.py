@@ -66,6 +66,7 @@ def train(config: DictConfig) -> Optional[float]:
         config.trainer,
         callbacks=callbacks,
         logger=logger,
+        gpus=[1]
     )
 
     # Send some parameters from config to all lightning loggers
