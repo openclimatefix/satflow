@@ -554,7 +554,7 @@ class JointPerceiver(BaseModel):
         else:
             # concat to channels of data and flatten axis
             gsp_query = einops.rearrange(gsp_query, "b ... d -> b (...) d")
-        print(f"GSP Query: {gsp_query}")
+        print(f"GSP Query: {gsp_query.shape}")
         return gsp_query, sat_query, hrv_sat_query
 
     def forward(self, x, mask=None, query=None):
