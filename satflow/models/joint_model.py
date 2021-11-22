@@ -23,6 +23,7 @@ from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.modalities import InputModality
 from perceiver_pytorch.queries import LearnableQuery
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+import einops
 
 logger = logging.getLogger("satflow.model")
 logger.setLevel(logging.WARN)
@@ -531,17 +532,26 @@ class JointPerceiver(BaseModel):
             sat_query = x[SATELLITE_DATA + "_query"]
             if self.use_learnable_query:
                 sat_query = self.sat_query(x[SATELLITE_DATA], sat_query)
+            else:
+                # concat to channels of data and flatten axis
+                sat_query = einops.rearrange(sat_query, "b ... d -> b (...) d")
         else:
             sat_query = None
         if self.predict_hrv_satellite:
             hrv_sat_query = x[HRV_KEY + "_query"]
             if self.use_learnable_query:
                 hrv_sat_query = self.hrv_sat_query(x[HRV_KEY], hrv_sat_query)
+            else:
+                # concat to channels of data and flatten axis
+                hrv_sat_query = einops.rearrange(hrv_sat_query, "b ... d -> b (...) d")
         else:
             hrv_sat_query = None
         gsp_query = x[GSP_YIELD + "_query"]
         if self.use_learnable_query:
             gsp_query = self.gsp_query(x[GSP_ID], gsp_query)
+        else:
+            # concat to channels of data and flatten axis
+            gsp_query = einops.rearrange(gsp_query, "b ... d -> b (...) d")
         return gsp_query, sat_query, hrv_sat_query
 
     def forward(self, x, mask=None, query=None):
