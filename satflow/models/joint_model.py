@@ -240,7 +240,7 @@ class JointPerceiver(BaseModel):
             # Timeseries input
             sat_modality = InputModality(
                 name=SATELLITE_DATA,
-                input_channels=103 (number_fourier_bands * 4 + 2 + 13 + 13 + 25),
+                input_channels=number_fourier_bands * 4 + 2 + 13 + 13 + 11, # Spatial features + Datetime + Datetime + 11 Sat channels
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * sat_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
@@ -252,7 +252,7 @@ class JointPerceiver(BaseModel):
         if hrv_sat_modality:
             hrv_sat_modality = InputModality(
                 name=HRV_KEY,
-                input_channels=93,
+                input_channels=number_fourier_bands * 4 + 2 + 13 + 13 + 1,# Spatial features + Datetime + Datetime + 1 HRVChannel
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * hrv_sat_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
@@ -265,7 +265,7 @@ class JointPerceiver(BaseModel):
         if nwp_modality:
             nwp_modality = InputModality(
                 name=NWP_DATA,
-                input_channels=102,
+                input_channels=number_fourier_bands * 4 + 2 + 13 + 13 + 10, # Spatial features + Datetime + Datetime + 10 NWP channels,
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * nwp_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
@@ -279,7 +279,7 @@ class JointPerceiver(BaseModel):
             # Use image modality for latlon, elevation, other base data?
             image_modality = InputModality(
                 name=TOPOGRAPHIC_DATA,
-                input_channels=67,
+                input_channels=number_fourier_bands * 4 + 2 + 1, # Spatial features + 1 Topo channel
                 input_axis=2,  # number of axes, 2 for images
                 num_freq_bands=2 * topo_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
