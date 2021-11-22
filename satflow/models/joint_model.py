@@ -340,7 +340,7 @@ class JointPerceiver(BaseModel):
         )
 
         self.model = self.model.double()
-        self.gsp_linear = torch.nn.Linear(368, 6).double() # TODO Change hardcoded values
+        self.gsp_linear = torch.nn.Linear(368, 6).double()  # TODO Change hardcoded values
         if postprocessor_type is not None:
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
                 raise ValueError("Invalid postprocessor_type!")
