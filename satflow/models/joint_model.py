@@ -552,10 +552,10 @@ class JointPerceiver(BaseModel):
         Constructs teh queries for the output
 
         Args:
-            x:
+            x: Model inputs
 
         Returns:
-
+            The queries for the output of the perceiver model
         """
         if self.predict_satellite:
             sat_query = x[SATELLITE_DATA + "_query"]
