@@ -340,7 +340,8 @@ class JointPerceiver(BaseModel):
         )
 
         self.model = self.model.double()
-        self.gsp_linear = torch.nn.Linear(368 * 288, 6).double()  # TODO Change hardcoded values
+        self.gsp_linear = torch.nn.Linear(368 * 288, 6)  # TODO Change hardcoded values
+        self.gsp_linear = self.gsp_linear.double()
         if postprocessor_type is not None:
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
                 raise ValueError("Invalid postprocessor_type!")
@@ -490,14 +491,11 @@ class JointPerceiver(BaseModel):
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
         print(f"Y Hat After Linear: {gsp_y_hat.shape}")
-        print(y[GSP_YIELD].shape)
         print(f"Change output: {y[GSP_YIELD][:,:,0].shape}")
-        print(y[GSP_ID].shape)
-        print(y[GSP_ID])
-        loss = self.gsp_criterion(y[GSP_YIELD][:, :, 0], gsp_y_hat)
+        loss = self.gsp_criterion(y[GSP_YIELD][:, :, 0].double(), gsp_y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
         for f in range(gsp_y_hat.shape[1]):
-            frame_loss = self.gsp_criterion(gsp_y_hat[:, f], y[GSP_YIELD][:, f, 0]).item()
+            frame_loss = self.gsp_criterion(gsp_y_hat[:, f], y[GSP_YIELD][:, f, 0].double()).item()
             frame_loss_dict[
                 f"{'train' if is_training else 'val'}/gsp_timestep_{f}_loss"
             ] = frame_loss
