@@ -448,9 +448,7 @@ class JointPerceiver(BaseModel):
         self.log_dict({f"{'train' if is_training else 'val'}/{key}_loss": loss})
         frame_loss_dict = {}
         for f in range(self.forecast_steps):
-            frame_loss = self.criterion(
-                predictions[:, f, :, :, :], targets[:, f, :, :, :]
-            ).item()
+            frame_loss = self.criterion(predictions[:, f, :, :, :], targets[:, f, :, :, :]).item()
             frame_loss_dict[
                 f"{'train' if is_training else 'val'}/{key}_timestep_{f}_loss"
             ] = frame_loss
@@ -498,7 +496,10 @@ class JointPerceiver(BaseModel):
             )
             # HRV Satellite losses
             hrv_sat_loss, sat_frame_loss = self.compute_per_timestep_loss(
-                predictions=hrv_sat_y_hat, targets=y[HRV_KEY], key="hrv_sat", is_training=is_training
+                predictions=hrv_sat_y_hat,
+                targets=y[HRV_KEY],
+                key="hrv_sat",
+                is_training=is_training,
             )
             losses.append(hrv_sat_loss)
             frame_loss_dict.update(sat_frame_loss)
