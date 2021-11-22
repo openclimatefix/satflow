@@ -483,8 +483,10 @@ class JointPerceiver(BaseModel):
 
         gsp_y_hat = self(x, query=gsp_query)
         # GSP Loss
+        print("Final outputs")
         print(gsp_query.shape)
         print(y[GSP_YIELD].shape)
+        print(f"Change output: {y[GSP_YIELD][:,:,0].shape}")
         print(y[GSP_ID].shape)
         print(y[GSP_ID])
         loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
