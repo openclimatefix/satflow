@@ -496,7 +496,7 @@ class JointPerceiver(BaseModel):
         print(y[GSP_ID])
         loss = self.gsp_criterion(y[GSP_YIELD][:,:,0], gsp_y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
-        for f in range(self.forecast_gsp_steps):
+        for f in range(gsp_y_hat.shape[1]):
             frame_loss = self.gsp_criterion(gsp_y_hat[:, f], y[GSP_YIELD][:, f, 0]).item()
             frame_loss_dict[
                 f"{'train' if is_training else 'val'}/gsp_timestep_{f}_loss"
