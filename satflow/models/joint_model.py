@@ -522,6 +522,7 @@ class JointPerceiver(BaseModel):
         self.log_dict(frame_loss_dict)
         for sat_loss in losses:
             loss += sat_loss
+        self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
         return loss
 
     def configure_optimizers(self):
