@@ -1,11 +1,13 @@
+from typing import Union
+
 import antialiased_cnns
-from satflow.models.layers.RUnetLayers import *
+import numpy as np
 import pytorch_lightning as pl
 import torchvision
-from typing import Union
 from nowcasting_utils.models.base import register_model
 from nowcasting_utils.models.loss import get_loss
-import numpy as np
+
+from satflow.models.layers.RUnetLayers import *
 
 
 @register_model

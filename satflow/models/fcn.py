@@ -1,11 +1,12 @@
+from typing import Union
+
+import numpy as np
+import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-import pytorch_lightning as pl
 from nowcasting_utils.models.base import register_model
-from torchvision.models.segmentation import fcn_resnet50, fcn_resnet101
-import numpy as np
-from typing import Union
 from nowcasting_utils.models.losses.FocalLoss import FocalLoss
+from torchvision.models.segmentation import fcn_resnet50, fcn_resnet101
 
 
 @register_model

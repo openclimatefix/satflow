@@ -1,20 +1,19 @@
-from typing import Tuple, Union, List, Optional
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
-
-from nowcasting_dataset.dataset.datasets import NetCDFDataset
 from nowcasting_dataset.config.model import Configuration
 from nowcasting_dataset.consts import (
+    DATETIME_FEATURE_NAMES,
+    NWP_DATA,
+    NWP_X_COORDS,
+    NWP_Y_COORDS,
     SATELLITE_DATA,
+    SATELLITE_DATETIME_INDEX,
     SATELLITE_X_COORDS,
     SATELLITE_Y_COORDS,
-    SATELLITE_DATETIME_INDEX,
-    NWP_DATA,
-    NWP_Y_COORDS,
-    NWP_X_COORDS,
     TOPOGRAPHIC_DATA,
-    DATETIME_FEATURE_NAMES,
 )
+from nowcasting_dataset.dataset.datasets import NetCDFDataset
 
 
 class SatFlowDataset(NetCDFDataset):

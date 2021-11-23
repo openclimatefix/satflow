@@ -1,11 +1,12 @@
-import torch
-import pytorch_lightning as pl
-from nowcasting_utils.models.base import register_model
-from pl_bolts.models.vision import UNet
-import numpy as np
 from typing import Union
+
+import numpy as np
+import pytorch_lightning as pl
+import torch
 import torchvision
+from nowcasting_utils.models.base import register_model
 from nowcasting_utils.models.loss import get_loss
+from pl_bolts.models.vision import UNet
 
 
 @register_model

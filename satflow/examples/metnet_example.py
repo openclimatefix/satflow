@@ -1,6 +1,8 @@
-from satflow.models import LitMetNet
-import torch
 import urllib.request
+
+import torch
+
+from satflow.models import LitMetNet
 
 
 def get_input_target(number: int):

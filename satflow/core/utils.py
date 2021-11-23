@@ -1,8 +1,8 @@
 import logging
 import typing as Dict
-from nowcasting_dataset.config.load import load_yaml_configuration
 
 import yaml
+from nowcasting_dataset.config.load import load_yaml_configuration
 
 
 def load_config(file_path: str) -> Dict:
