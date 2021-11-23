@@ -507,7 +507,6 @@ class JointPerceiver(BaseModel):
         gsp_y_hat = self(x, query=gsp_query)
         # GSP Loss
         # Final linear layer from query shape down to GSP shape?
-        print(f"Query: {gsp_query.shape} Output: {gsp_y_hat.shape} Target: {y[GSP_YIELD].shape}")
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
         # TODO Remove nan to num when fixed
@@ -580,7 +579,6 @@ class JointPerceiver(BaseModel):
             gsp_query = self.gsp_query(x[GSP_ID], gsp_query)
         else:
             # concat to channels of data and flatten axis
-            print(f"GSP Query Pre-Change: {gsp_query.shape}")
             gsp_query = einops.rearrange(gsp_query, "b ... d -> b (...) d")
         return gsp_query, sat_query, hrv_sat_query
 
