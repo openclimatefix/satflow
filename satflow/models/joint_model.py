@@ -358,8 +358,8 @@ class JointPerceiver(BaseModel):
             decoder_ff=decoder_ff,  # Optional decoder FF
         )
 
-        self.model = self.model.double()
-        self.gsp_linear = torch.nn.Linear(368 * 288, self.gsp_forecast_steps).double()
+        self.model = self.model.float()
+        self.gsp_linear = torch.nn.Linear(368 * 288, self.gsp_forecast_steps).float()
         if postprocessor_type is not None:
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
                 raise ValueError("Invalid postprocessor_type!")
@@ -510,7 +510,7 @@ class JointPerceiver(BaseModel):
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
         # TODO Remove nan to num when fixed
-        y[GSP_YIELD] = torch.nan_to_num(y[GSP_YIELD][:, :, 0].double())
+        y[GSP_YIELD] = torch.nan_to_num(y[GSP_YIELD][:, :, 0].float())
         loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
         for f in range(gsp_y_hat.shape[1]):
@@ -585,5 +585,5 @@ class JointPerceiver(BaseModel):
 
     def forward(self, x, mask=None, query=None):
         for key in self.modalities:
-            x[key.name] = x[key.name].double()
+            x[key.name] = x[key.name].float()
         return self.model.forward(x, mask=mask, queries=query)
