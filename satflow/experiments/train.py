@@ -11,7 +11,6 @@ from pytorch_lightning import (
 )
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import LightningLoggerBase
-from pytorch_lightning.profiler import AdvancedProfiler
 
 from satflow.core import utils
 
@@ -63,8 +62,7 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Init Lightning trainer
     log.info(f"Instantiating trainer <{config.trainer._target_}>")
-    profiler = AdvancedProfiler(dirpath = ".", filename = "joint_model_profile.txt")
-    trainer: Trainer = hydra.utils.instantiate(config.trainer, callbacks=callbacks, logger=logger, gpus=[1], profiler=profiler)
+    trainer: Trainer = hydra.utils.instantiate(config.trainer, callbacks=callbacks, logger=logger, gpus=[1])
 
     # Send some parameters from config to all lightning loggers
     log.info("Logging hyperparameters!")
