@@ -510,7 +510,6 @@ class JointPerceiver(BaseModel):
         # Final linear layer from query shape down to GSP shape?
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
-        # TODO Remove nan to num when fixed
         y[GSP_YIELD] = y[GSP_YIELD][:, :, 0].double()
         loss = self.gsp_criterion(gsp_y_hat, y[GSP_YIELD])
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss, f"{'train' if is_training else 'val'}/gsp_mae": F.l1_loss(gsp_y_hat, y[GSP_YIELD])})
