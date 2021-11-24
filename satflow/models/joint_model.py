@@ -381,7 +381,7 @@ class JointPerceiver(BaseModel):
         for key in [TOPOGRAPHIC_DATA]:
             x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
         x = self.remove_non_modalities(x)
-        for key in x.keys():
+        for key in [PV_SYSTEM_ID, PV_YIELD, GSP_ID]:
             # TODO Remove when data is fixed
             x[key] = torch.nan_to_num(x[key])
         return x
@@ -510,7 +510,7 @@ class JointPerceiver(BaseModel):
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
         # TODO Remove nan to num when fixed
-        y[GSP_YIELD] = torch.nan_to_num(y[GSP_YIELD][:, :, 0].double())
+        y[GSP_YIELD] = y[GSP_YIELD][:, :, 0].double()
         loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
         for f in range(gsp_y_hat.shape[1]):
