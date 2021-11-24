@@ -527,7 +527,25 @@ class JointPerceiver(BaseModel):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        scheduler = LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=10, max_epochs=100)
+        lr_dict = {
+            # REQUIRED: The scheduler instance
+            "scheduler": scheduler,
+            # The unit of the scheduler's step size, could also be 'step'.
+            # 'epoch' updates the scheduler on epoch end whereas 'step'
+            # updates it after a optimizer update.
+            "interval": "step",
+            # How many epochs/steps should pass between calls to
+            # `scheduler.step()`. 1 corresponds to updating the learning
+            # rate after every epoch/step.
+            "frequency": 1,
+            # If using the `LearningRateMonitor` callback to monitor the
+            # learning rate progress, this keyword can be used to specify
+            # a custom logged name
+            "name": None,
+            }
+        return {"optimizer": optimizer, "lr_scheduler": lr_dict}
 
     def construct_query(self, x: dict) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
