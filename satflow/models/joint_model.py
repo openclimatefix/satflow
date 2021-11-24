@@ -382,9 +382,6 @@ class JointPerceiver(BaseModel):
         for key in [TOPOGRAPHIC_DATA]:
             x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
         x = self.remove_non_modalities(x)
-        for key in [PV_SYSTEM_ID, PV_YIELD, GSP_ID]:
-            # TODO Remove when data is fixed
-            x[key] = torch.nan_to_num(x[key])
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
