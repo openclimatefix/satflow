@@ -522,7 +522,6 @@ class JointPerceiver(BaseModel):
             frame_loss_dict[
                 f"{'train' if is_training else 'val'}/gsp_timestep_{f}_mae"
             ] = F.l1_loss(gsp_y_hat[:, f], y[GSP_YIELD][:, f])
-        losses.append(loss)
         self.log_dict(frame_loss_dict)
         for sat_loss in losses:
             loss += sat_loss
