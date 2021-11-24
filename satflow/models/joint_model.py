@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple, Union
 import einops
 import torch
 import torch_optimizer as optim
+import torch.nn.functional as F
 from einops import rearrange, repeat
 from nowcasting_dataset.consts import (
     DEFAULT_N_GSP_PER_EXAMPLE,
@@ -511,13 +512,16 @@ class JointPerceiver(BaseModel):
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
         # TODO Remove nan to num when fixed
         y[GSP_YIELD] = y[GSP_YIELD][:, :, 0].double()
-        loss = self.gsp_criterion(y[GSP_YIELD], gsp_y_hat)
-        self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss})
+        loss = self.gsp_criterion(gsp_y_hat, y[GSP_YIELD])
+        self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss, f"{'train' if is_training else 'val'}/gsp_mae": F.l1_loss(gsp_y_hat, y[GSP_YIELD])})
         for f in range(gsp_y_hat.shape[1]):
             frame_loss = self.gsp_criterion(gsp_y_hat[:, f], y[GSP_YIELD][:, f]).item()
             frame_loss_dict[
                 f"{'train' if is_training else 'val'}/gsp_timestep_{f}_loss"
             ] = frame_loss
+            frame_loss_dict[
+                f"{'train' if is_training else 'val'}/gsp_timestep_{f}_mae"
+            ] = F.l1_loss(gsp_y_hat[:, f], y[GSP_YIELD][:, f])
         losses.append(loss)
         self.log_dict(frame_loss_dict)
         for sat_loss in losses:
