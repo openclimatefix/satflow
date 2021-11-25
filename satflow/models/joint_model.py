@@ -320,8 +320,8 @@ class JointPerceiver(BaseModel):
             # Sort audio for timestep one-hot encode? Or include under other modality?
             pv_modality = InputModality(
                 name=PV_YIELD,
-                input_channels=7,  # number of channels for mono audio
-                input_axis=1,  # number of axes, 2 for images
+                input_channels=93,  # number of channels for mono audio
+                input_axis=2,  # number of axes, 2 for images, or in this case System*timestemp
                 num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
                 sin_only=sine_only,
@@ -384,6 +384,9 @@ class JointPerceiver(BaseModel):
         for key in [TOPOGRAPHIC_DATA]:
             if len(x.get(key, [])) > 0:
                 x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
+        for key in [PV_YIELD]:
+            if len(x.get(key, [])) > 0:
+                x[key] = x[key].permute(0, 2, 3, 1) # Channels last
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
