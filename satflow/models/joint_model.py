@@ -25,6 +25,10 @@ from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.modalities import InputModality
 from perceiver_pytorch.queries import LearnableQuery
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+from nowcasting_utils.visualization.visualization import plot_example
+from nowcasting_dataloader.batch import BatchML
+from nowcasting_utils.visualization.line import plot_batch_results
+import pandas as pd
 
 logger = logging.getLogger("satflow.model")
 logger.setLevel(logging.WARN)
@@ -522,6 +526,34 @@ class JointPerceiver(BaseModel):
                 f"{'train' if is_training else 'val'}/gsp_timestep_{f}_mae"
             ] = F.l1_loss(gsp_y_hat[:, f], y[GSP_YIELD][:, f])
         self.log_dict(frame_loss_dict)
+
+        # Plot output
+        if not is_training:
+            name = f"val/plot/epoch_{self.current_epoch}_{batch_idx}"
+            if batch_idx in [0, 1, 2, 3, 4]:
+
+                # 2. plot summary batch of predictions and results
+                # make x,y data
+                if self.output_variable == 'gsp_yield':
+                    y[GSP_YIELD] = y[GSP_YIELD].cpu().numpy()
+                y_hat = gsp_y_hat.cpu().numpy()
+                # TODO Set actual time
+                time = [
+                    pd.to_datetime(x, unit="s") for x in list(range(y.shape[1]))
+                    ]
+                time_hat = [
+                    pd.to_datetime(x, unit="s")
+                    for x in list(range(y_hat.shape[1]))
+                    ]
+
+                # plot and save to logger
+                fig = plot_batch_results(model_name=self.name, y=y, y_hat=y_hat, x=time, x_hat=time_hat)
+                fig.write_html(f"temp.html")
+                try:
+                    self.logger.experiment[-1].log_artifact(f"temp.html", f"{name}.html")
+                except:
+                    pass
+
         for sat_loss in losses:
             loss += sat_loss
         self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
