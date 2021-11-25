@@ -485,7 +485,7 @@ class JointPerceiver(BaseModel):
         frame_loss_dict = {}
         losses = []
         if self.predict_satellite:
-            sat_y_hat = self.predict_satellite_imagery(x, sat_query, self.sat_input_size)
+            sat_y_hat = self.predict_satellite_imagery(x, sat_query.float(), self.sat_input_size)
             # Satellite losses
             sat_loss, sat_frame_loss = self.compute_per_timestep_loss(
                 predictions=sat_y_hat, targets=y[SATELLITE_DATA], key="sat", is_training=is_training
@@ -494,7 +494,7 @@ class JointPerceiver(BaseModel):
             frame_loss_dict.update(sat_frame_loss)
         if self.predict_hrv_satellite:
             hrv_sat_y_hat = self.predict_satellite_imagery(
-                x, hrv_sat_query, self.hrv_sat_input_size
+                x, hrv_sat_query.float(), self.hrv_sat_input_size
             )
             # HRV Satellite losses
             hrv_sat_loss, sat_frame_loss = self.compute_per_timestep_loss(
@@ -506,7 +506,7 @@ class JointPerceiver(BaseModel):
             losses.append(hrv_sat_loss)
             frame_loss_dict.update(sat_frame_loss)
 
-        gsp_y_hat = self(x, query=gsp_query)
+        gsp_y_hat = self(x, query=gsp_query.float())
         # GSP Loss
         # Final linear layer from query shape down to GSP shape?
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
