@@ -384,9 +384,6 @@ class JointPerceiver(BaseModel):
         for key in [TOPOGRAPHIC_DATA]:
             if len(x.get(key, [])) > 0:
                 x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
-        for key in [PV_SYSTEM_ID]:
-            if len(x.get(key, [])) > 0:
-                x[key] = torch.nan_to_num(x[key])
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -511,7 +508,6 @@ class JointPerceiver(BaseModel):
         # Final linear layer from query shape down to GSP shape?
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
-        y[GSP_YIELD] = y[GSP_YIELD][:, :, 0].float()
         loss = self.gsp_criterion(gsp_y_hat, y[GSP_YIELD])
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss, f"{'train' if is_training else 'val'}/gsp_mae": F.l1_loss(gsp_y_hat, y[GSP_YIELD])})
         for f in range(gsp_y_hat.shape[1]):
