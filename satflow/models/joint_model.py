@@ -359,8 +359,8 @@ class JointPerceiver(BaseModel):
             decoder_ff=decoder_ff,  # Optional decoder FF
         )
 
-        self.model = self.model.double()
-        self.gsp_linear = torch.nn.Linear(368 * 288, self.gsp_forecast_steps).double()
+        self.model = self.model.float()
+        self.gsp_linear = torch.nn.Linear(368 * 288, self.gsp_forecast_steps).float()
         if postprocessor_type is not None:
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
                 raise ValueError("Invalid postprocessor_type!")
@@ -373,17 +373,20 @@ class JointPerceiver(BaseModel):
         self.save_hyperparameters()
 
     def encode_inputs(self, x: dict) -> Dict[str, torch.Tensor]:
+        x = self.remove_non_modalities(x)
         for key in [SATELLITE_DATA, HRV_KEY, NWP_DATA]:
             if len(x.get(key, [])) > 0:
                 x[key] = self.run_preprocessor(x[key])
                 x[key] = x[key].permute(0, 2, 3, 4, 1)  # Channels last
         for key in [GSP_ID, PV_SYSTEM_ID]:
-            x[key] = torch.unsqueeze(x[key], dim=2)
+            if len(x.get(key, [])) > 0:
+                x[key] = torch.unsqueeze(x[key], dim=2)
         for key in [TOPOGRAPHIC_DATA]:
-            x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
-        x = self.remove_non_modalities(x)
-        for key in [PV_YIELD, PV_SYSTEM_ID, GSP_ID]:
-            x[key] = torch.nan_to_num(x[key])
+            if len(x.get(key, [])) > 0:
+                x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
+        for key in [PV_SYSTEM_ID]:
+            if len(x.get(key, [])) > 0:
+                x[key] = torch.nan_to_num(x[key])
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -398,7 +401,6 @@ class JointPerceiver(BaseModel):
         """
         if self.preprocessor is not None:
             tensor = self.preprocessor(tensor)
-            tensor = tensor.permute(0, 2, 3, 4, 1)  # Channels last
         return tensor
 
     def predict_satellite_imagery(
@@ -509,7 +511,7 @@ class JointPerceiver(BaseModel):
         # Final linear layer from query shape down to GSP shape?
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
-        y[GSP_YIELD] = y[GSP_YIELD][:, :, 0].double()
+        y[GSP_YIELD] = y[GSP_YIELD][:, :, 0].float()
         loss = self.gsp_criterion(gsp_y_hat, y[GSP_YIELD])
         self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss, f"{'train' if is_training else 'val'}/gsp_mae": F.l1_loss(gsp_y_hat, y[GSP_YIELD])})
         for f in range(gsp_y_hat.shape[1]):
@@ -585,5 +587,5 @@ class JointPerceiver(BaseModel):
 
     def forward(self, x, mask=None, query=None):
         for key in self.modalities:
-            x[key.name] = x[key.name].double()
+            x[key.name] = x[key.name].float()
         return self.model.forward(x, mask=mask, queries=query)
