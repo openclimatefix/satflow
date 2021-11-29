@@ -11,6 +11,7 @@ from nowcasting_dataset.consts import (
     DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE,
     GSP_ID,
     GSP_YIELD,
+    GSP_DATETIME_INDEX,
     NWP_DATA,
     PV_SYSTEM_ID,
     PV_YIELD,
@@ -576,13 +577,13 @@ class JointPerceiver(BaseModel):
                                           predictions=predictions,
                                           gsp_ids=batch[GSP_ID],
                                           batch_idx=batch_idx,
-                                          t0_datetimes_utc=batch["t0_datetime_UTC"])
+                                          t0_datetimes_utc=batch[GSP_DATETIME_INDEX[:,0]])
 
         # append so in 'validation_epoch_end' the file is saved
         if batch_idx == 0:
             self.results_dfs = []
         self.results_dfs.append(results)
-        
+
         return loss
 
 
