@@ -26,6 +26,7 @@ from perceiver_pytorch.modalities import InputModality
 from perceiver_pytorch.queries import LearnableQuery
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from nowcasting_utils.visualization.visualization import plot_example
+from nowcasting_utils.models.validation import make_validation_results, save_validation_results_to_logger
 from nowcasting_dataloader.batch import BatchML
 from nowcasting_utils.visualization.line import plot_batch_results
 import pandas as pd
@@ -557,7 +558,39 @@ class JointPerceiver(BaseModel):
         for sat_loss in losses:
             loss += sat_loss
         self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
+        if is_training:
+            return loss
+        else:
+            # Return the model outputs as well
+            return loss, gsp_y_hat
+
+    def validation_step(self, batch, batch_idx):
+
+        loss, model_output = self._train_or_validate_step(batch, batch_idx, is_training = False)
+
+        # save validation results
+        predictions = model_output.cpu().numpy()
+        truths = batch[GSP_YIELD].cpu().numpy()
+
+        results = make_validation_results(truths=truths,
+                                          predictions=predictions,
+                                          gsp_ids=batch[GSP_ID],
+                                          batch_idx=batch_idx,
+                                          t0_datetimes_utc=batch["t0_datetime_UTC"])
+
+        # append so in 'validation_epoch_end' the file is saved
+        if batch_idx == 0:
+            self.results_dfs = []
+        self.results_dfs.append(results)
+        
         return loss
+
+
+    def validation_epoch_end(self, outputs):
+        save_validation_results_to_logger(results_dfs=self.results_dfs,
+                                          results_file_name=self.results_file_name,
+                                          current_epoch=self.current_epoch,
+                                          logger=self.logger)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
