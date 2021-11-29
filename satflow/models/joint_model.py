@@ -529,6 +529,7 @@ class JointPerceiver(BaseModel):
         self.log_dict(frame_loss_dict)
 
         # Plot output
+        """
         if not is_training:
             name = f"val/plot/epoch_{self.current_epoch}_{batch_idx}"
             if batch_idx in [0, 1, 2, 3, 4]:
@@ -553,7 +554,7 @@ class JointPerceiver(BaseModel):
                     self.logger.experiment[-1].log_artifact(f"temp.html", f"{name}.html")
                 except:
                     pass
-
+        """
         for sat_loss in losses:
             loss += sat_loss
         self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
