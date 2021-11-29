@@ -574,9 +574,9 @@ class JointPerceiver(BaseModel):
 
         results = make_validation_results(truths_mw=truths,
                                           predictions_mw=predictions,
-                                          gsp_ids=batch[1][GSP_ID],
+                                          gsp_ids=batch[1][GSP_ID].cpu().numpy(),
                                           batch_idx=batch_idx,
-                                          t0_datetimes_utc=batch[1][GSP_DATETIME_INDEX[:,0]])
+                                          t0_datetimes_utc=batch[1][GSP_DATETIME_INDEX][:,0].cpu().numpy())
 
         # append so in 'validation_epoch_end' the file is saved
         if batch_idx == 0:
