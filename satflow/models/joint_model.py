@@ -535,8 +535,7 @@ class JointPerceiver(BaseModel):
 
                 # 2. plot summary batch of predictions and results
                 # make x,y data
-                if self.output_variable == 'gsp_yield':
-                    y[GSP_YIELD] = y[GSP_YIELD].cpu().numpy()
+                y[GSP_YIELD] = y[GSP_YIELD].cpu().numpy()
                 y_hat = gsp_y_hat.cpu().numpy()
                 # TODO Set actual time
                 time = [
@@ -548,7 +547,7 @@ class JointPerceiver(BaseModel):
                     ]
 
                 # plot and save to logger
-                fig = plot_batch_results(model_name=self.name, y=y, y_hat=y_hat, x=time, x_hat=time_hat)
+                fig = plot_batch_results(model_name="joint_model", y=y, y_hat=y_hat, x=time, x_hat=time_hat)
                 fig.write_html(f"temp.html")
                 try:
                     self.logger.experiment[-1].log_artifact(f"temp.html", f"{name}.html")
