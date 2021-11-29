@@ -263,7 +263,7 @@ class JointPerceiver(BaseModel):
         if hrv_sat_modality:
             hrv_sat_modality = InputModality(
                 name=HRV_KEY,
-                input_channels=41,  # Spatial features + Datetime + Datetime + 1 HRVChannel
+                input_channels=37,  # Spatial features + Datetime + Datetime + 1 HRVChannel
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * hrv_sat_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
@@ -322,7 +322,7 @@ class JointPerceiver(BaseModel):
             # Sort audio for timestep one-hot encode? Or include under other modality?
             pv_modality = InputModality(
                 name=PV_YIELD,
-                input_channels=41,  # number of channels for mono audio
+                input_channels=37,  # number of channels for mono audio
                 input_axis=2,  # number of axes, 2 for images, or in this case System*timestemp
                 num_freq_bands=self.forecast_steps,  # number of freq bands, with original value (2 * K + 1)
                 max_freq=max_frequency,  # maximum frequency, hyperparameter depending on how fine the data is
