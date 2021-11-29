@@ -362,7 +362,7 @@ class JointPerceiver(BaseModel):
         )
 
         self.model = self.model.float()
-        self.gsp_linear = torch.nn.Linear(368 * 288, self.gsp_forecast_steps).float()
+        self.gsp_linear = torch.nn.Linear(144 * 288, self.gsp_forecast_steps).float()
         if postprocessor_type is not None:
             if postprocessor_type not in ("conv", "patches", "pixels", "conv1x1"):
                 raise ValueError("Invalid postprocessor_type!")
@@ -376,9 +376,6 @@ class JointPerceiver(BaseModel):
 
     def encode_inputs(self, x: dict) -> Dict[str, torch.Tensor]:
         x = self.remove_non_modalities(x)
-        for key in x.keys():
-            print(key)
-            print(x[key].shape)
         for key in [SATELLITE_DATA, HRV_KEY, NWP_DATA]:
             if len(x.get(key, [])) > 0:
                 x[key] = self.run_preprocessor(x[key])
