@@ -263,11 +263,7 @@ class JointPerceiver(BaseModel):
         if hrv_sat_modality:
             hrv_sat_modality = InputModality(
                 name=HRV_KEY,
-                input_channels=number_fourier_bands * 4
-                + 2
-                + 13
-                + 13
-                + 1,  # Spatial features + Datetime + Datetime + 1 HRVChannel
+                input_channels=41,  # Spatial features + Datetime + Datetime + 1 HRVChannel
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * hrv_sat_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
