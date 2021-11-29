@@ -539,15 +539,15 @@ class JointPerceiver(BaseModel):
                 y_hat = gsp_y_hat.cpu().numpy()
                 # TODO Set actual time
                 time = [
-                    pd.to_datetime(x, unit="s") for x in list(range(y.shape[1]))
+                    pd.to_datetime(t, unit="s") for t in list(range(y[GSP_YIELD].shape[1]))
                     ]
                 time_hat = [
-                    pd.to_datetime(x, unit="s")
-                    for x in list(range(y_hat.shape[1]))
+                    pd.to_datetime(t, unit="s")
+                    for t in list(range(y_hat.shape[1]))
                     ]
 
                 # plot and save to logger
-                fig = plot_batch_results(model_name="joint_model", y=y, y_hat=y_hat, x=time, x_hat=time_hat)
+                fig = plot_batch_results(model_name="joint_model", y=y[GSP_YIELD], y_hat=y_hat, x=time, x_hat=time_hat)
                 fig.write_html(f"temp.html")
                 try:
                     self.logger.experiment[-1].log_artifact(f"temp.html", f"{name}.html")
