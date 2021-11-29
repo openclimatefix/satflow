@@ -27,7 +27,7 @@ from perceiver_pytorch.modalities import InputModality
 from perceiver_pytorch.queries import LearnableQuery
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from nowcasting_utils.visualization.visualization import plot_example
-from nowcasting_utils.models.validation import make_validation_results, save_validation_results_to_logger
+from nowcasting_utils.metrics.validation import make_validation_results, save_validation_results_to_logger
 from nowcasting_dataloader.batch import BatchML
 from nowcasting_utils.visualization.line import plot_batch_results
 import pandas as pd
@@ -384,6 +384,9 @@ class JointPerceiver(BaseModel):
             if len(x.get(key, [])) > 0:
                 x[key] = self.run_preprocessor(x[key])
                 x[key] = x[key].permute(0, 2, 3, 4, 1)  # Channels last
+                if key in [SATELLITE_DATA, HRV_KEY]:
+                    # Subselect the last two frames for simpler OF style
+                    x[key] = x[key][:,-2:]
         for key in [GSP_ID, PV_SYSTEM_ID]:
             if len(x.get(key, [])) > 0:
                 x[key] = torch.unsqueeze(x[key], dim=2)
@@ -573,8 +576,8 @@ class JointPerceiver(BaseModel):
         predictions = model_output.cpu().numpy()
         truths = batch[1][GSP_YIELD].cpu().numpy()
 
-        results = make_validation_results(truths=truths,
-                                          predictions=predictions,
+        results = make_validation_results(truths_mw=truths,
+                                          predictions_mw=predictions,
                                           gsp_ids=batch[1][GSP_ID],
                                           batch_idx=batch_idx,
                                           t0_datetimes_utc=batch[1][GSP_DATETIME_INDEX[:,0]])
@@ -594,25 +597,7 @@ class JointPerceiver(BaseModel):
                                           logger=self.logger)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
-        scheduler = LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=10, max_epochs=100)
-        lr_dict = {
-            # REQUIRED: The scheduler instance
-            "scheduler": scheduler,
-            # The unit of the scheduler's step size, could also be 'step'.
-            # 'epoch' updates the scheduler on epoch end whereas 'step'
-            # updates it after a optimizer update.
-            "interval": "step",
-            # How many epochs/steps should pass between calls to
-            # `scheduler.step()`. 1 corresponds to updating the learning
-            # rate after every epoch/step.
-            "frequency": 1,
-            # If using the `LearningRateMonitor` callback to monitor the
-            # learning rate progress, this keyword can be used to specify
-            # a custom logged name
-            "name": None,
-            }
-        return {"optimizer": optimizer, "lr_scheduler": lr_dict}
+        return torch.optim.AdamW(self.parameters(), lr=self.lr)
 
     def construct_query(self, x: dict) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
