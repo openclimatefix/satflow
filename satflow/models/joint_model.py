@@ -539,11 +539,11 @@ class JointPerceiver(BaseModel):
                 y_hat = gsp_y_hat.cpu().numpy()
                 # TODO Set actual time
                 time = [
-                    pd.to_datetime(t, unit="s") for t in list(range(y[GSP_YIELD].shape[1]))
+                    pd.to_datetime(t, unit="ns") for t in y[GSP_DATETIME_INDEX][:,1:]
                     ]
                 time_hat = [
-                    pd.to_datetime(t, unit="s")
-                    for t in list(range(y_hat.shape[1]))
+                    pd.to_datetime(t, unit="ns")
+                    for t in y[GSP_DATETIME_INDEX][:,1:]
                     ]
 
                 # plot and save to logger
