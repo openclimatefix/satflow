@@ -571,7 +571,7 @@ class JointPerceiver(BaseModel):
         # save validation results
         predictions = model_output.cpu().numpy()
         truths = batch[1][GSP_YIELD].cpu().numpy()
-
+        print(batch[1][GSP_DATETIME_INDEX][:,0])
         results = make_validation_results(truths_mw=truths,
                                           predictions_mw=predictions,
                                           gsp_ids=batch[1][GSP_ID].cpu().numpy(),
