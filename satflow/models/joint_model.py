@@ -376,6 +376,9 @@ class JointPerceiver(BaseModel):
 
     def encode_inputs(self, x: dict) -> Dict[str, torch.Tensor]:
         x = self.remove_non_modalities(x)
+        for key in x.keys():
+            print(key)
+            print(x[key].shape)
         for key in [SATELLITE_DATA, HRV_KEY, NWP_DATA]:
             if len(x.get(key, [])) > 0:
                 x[key] = self.run_preprocessor(x[key])
