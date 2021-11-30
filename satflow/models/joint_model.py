@@ -370,7 +370,7 @@ class JointPerceiver(BaseModel):
                     # Subselect the last two frames for simpler OF style
                     x[key] = x[key][:,:,-2:]
                 # Split out position encoding from data values
-                sat_data = x[key][:,:,:1]
+                sat_data = x[key][:,:1]
                 sat_pos_encoding = x[key][
                                          :,
                                          1:,
@@ -378,9 +378,9 @@ class JointPerceiver(BaseModel):
                                          :: 4,
                                          :: 4,
                                          ]
-                sat_data = self.run_preprocessor(sat_data)
                 print(sat_data.shape)
                 print(sat_pos_encoding.shape)
+                sat_data = self.run_preprocessor(sat_data)
                 x[key] = torch.cat([sat_data, sat_pos_encoding], dim=1)
                 print(x[key].shape)
                 x[key] = x[key].permute(0, 2, 3, 4, 1)  # Channels last
