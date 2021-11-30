@@ -572,11 +572,15 @@ class JointPerceiver(BaseModel):
         predictions = model_output.cpu().numpy()
         truths = batch[1][GSP_YIELD].cpu().numpy()
         print(batch[1][GSP_DATETIME_INDEX][:,0])
+        # TODO Convert to datetimes from seconds
+        t0_times = batch[1][GSP_DATETIME_INDEX][:,0].cpu().numpy()
+        t0_times = pd.to_datetime(t0_times)
         results = make_validation_results(truths_mw=truths,
                                           predictions_mw=predictions,
+                                          capacity_mwp=batch[1]["gsp_capacity"].cpu().numpy(),
                                           gsp_ids=batch[1][GSP_ID].cpu().numpy(),
                                           batch_idx=batch_idx,
-                                          t0_datetimes_utc=batch[1][GSP_DATETIME_INDEX][:,0].cpu().numpy())
+                                          t0_datetimes_utc=t0_times)
 
         # append so in 'validation_epoch_end' the file is saved
         if batch_idx == 0:
