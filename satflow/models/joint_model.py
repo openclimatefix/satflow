@@ -372,6 +372,7 @@ class JointPerceiver(BaseModel):
                 # Split out position encoding from data values
                 x[key] = x[key].permute(0, 2, 1, 3, 4)  # Channels last
                 sat_data = x[key][:,:,:1]
+                print(sat_data.shape)
                 sat_pos_encoding = x[key][
                                          :,
                                          :,
@@ -381,6 +382,7 @@ class JointPerceiver(BaseModel):
                                          ]
                 print(sat_data.shape)
                 print(sat_pos_encoding.shape)
+                print(self.preprocessor)
                 sat_data = self.run_preprocessor(sat_data)
                 x[key] = torch.cat([sat_data, sat_pos_encoding], dim=1)
                 print(x[key].shape)
