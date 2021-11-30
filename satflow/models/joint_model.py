@@ -263,7 +263,7 @@ class JointPerceiver(BaseModel):
         if hrv_sat_modality:
             hrv_sat_modality = InputModality(
                 name=HRV_KEY,
-                input_channels=37,  # Spatial features + Datetime + Datetime + 1 HRVChannel
+                input_channels=36 + 32,  # DAtetime+Spatial ++ 1 HRV and patches 4x4x2 = 32 total
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * hrv_sat_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
@@ -378,11 +378,25 @@ class JointPerceiver(BaseModel):
         x = self.remove_non_modalities(x)
         for key in [SATELLITE_DATA, HRV_KEY, NWP_DATA]:
             if len(x.get(key, [])) > 0:
-                x[key] = self.run_preprocessor(x[key])
-                x[key] = x[key].permute(0, 2, 3, 4, 1)  # Channels last
                 if key in [SATELLITE_DATA, HRV_KEY]:
                     # Subselect the last two frames for simpler OF style
-                    x[key] = x[key][:,-2:]
+                    x[key] = x[key][:,:,-2:]
+                # Split out position encoding from data values
+                sat_data = x[key][:,:,:1]
+                sat_pos_encoding = x[key][
+                                         :,
+                                         1:,
+                                         :: 2,
+                                         :: 4,
+                                         :: 4,
+                                         ]
+                sat_data = self.run_preprocessor(sat_data)
+                print(sat_data.shape)
+                print(sat_pos_encoding.shape)
+                x[key] = torch.cat([sat_data, sat_pos_encoding], dim=1)
+                print(x[key].shape)
+                x[key] = x[key].permute(0, 2, 3, 4, 1)  # Channels last
+
         for key in [GSP_ID, PV_SYSTEM_ID]:
             if len(x.get(key, [])) > 0:
                 x[key] = torch.unsqueeze(x[key], dim=2)
