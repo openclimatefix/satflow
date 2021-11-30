@@ -219,26 +219,14 @@ class JointPerceiver(BaseModel):
                     crop_size=sat_input_size,
                     prep_type="metnet",
                 )
-                video_input_channels = (
-                    8 * sat_channels
-                )  # This is only done on the sat channel inputs
-                nwp_input_channels = 8 * nwp_channels
-                # If doing it on the base map, then need
-                image_input_channels = 4 * base_channels
             else:
                 self.preprocessor = ImageEncoder(
                     input_channels=sat_channels,
                     prep_type=preprocessor_type,
                     **encoder_kwargs,
                 )
-                nwp_input_channels = self.preprocessor.output_channels
-                video_input_channels = self.preprocessor.output_channels
-                image_input_channels = self.preprocessor.output_channels
         else:
             self.preprocessor = None
-            nwp_input_channels = nwp_channels
-            video_input_channels = sat_channels
-            image_input_channels = base_channels
 
         # The preprocessor will change the number of channels in the input
         modalities = []
