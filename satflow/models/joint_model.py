@@ -374,7 +374,7 @@ class JointPerceiver(BaseModel):
                 sat_data = x[key][:,:1]
                 sat_pos_encoding = x[key][
                                          :,
-                                         :: 2,
+                                         :,
                                          1:,
                                          :: 4,
                                          :: 4,
