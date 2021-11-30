@@ -537,8 +537,8 @@ class JointPerceiver(BaseModel):
                 # make x,y data
                 y[GSP_YIELD] = y[GSP_YIELD].cpu().numpy()
                 y_hat = gsp_y_hat.cpu().numpy()
-                time = pd.to_datetime(y[GSP_DATETIME_INDEX][:,1:])
-                time_hat = pd.to_datetime(y[GSP_DATETIME_INDEX][:,1:])
+                time = pd.to_datetime(y[GSP_DATETIME_INDEX][:,1:].cpu().numpy())
+                time_hat = pd.to_datetime(y[GSP_DATETIME_INDEX][:,1:].cpu().numpy())
                 # plot and save to logger
                 fig = plot_batch_results(model_name="joint_model", y=y[GSP_YIELD], y_hat=y_hat, x=time, x_hat=time_hat)
                 fig.write_html(f"temp.html")
