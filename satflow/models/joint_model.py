@@ -369,13 +369,13 @@ class JointPerceiver(BaseModel):
             if len(x.get(key, [])) > 0:
                 if key in [SATELLITE_DATA, HRV_KEY]:
                     # Subselect the last two frames for simpler OF style
-                    x[key] = x[key][:,:,-2:]
+                    x[key] = x[key][:,:,-4:]
                 # Split out position encoding from data values
                 x[key] = x[key].permute(0, 2, 1, 3, 4)  # Channels last
                 sat_data = x[key][:,:,:1]
                 sat_pos_encoding = x[key][
                                          :,
-                                         :1,
+                                         :: 2,
                                          1:,
                                          :: 4,
                                          :: 4,
