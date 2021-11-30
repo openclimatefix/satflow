@@ -529,7 +529,6 @@ class JointPerceiver(BaseModel):
         self.log_dict(frame_loss_dict)
 
         # Plot output
-        """
         if not is_training:
             name = f"val/plot/epoch_{self.current_epoch}_{batch_idx}"
             if batch_idx in [0, 1, 2, 3, 4]:
@@ -538,15 +537,8 @@ class JointPerceiver(BaseModel):
                 # make x,y data
                 y[GSP_YIELD] = y[GSP_YIELD].cpu().numpy()
                 y_hat = gsp_y_hat.cpu().numpy()
-                # TODO Set actual time
-                time = [
-                    pd.to_datetime(t, unit="ns") for t in y[GSP_DATETIME_INDEX][:,1:]
-                    ]
-                time_hat = [
-                    pd.to_datetime(t, unit="ns")
-                    for t in y[GSP_DATETIME_INDEX][:,1:]
-                    ]
-
+                time = pd.to_datetime(y[GSP_DATETIME_INDEX][:,1:])
+                time_hat = pd.to_datetime(y[GSP_DATETIME_INDEX][:,1:])
                 # plot and save to logger
                 fig = plot_batch_results(model_name="joint_model", y=y[GSP_YIELD], y_hat=y_hat, x=time, x_hat=time_hat)
                 fig.write_html(f"temp.html")
@@ -554,7 +546,6 @@ class JointPerceiver(BaseModel):
                     self.logger.experiment[-1].log_artifact(f"temp.html", f"{name}.html")
                 except:
                     pass
-        """
         for sat_loss in losses:
             loss += sat_loss
         self.log_dict({f"{'train' if is_training else 'val'}/loss": loss})
