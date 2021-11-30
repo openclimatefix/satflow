@@ -374,8 +374,8 @@ class JointPerceiver(BaseModel):
                 sat_data = x[key][:,:1]
                 sat_pos_encoding = x[key][
                                          :,
-                                         1:,
                                          :: 2,
+                                         1:,
                                          :: 4,
                                          :: 4,
                                          ]
@@ -384,7 +384,7 @@ class JointPerceiver(BaseModel):
                 sat_data = self.run_preprocessor(sat_data)
                 x[key] = torch.cat([sat_data, sat_pos_encoding], dim=1)
                 print(x[key].shape)
-                x[key] = x[key].permute(0, 2, 3, 4, 1)  # Channels last
+                x[key] = x[key].permute(0, 1, 3, 4, 2)  # Channels last
 
         for key in [GSP_ID, PV_SYSTEM_ID]:
             if len(x.get(key, [])) > 0:
