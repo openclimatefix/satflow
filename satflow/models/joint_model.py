@@ -223,7 +223,8 @@ class JointPerceiver(BaseModel):
                 self.preprocessor = ImageEncoder(
                     input_channels=sat_channels,
                     prep_type=preprocessor_type,
-                    **encoder_kwargs,
+                    temporal_downsample = 2,
+                    spatial_downsample = 4,
                 )
         else:
             self.preprocessor = None
@@ -382,7 +383,6 @@ class JointPerceiver(BaseModel):
                                          ]
                 print(sat_data.shape)
                 print(sat_pos_encoding.shape)
-                print(self.preprocessor)
                 sat_data = self.run_preprocessor(sat_data)
                 x[key] = torch.cat([sat_data, sat_pos_encoding], dim=1)
                 print(x[key].shape)
