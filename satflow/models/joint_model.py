@@ -542,9 +542,9 @@ class JointPerceiver(BaseModel):
                 time = [pd.to_datetime(t) for t in timestamps]
                 # plot and save to logger
                 fig = plot_batch_results(model_name="joint_model", y=y[GSP_YIELD].cpu().numpy(), y_hat=y_hat, x=time, x_hat=time)
-                fig.write_html(f"temp.html")
+                fig.write_html(f"temp_{batch_idx}.html")
                 try:
-                    self.logger.experiment[-1].log_artifact(f"temp.html", f"{name}.html")
+                    self.logger.experiment[-1][name].upload(f"temp_{batch_idx}.html")
                 except:
                     pass
         for sat_loss in losses:
