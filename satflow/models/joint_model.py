@@ -385,7 +385,6 @@ class JointPerceiver(BaseModel):
                     # Split out position encoding from data values
                     x[key] = x[key].permute(0, 2, 1, 3, 4)  # Channels last
                     # NWP has 10 channels in current one
-                    print(x[key].shape)
                     sat_data = x[key][:,:,:self.nwp_channels]
                     sat_pos_encoding = x[key][
                                        :,
@@ -395,7 +394,6 @@ class JointPerceiver(BaseModel):
                                        :: 4,
                                        ]
                     sat_data = self.run_preprocessor(sat_data)
-                    print(sat_data.shape)
                     if self.num_sat_timesteps == 2:
                         sat_data = torch.unsqueeze(sat_data, dim=1)
                     x[key] = torch.cat([sat_data, sat_pos_encoding], dim=2)
