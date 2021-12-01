@@ -264,11 +264,7 @@ class JointPerceiver(BaseModel):
         if nwp_modality:
             nwp_modality = InputModality(
                 name=NWP_DATA,
-                input_channels=number_fourier_bands * 4
-                + 2
-                + 13
-                + 13
-                + 10,  # Spatial features + Datetime + Datetime + 10 NWP channels,
+                input_channels=36 + 320,  # Spatial features + Datetime + Datetime + 10 * patchsize (4x4x2 = 32 * 10 = 320) NWP channels,
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * nwp_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
