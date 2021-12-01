@@ -1,0 +1,14 @@
+_target_: nowcasting_dataloader.datamodules.SatFlowDataModule
+
+temp_path: "."
+cloud: "local"
+num_workers: 4
+pin_memory: True
+configuration: "/home/jacob/data_config.yaml"
+history_minutes: 30
+forecast_minutes: 120
+normalize: True
+add_position_encoding: True
+add_satellite_target: False
+add_hrv_satellite_target: False
+data_sources_names: ["gsp", "pv", "hrvsatellite", "nwp"]
