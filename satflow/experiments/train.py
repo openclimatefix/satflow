@@ -62,7 +62,7 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Init Lightning trainer
     log.info(f"Instantiating trainer <{config.trainer._target_}>")
-    trainer: Trainer = hydra.utils.instantiate(config.trainer, callbacks=callbacks, logger=logger, gpus=[1])
+    trainer: Trainer = hydra.utils.instantiate(config.trainer, callbacks=callbacks, logger=logger)
 
     # Send some parameters from config to all lightning loggers
     log.info("Logging hyperparameters!")
@@ -73,11 +73,17 @@ def train(config: DictConfig) -> Optional[float]:
     )
 
     # Train the model
-    if config.trainer.auto_lr_find or config.trainer.auto_scale_batch_size:
-        log.info("Starting tuning!")
-        trainer.tune(model=model, datamodule=datamodule)
-    log.info("Starting training!")
-    trainer.fit(model=model, datamodule=datamodule)
+    if 'load_model' in config:
+        log.info(config.model)
+        model_config = dict(config.model)
+        model_config.pop('_target_')
+        model = model.load_from_checkpoint(checkpoint_path=config['load_model'], **model_config)
+    else:
+        if config.trainer.auto_lr_find or config.trainer.auto_scale_batch_size:
+            log.info("Starting tuning!")
+            trainer.tune(model=model, datamodule=datamodule)
+        log.info("Starting training!")
+        trainer.fit(model=model, datamodule=datamodule)
 
     # Evaluate model on test set after training
     if not config.trainer.get("fast_dev_run", False):

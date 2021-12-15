@@ -37,3 +37,7 @@ print_config: True
 
 # disable python warnings if they annoy you
 ignore_warnings: True
+
+# load the specific model and only run inference
+load_model: /home/ec2-user/github/satflow/satflow/logs/runs/2021-12-14/10-42-48/checkpoints/best.ckpt
+

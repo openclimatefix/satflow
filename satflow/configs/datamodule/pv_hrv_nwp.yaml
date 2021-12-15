@@ -1,10 +1,10 @@
 _target_: nowcasting_dataloader.datamodules.SatFlowDataModule
 
 temp_path: "."
-cloud: "local"
-num_workers: 4
+cloud: "aws"
+num_workers: 6
 pin_memory: True
-configuration: "/home/jacob/data_config.yaml"
+configuration: "s3://solar-pv-nowcasting-data/prepared_ML_training_data/v16/configuration.yaml"
 history_minutes: 30
 forecast_minutes: 120
 normalize: True

@@ -581,12 +581,21 @@ class JointPerceiver(BaseModel):
 
         return loss
 
-
     def validation_epoch_end(self, outputs):
         save_validation_results_to_logger(results_dfs=self.results_dfs,
                                           results_file_name="prediction_results",
                                           current_epoch=self.current_epoch,
                                           logger=self.logger)
+
+    def test_step(self, batch, batch_idx):
+        self.validation_step(batch=batch,batch_idx=batch_idx)
+
+    def test_epoch_end(self, outputs):
+        save_validation_results_to_logger(results_dfs=self.results_dfs,
+                                          results_file_name="prediction_results_test",
+                                          current_epoch=self.current_epoch,
+                                          logger=self.logger)
+
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.lr)
