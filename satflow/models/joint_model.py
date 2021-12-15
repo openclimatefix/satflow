@@ -358,46 +358,33 @@ class JointPerceiver(BaseModel):
         self.num_sat_timesteps = 2
         self.save_hyperparameters()
 
+    def encode_single_input(self, x: dict, key: str, number_timesteps: int, number_data_channels: int) -> dict:
+        # Subselect the last two frames for simpler OF style
+        x[key] = x[key][:,:,-number_timesteps:]
+        # Split out position encoding from data values
+        x[key] = x[key].permute(0, 2, 1, 3, 4)  # Channels last
+        data = x[key][:,:,:1]
+        pos_encoding = x[key][
+                           :,
+                           :: 2,
+                           number_data_channels:,
+                           :: 4,
+                           :: 4,
+                           ]
+        data = self.run_preprocessor(data)
+        if number_timesteps == 2:
+            data = torch.unsqueeze(data, dim=1)
+        x[key] = torch.cat([data, pos_encoding], dim=2)
+        x[key] = x[key].permute(0, 1, 3, 4, 2)  # Channels last
+        return x
+
     def encode_inputs(self, x: dict) -> Dict[str, torch.Tensor]:
         x = self.remove_non_modalities(x)
         for key in [SATELLITE_DATA, HRV_KEY, NWP_DATA]:
             if len(x.get(key, [])) > 0:
-                if key in [SATELLITE_DATA, HRV_KEY]:
-                    # Subselect the last two frames for simpler OF style
-                    x[key] = x[key][:,:,-self.num_sat_timesteps:]
-                    # Split out position encoding from data values
-                    x[key] = x[key].permute(0, 2, 1, 3, 4)  # Channels last
-                    sat_data = x[key][:,:,:1]
-                    sat_pos_encoding = x[key][
-                                             :,
-                                             :: 2,
-                                             1:,
-                                             :: 4,
-                                             :: 4,
-                                             ]
-                    sat_data = self.run_preprocessor(sat_data)
-                    if self.num_sat_timesteps == 2:
-                        sat_data = torch.unsqueeze(sat_data, dim=1)
-                    x[key] = torch.cat([sat_data, sat_pos_encoding], dim=2)
-                    x[key] = x[key].permute(0, 1, 3, 4, 2)  # Channels last
-                if key in [NWP_DATA]:
-                    x[key] = x[key][:,:,-self.num_sat_timesteps:]
-                    # Split out position encoding from data values
-                    x[key] = x[key].permute(0, 2, 1, 3, 4)  # Channels last
-                    # NWP has 10 channels in current one
-                    sat_data = x[key][:,:,:self.nwp_channels]
-                    sat_pos_encoding = x[key][
-                                       :,
-                                       :: 2,
-                                       self.nwp_channels:,
-                                       :: 4,
-                                       :: 4,
-                                       ]
-                    sat_data = self.run_preprocessor(sat_data)
-                    if self.num_sat_timesteps == 2:
-                        sat_data = torch.unsqueeze(sat_data, dim=1)
-                    x[key] = torch.cat([sat_data, sat_pos_encoding], dim=2)
-                    x[key] = x[key].permute(0, 1, 3, 4, 2)  # Channels last
+                num_sat_channels = 1 if key == HRV_KEY else 11
+                x = self.encode_single_input(x, key, number_timesteps = self.num_sat_timesteps if key in [HRV_KEY, SATELLITE_DATA] else 2,
+                                             number_data_channels = self.nwp_channels if key in [NWP_DATA] else num_sat_channels)
 
         for key in [GSP_ID, PV_SYSTEM_ID]:
             if len(x.get(key, [])) > 0:
