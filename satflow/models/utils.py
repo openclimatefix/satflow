@@ -31,7 +31,7 @@ def reverse_space_to_depth(
             dh=spatial_block_size,
             dw=spatial_block_size,
         )
-    elif len(frames.shape) == 5:
+    if len(frames.shape) == 5:
         return einops.rearrange(
             frames,
             "b t h w (dt dh dw c) -> b (t dt) (h dh) (w dw) c",
@@ -39,11 +39,10 @@ def reverse_space_to_depth(
             dh=spatial_block_size,
             dw=spatial_block_size,
         )
-    else:
-        raise ValueError(
-            "Frames should be of rank 4 (batch, height, width, channels)"
-            " or rank 5 (batch, time, height, width, channels)"
-        )
+    raise ValueError(
+        "Frames should be of rank 4 (batch, height, width, channels)"
+        " or rank 5 (batch, time, height, width, channels)"
+    )
 
 
 def space_to_depth(
@@ -57,7 +56,7 @@ def space_to_depth(
             dh=spatial_block_size,
             dw=spatial_block_size,
         )
-    elif len(frames.shape) == 5:
+    if len(frames.shape) == 5:
         return einops.rearrange(
             frames,
             "b (t dt) (h dh) (w dw) c -> b t h w (dt dh dw c)",
@@ -65,8 +64,7 @@ def space_to_depth(
             dh=spatial_block_size,
             dw=spatial_block_size,
         )
-    else:
-        raise ValueError(
-            "Frames should be of rank 4 (batch, height, width, channels)"
-            " or rank 5 (batch, time, height, width, channels)"
-        )
+    raise ValueError(
+        "Frames should be of rank 4 (batch, height, width, channels)"
+        " or rank 5 (batch, time, height, width, channels)"
+    )
