@@ -1,5 +1,4 @@
 import torch
-from tensorboardX import SummaryWriter
 from torch import nn
 from torch.nn import Parameter
 

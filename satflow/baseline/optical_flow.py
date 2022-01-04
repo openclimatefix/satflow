@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import webdataset as wds
 import yaml
 
-from satflow.data.datasets import OpticalFlowDataset, SatFlowDataset
+from satflow.data.datasets import SatFlowDataset
 
 
 def load_config(config_file):

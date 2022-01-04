@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
-from tensorboardX import SummaryWriter
 from torch.nn import functional as F
-
-from satflow.models.layers.Attention import SelfAttention, SeparableAttn
 from satflow.models.layers.ConvGRU import ConvGRU
 from satflow.models.layers.GResBlock import GResBlock
 from satflow.models.layers.Normalization import SpectralNorm
