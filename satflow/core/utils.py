@@ -15,9 +15,6 @@ def make_logger(name: str, level=logging.DEBUG) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(level=level)
     return logger
-
-
-import logging
 import warnings
 from typing import List, Sequence
 
