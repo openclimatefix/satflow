@@ -130,5 +130,4 @@ def cal_gradient_penalty(
             ((gradients + 1e-16).norm(2, dim=1) - constant) ** 2
         ).mean() * lambda_gp  # added eps
         return gradient_penalty, gradients
-    else:
-        return 0.0, None
+    return 0.0, None

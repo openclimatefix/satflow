@@ -245,8 +245,7 @@ class CloudGAN(pl.LightningModule):
         images, future_images = batch
         if self.condition_time:
             return self.train_per_timestep(images, future_images, optimizer_idx, batch_idx)
-        else:
-            return self.train_all_timestep(images, future_images, optimizer_idx, batch_idx)
+        return self.train_all_timestep(images, future_images, optimizer_idx, batch_idx)
 
     def val_all_timestep(self, images, future_images, batch_idx):
         # generate images
@@ -328,8 +327,7 @@ class CloudGAN(pl.LightningModule):
         images, future_images = batch
         if self.condition_time:
             return self.val_per_timestep(images, future_images, batch_idx)
-        else:
-            return self.val_all_timestep(images, future_images, batch_idx)
+        return self.val_all_timestep(images, future_images, batch_idx)
 
     def forward(self, x, **kwargs):
         return self.generator.forward(x, **kwargs)
