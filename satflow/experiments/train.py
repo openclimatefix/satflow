@@ -11,7 +11,6 @@ from pytorch_lightning import (
 )
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import LightningLoggerBase
-from pytorch_lightning.profiler import AdvancedProfiler, PyTorchProfiler
 
 from satflow.core import utils
 from satflow.core.callbacks import NeptuneModelLogger

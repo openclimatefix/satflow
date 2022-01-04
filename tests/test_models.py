@@ -1,19 +1,7 @@
 import pytest
 import torch
 import yaml
-from nowcasting_dataset.consts import (
-    DATETIME_FEATURE_NAMES,
-    NWP_DATA,
-    NWP_X_COORDS,
-    NWP_Y_COORDS,
-    SATELLITE_DATA,
-    SATELLITE_DATETIME_INDEX,
-    SATELLITE_X_COORDS,
-    SATELLITE_Y_COORDS,
-    TOPOGRAPHIC_DATA,
-    TOPOGRAPHIC_X_COORDS,
-    TOPOGRAPHIC_Y_COORDS,
-)
+from nowcasting_dataset.consts import NWP_DATA, SATELLITE_DATA, TOPOGRAPHIC_DATA
 from nowcasting_utils.models.base import create_model, list_models
 
 from satflow.models import LitMetNet, Perceiver

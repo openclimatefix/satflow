@@ -1,21 +1,10 @@
 from typing import Any, Dict
 
 import einops
-import numpy as np
 import torch
 import torch.nn as nn
 from metnet import MetNet
-from nowcasting_dataset.consts import (
-    DATETIME_FEATURE_NAMES,
-    NWP_DATA,
-    NWP_X_COORDS,
-    NWP_Y_COORDS,
-    SATELLITE_DATA,
-    SATELLITE_DATETIME_INDEX,
-    SATELLITE_X_COORDS,
-    SATELLITE_Y_COORDS,
-    TOPOGRAPHIC_DATA,
-)
+from nowcasting_dataset.consts import NWP_DATA, SATELLITE_DATA, TOPOGRAPHIC_DATA
 from nowcasting_utils.models.base import BaseModel, register_model
 from nowcasting_utils.models.loss import get_loss
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
