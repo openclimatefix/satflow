@@ -628,7 +628,7 @@ class JointPerceiver(BaseModel):
         return gsp_query, sat_query, hrv_sat_query
 
     def forward(self, x, mask=None, query=None):
-        # TODO Remove enventuallyA
+        # TODO Remove enventually
         for key in self.modalities:
             x[key.name] = x[key.name].float()
         return self.model.forward(x, mask=mask, queries=query)
