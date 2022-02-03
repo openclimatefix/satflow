@@ -1,4 +1,22 @@
 import logging
+import typing as Dict
+
+import yaml
+from nowcasting_dataset.config.load import load_yaml_configuration
+
+
+def load_config(file_path: str) -> Dict:
+    with open(file_path, "r") as f:
+        config = yaml.load(f)
+    return config
+
+
+def make_logger(name: str, level=logging.DEBUG) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(level=level)
+    return logger
+
+
 import warnings
 from typing import List, Sequence
 

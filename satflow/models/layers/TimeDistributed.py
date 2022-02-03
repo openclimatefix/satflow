@@ -22,11 +22,10 @@ class TimeDistributed(nn.Module):
         "input x with shape:(bs,seq_len,channels,width,height)"
         if self.low_mem or self.tdim != 1:
             return self.low_mem_forward(*tensors, **kwargs)
-        else:
-            # only support tdim=1
-            inp_shape = tensors[0].shape
-            bs, seq_len = inp_shape[0], inp_shape[1]
-            out = self.module(*[x.view(bs * seq_len, *x.shape[2:]) for x in tensors], **kwargs)
+        # only support tdim=1
+        inp_shape = tensors[0].shape
+        bs, seq_len = inp_shape[0], inp_shape[1]
+        out = self.module(*[x.view(bs * seq_len, *x.shape[2:]) for x in tensors], **kwargs)
         return self.format_output(out, bs, seq_len)
 
     def low_mem_forward(self, *tensors, **kwargs):

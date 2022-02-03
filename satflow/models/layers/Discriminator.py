@@ -82,7 +82,7 @@ def leaky_relu(input):
 
 
 class SelfAttention(nn.Module):
-    """ Self attention Layer"""
+    """Self attention Layer"""
 
     def __init__(self, in_dim, activation=F.relu):
         super(SelfAttention, self).__init__()
