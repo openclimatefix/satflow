@@ -21,3 +21,4 @@ perceiver-model>=0.7.0
 nowcasting-dataset
 nowcasting-utils
 nowcasting-dataloader
+matplotlib
