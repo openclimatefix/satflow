@@ -2,35 +2,38 @@ import logging
 from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
 import einops
+import pandas as pd
 import torch
-import torch_optimizer as optim
 import torch.nn.functional as F
+import torch_optimizer as optim
 from einops import rearrange, repeat
+from nowcasting_dataloader.batch import BatchML
 from nowcasting_dataset.consts import (
     DEFAULT_N_GSP_PER_EXAMPLE,
     DEFAULT_N_PV_SYSTEMS_PER_EXAMPLE,
+    GSP_DATETIME_INDEX,
     GSP_ID,
     GSP_YIELD,
-    GSP_DATETIME_INDEX,
     NWP_DATA,
     PV_SYSTEM_ID,
     PV_YIELD,
     SATELLITE_DATA,
     TOPOGRAPHIC_DATA,
 )
+from nowcasting_utils.metrics.validation import (
+    make_validation_results,
+    save_validation_results_to_logger,
+)
 from nowcasting_utils.models.base import BaseModel, register_model
 from nowcasting_utils.models.loss import get_loss
+from nowcasting_utils.visualization.line import plot_batch_results
+from nowcasting_utils.visualization.visualization import plot_example
 from perceiver_pytorch import MultiPerceiver
 from perceiver_pytorch.decoders import ImageDecoder
 from perceiver_pytorch.encoders import ImageEncoder
 from perceiver_pytorch.modalities import InputModality
 from perceiver_pytorch.queries import LearnableQuery
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
-from nowcasting_utils.visualization.visualization import plot_example
-from nowcasting_utils.metrics.validation import make_validation_results, save_validation_results_to_logger
-from nowcasting_dataloader.batch import BatchML
-from nowcasting_utils.visualization.line import plot_batch_results
-import pandas as pd
 
 logger = logging.getLogger("satflow.model")
 logger.setLevel(logging.WARN)
@@ -221,9 +224,7 @@ class JointPerceiver(BaseModel):
                 )
             else:
                 self.preprocessor = ImageEncoder(
-                    input_channels=sat_channels,
-                    prep_type=preprocessor_type,
-                    **encoder_kwargs
+                    input_channels=sat_channels, prep_type=preprocessor_type, **encoder_kwargs
                 )
         else:
             self.preprocessor = None
@@ -264,7 +265,8 @@ class JointPerceiver(BaseModel):
         if nwp_modality:
             nwp_modality = InputModality(
                 name=NWP_DATA,
-                input_channels=36 + 320,  # Spatial features + Datetime + Datetime + 10 * patchsize (4x4x2 = 32 * 10 = 320) NWP channels,
+                input_channels=36
+                + 320,  # Spatial features + Datetime + Datetime + 10 * patchsize (4x4x2 = 32 * 10 = 320) NWP channels,
                 input_axis=3,  # number of axes, 3 for video
                 num_freq_bands=2 * nwp_input_size
                 + 1,  # number of freq bands, with original value (2 * K + 1)
@@ -358,19 +360,21 @@ class JointPerceiver(BaseModel):
         self.num_sat_timesteps = 2
         self.save_hyperparameters()
 
-    def encode_single_input(self, x: dict, key: str, number_timesteps: int, number_data_channels: int) -> dict:
+    def encode_single_input(
+        self, x: dict, key: str, number_timesteps: int, number_data_channels: int
+    ) -> dict:
         # Subselect the last two frames for simpler OF style
-        x[key] = x[key][:,:,-number_timesteps:]
+        x[key] = x[key][:, :, -number_timesteps:]
         # Split out position encoding from data values
         x[key] = x[key].permute(0, 2, 1, 3, 4)  # Channels last
-        data = x[key][:,:,:1]
+        data = x[key][:, :, :1]
         pos_encoding = x[key][
-                           :,
-                           :: 2,
-                           number_data_channels:,
-                           :: 4,
-                           :: 4,
-                           ]
+            :,
+            ::2,
+            number_data_channels:,
+            ::4,
+            ::4,
+        ]
         data = self.run_preprocessor(data)
         if number_timesteps == 2:
             data = torch.unsqueeze(data, dim=1)
@@ -383,8 +387,16 @@ class JointPerceiver(BaseModel):
         for key in [SATELLITE_DATA, HRV_KEY, NWP_DATA]:
             if len(x.get(key, [])) > 0:
                 num_sat_channels = 1 if key == HRV_KEY else 11
-                x = self.encode_single_input(x, key, number_timesteps = self.num_sat_timesteps if key in [HRV_KEY, SATELLITE_DATA] else 2,
-                                             number_data_channels = self.nwp_channels if key in [NWP_DATA] else num_sat_channels)
+                x = self.encode_single_input(
+                    x,
+                    key,
+                    number_timesteps=self.num_sat_timesteps
+                    if key in [HRV_KEY, SATELLITE_DATA]
+                    else 2,
+                    number_data_channels=self.nwp_channels
+                    if key in [NWP_DATA]
+                    else num_sat_channels,
+                )
 
         for key in [GSP_ID, PV_SYSTEM_ID]:
             if len(x.get(key, [])) > 0:
@@ -394,7 +406,7 @@ class JointPerceiver(BaseModel):
                 x[key] = torch.squeeze(x[key], dim=2).permute(0, 2, 3, 1)
         for key in [PV_YIELD]:
             if len(x.get(key, [])) > 0:
-                x[key] = x[key].permute(0, 2, 3, 1) # Channels last
+                x[key] = x[key].permute(0, 2, 3, 1)  # Channels last
         return x
 
     def run_preprocessor(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -520,7 +532,12 @@ class JointPerceiver(BaseModel):
         gsp_y_hat = einops.rearrange(gsp_y_hat, "b c t -> b (c t)")
         gsp_y_hat = self.gsp_linear(gsp_y_hat)
         loss = self.gsp_criterion(gsp_y_hat, y[GSP_YIELD])
-        self.log_dict({f"{'train' if is_training else 'val'}/gsp_loss": loss, f"{'train' if is_training else 'val'}/gsp_mae": F.l1_loss(gsp_y_hat, y[GSP_YIELD])})
+        self.log_dict(
+            {
+                f"{'train' if is_training else 'val'}/gsp_loss": loss,
+                f"{'train' if is_training else 'val'}/gsp_mae": F.l1_loss(gsp_y_hat, y[GSP_YIELD]),
+            }
+        )
         for f in range(gsp_y_hat.shape[1]):
             frame_loss = self.gsp_criterion(gsp_y_hat[:, f], y[GSP_YIELD][:, f]).item()
             frame_loss_dict[
@@ -539,10 +556,16 @@ class JointPerceiver(BaseModel):
                 # 2. plot summary batch of predictions and results
                 # make x,y data
                 y_hat = gsp_y_hat.cpu().numpy()
-                timestamps = y[GSP_DATETIME_INDEX][:,1:].cpu().numpy()
+                timestamps = y[GSP_DATETIME_INDEX][:, 1:].cpu().numpy()
                 time = [pd.to_datetime(t) for t in timestamps]
                 # plot and save to logger
-                fig = plot_batch_results(model_name="joint_model", y=y[GSP_YIELD].cpu().numpy(), y_hat=y_hat, x=time, x_hat=time)
+                fig = plot_batch_results(
+                    model_name="joint_model",
+                    y=y[GSP_YIELD].cpu().numpy(),
+                    y_hat=y_hat,
+                    x=time,
+                    x_hat=time,
+                )
                 fig.write_html(f"temp_{batch_idx}.html")
                 try:
                     self.logger.experiment[-1][name].upload(f"temp_{batch_idx}.html")
@@ -559,20 +582,22 @@ class JointPerceiver(BaseModel):
 
     def validation_step(self, batch, batch_idx):
 
-        loss, model_output = self._train_or_validate_step(batch, batch_idx, is_training = False)
+        loss, model_output = self._train_or_validate_step(batch, batch_idx, is_training=False)
 
         # save validation results
         capacities = batch[1]["gsp_capacity"].cpu().numpy()
         predictions = model_output.cpu().numpy() * capacities
         truths = batch[1][GSP_YIELD].cpu().numpy() * capacities
-        t0_times = batch[1][GSP_DATETIME_INDEX][:,0].cpu().numpy()
+        t0_times = batch[1][GSP_DATETIME_INDEX][:, 0].cpu().numpy()
         t0_times = pd.to_datetime(t0_times)
-        results = make_validation_results(truths_mw=truths,
-                                          predictions_mw=predictions,
-                                          capacity_mwp=capacities,
-                                          gsp_ids=batch[1][GSP_ID].cpu().numpy(),
-                                          batch_idx=batch_idx,
-                                          t0_datetimes_utc=t0_times)
+        results = make_validation_results(
+            truths_mw=truths,
+            predictions_mw=predictions,
+            capacity_mwp=capacities,
+            gsp_ids=batch[1][GSP_ID].cpu().numpy(),
+            batch_idx=batch_idx,
+            t0_datetimes_utc=t0_times,
+        )
 
         # append so in 'validation_epoch_end' the file is saved
         if batch_idx == 0:
@@ -581,12 +606,13 @@ class JointPerceiver(BaseModel):
 
         return loss
 
-
     def validation_epoch_end(self, outputs):
-        save_validation_results_to_logger(results_dfs=self.results_dfs,
-                                          results_file_name="prediction_results",
-                                          current_epoch=self.current_epoch,
-                                          logger=self.logger)
+        save_validation_results_to_logger(
+            results_dfs=self.results_dfs,
+            results_file_name="prediction_results",
+            current_epoch=self.current_epoch,
+            logger=self.logger,
+        )
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.lr)
