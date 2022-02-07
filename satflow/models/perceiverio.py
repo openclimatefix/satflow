@@ -19,11 +19,11 @@ from nowcasting_dataset.consts import (
     PV_YIELD,
     SATELLITE_DATA,
     TOPOGRAPHIC_DATA,
-    )
+)
 from nowcasting_utils.metrics.validation import (
     make_validation_results,
     save_validation_results_to_logger,
-    )
+)
 from nowcasting_utils.models.base import BaseModel, register_model
 from nowcasting_utils.models.loss import get_loss
 from nowcasting_utils.visualization.line import plot_batch_results
@@ -35,7 +35,7 @@ from transformers import (
     PerceiverForMultimodalAutoencoding,
     PerceiverForOpticalFlow,
     PerceiverModel,
-    )
+)
 
 logger = logging.getLogger("satflow.model")
 logger.setLevel(logging.WARN)
@@ -49,12 +49,12 @@ class HuggingFacePerceiver(BaseModel):
             "deepmind/optical-flow-perceiver",
             ignore_mismatched_sizes=True,
             train_size=[input_size, input_size],
-            )
+        )
 
-        self.channel_change = torch.nn.Conv2d(in_channels = 2, out_channels = 11)
+        self.channel_change = torch.nn.Conv2d(in_channels=2, out_channels=11)
         self.predict_satellite = False
         self.predict_hrv_satellite = True
-        self.hrv_channel_change = torch.nn.Conv2d(in_channels = 2, out_channels = 1)
+        self.hrv_channel_change = torch.nn.Conv2d(in_channels=2, out_channels=1)
 
     def forward(self, x, **kwargs) -> Any:
         return model(inputs=x)
