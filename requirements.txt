@@ -20,3 +20,4 @@ skillful_nowcasting>=0.0.2
 perceiver-model>=0.7.0
 nowcasting-dataset>=1.0.21
 nowcasting-utils>=0.0.8
+transformers
