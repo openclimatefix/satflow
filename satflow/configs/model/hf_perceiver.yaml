@@ -1,0 +1,2 @@
+__target__: satflow.models.perceiverio.HuggingFacePerceiver
+input_szie: 64
