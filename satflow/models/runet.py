@@ -3,8 +3,8 @@ from typing import Union
 import antialiased_cnns
 import numpy as np
 import pytorch_lightning as pl
-import torchvision
 import torch
+import torchvision
 from nowcasting_utils.models.base import register_model
 from nowcasting_utils.models.loss import get_loss
 
