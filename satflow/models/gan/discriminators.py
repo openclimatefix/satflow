@@ -170,7 +170,7 @@ class NLayerDiscriminator(nn.Module):
         nf_mult_prev = 1
         for n in range(1, n_layers):  # gradually increase the number of filters
             nf_mult_prev = nf_mult
-            nf_mult = min(2 ** n, 8)
+            nf_mult = min(2**n, 8)
             if conv_type == "antialiased":
                 block = [
                     conv2d(
@@ -201,7 +201,7 @@ class NLayerDiscriminator(nn.Module):
             sequence += block
 
         nf_mult_prev = nf_mult
-        nf_mult = min(2 ** n_layers, 8)
+        nf_mult = min(2**n_layers, 8)
         sequence += [
             conv2d(
                 ndf * nf_mult_prev,
