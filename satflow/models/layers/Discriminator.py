@@ -168,7 +168,7 @@ class GBlock(nn.Module):
     ):
         super().__init__()
 
-        gain = 2 ** 0.5
+        gain = 2**0.5
 
         self.conv0 = SpectralNorm(
             nn.Conv2d(
@@ -329,7 +329,7 @@ class Res3dBlock(nn.Module):
     ):
         super().__init__()
 
-        gain = 2 ** 0.5
+        gain = 2**0.5
 
         self.conv0 = SpectralNorm(
             nn.Conv3d(
@@ -393,7 +393,7 @@ class TemporalDiscriminator(nn.Module):
     def __init__(self, chn=128, n_class=4):
         super().__init__()
 
-        gain = 2 ** 0.5
+        gain = 2**0.5
 
         self.pre_conv = nn.Sequential(
             SpectralNorm(nn.Conv3d(3, 2 * chn, 3, padding=1)),

@@ -113,7 +113,7 @@ class ResnetGenerator(nn.Module):
 
         n_downsampling = 2
         for i in range(n_downsampling):  # add downsampling layers
-            mult = 2 ** i
+            mult = 2**i
             if conv_type == "antialiased":
                 block = [
                     conv2d(
@@ -144,7 +144,7 @@ class ResnetGenerator(nn.Module):
 
             model += block
 
-        mult = 2 ** n_downsampling
+        mult = 2**n_downsampling
         for i in range(n_blocks):  # add ResNet blocks
 
             model += [
