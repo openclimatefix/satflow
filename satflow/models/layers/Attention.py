@@ -122,7 +122,7 @@ class SelfAttention(nn.Module):
         self.value_conv = nn.Conv3d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
 
         self.pooling = nn.MaxPool3d(kernel_size=2, stride=pooling_factor)
-        self.pooling_factor = pooling_factor ** 3
+        self.pooling_factor = pooling_factor**3
 
         self.gamma = nn.Parameter(torch.zeros(1))
 
