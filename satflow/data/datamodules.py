@@ -186,7 +186,6 @@ class FakeDataset(torch.utils.data.Dataset):
         pass
 
     def __getitem__(self, idx):
-
         x = {
             SATELLITE_DATA: torch.randn(
                 self.batch_size, self.seq_length, self.width, self.height, self.number_sat_channels

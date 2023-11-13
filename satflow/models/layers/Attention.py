@@ -16,7 +16,6 @@ class SeparableAttn(nn.Module):
         )
 
     def forward(self, x):
-
         return self.model(x)
 
 
@@ -56,7 +55,6 @@ class SeparableAttnCell(nn.Module):
             conv.bias.data.zero_()
 
     def forward(self, x):
-
         batch_size, C, T, W, H = x.size()
 
         assert T % 2 == 0 and W % 2 == 0 and H % 2 == 0, "T, W, H is not even"
@@ -111,7 +109,6 @@ class SeparableAttnCell(nn.Module):
 
 class SelfAttention(nn.Module):
     def __init__(self, in_dim, activation=F.relu, pooling_factor=2):  # TODO for better compability
-
         super(SelfAttention, self).__init__()
         self.activation = activation
 
@@ -134,7 +131,6 @@ class SelfAttention(nn.Module):
             conv.bias.data.zero_()
 
     def forward(self, x):
-
         if len(x.size()) == 4:
             batch_size, C, W, H = x.size()
             T = 1
@@ -224,7 +220,6 @@ class SelfAttention2d(nn.Module):
 
 
 if __name__ == "__main__":
-
     self_attn = SelfAttention(16)  # no less than 8
     print(self_attn)
 
