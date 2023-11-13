@@ -52,7 +52,6 @@ class GResBlock(nn.Module):
             self.CBNorm2 = ConditionalNorm(out_channel, n_class)
 
     def forward(self, x, condition=None):
-
         # The time dimension is combined with the batch dimension here, so each frame proceeds
         # through the blocks independently
         BT, C, W, H = x.size()
@@ -100,7 +99,6 @@ class GResBlock(nn.Module):
 
 
 if __name__ == "__main__":
-
     n_class = 96
     batch_size = 4
     n_frames = 20

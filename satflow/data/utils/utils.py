@@ -33,7 +33,8 @@ def eumetsat_name_to_datetime(filename: str):
 
 def retrieve_pixel_value(geo_coord, data_source):
     """Return floating-point value that corresponds to given point.
-    Taken from https://gis.stackexchange.com/questions/221292/retrieve-pixel-value-with-geographic-coordinate-as-input-with-gdal"""
+    Taken from https://gis.stackexchange.com/questions/221292/retrieve-pixel-value-with-geographic-coordinate-as-input-with-gdal
+    """
     x, y = geo_coord[0], geo_coord[1]
     forward_transform = affine.Affine.from_gdal(*data_source.GetGeoTransform())
     reverse_transform = ~forward_transform

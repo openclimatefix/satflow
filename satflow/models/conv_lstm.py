@@ -169,7 +169,6 @@ class ConvLSTM(torch.nn.Module):
         )
 
     def autoencoder(self, x, seq_len, future_step, h_t, c_t, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
-
         outputs = []
 
         # encoder
@@ -203,7 +202,6 @@ class ConvLSTM(torch.nn.Module):
         return outputs
 
     def forward(self, x, forecast_steps=0, hidden_state=None):
-
         """
         Parameters
         ----------

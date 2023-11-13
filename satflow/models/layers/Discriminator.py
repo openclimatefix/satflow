@@ -651,7 +651,6 @@ class TemporalDiscriminator(nn.Module):
 
 
 if __name__ == "__main__":
-
     batch_size = 6
     n_frames = 8
     n_class = 4

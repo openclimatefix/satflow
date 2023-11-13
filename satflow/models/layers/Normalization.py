@@ -87,7 +87,6 @@ class ConditionalNorm(nn.Module):
 
 
 if __name__ == "__main__":
-
     cn = ConditionalNorm(3, 2)
     x = torch.rand([4, 3, 64, 64])
     class_id = torch.rand([4, 2])

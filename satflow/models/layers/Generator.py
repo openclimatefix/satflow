@@ -68,7 +68,6 @@ class Generator(nn.Module):
         self.colorize = SpectralNorm(nn.Conv2d(2 * ch, 3, kernel_size=(3, 3), padding=1))
 
     def forward(self, x, class_id):
-
         if self.hierar_flag is True:
             noise_emb = torch.split(x, self.in_dim, dim=1)
         else:
@@ -87,7 +86,6 @@ class Generator(nn.Module):
 
         for k, conv in enumerate(self.conv):
             if isinstance(conv, ConvGRU):
-
                 if k > 0:
                     _, C, W, H = y.size()
                     y = y.view(-1, self.n_frames, C, W, H).contiguous()
@@ -132,7 +130,6 @@ class Generator(nn.Module):
 
 
 if __name__ == "__main__":
-
     batch_size = 5
     in_dim = 120
     n_class = 4
